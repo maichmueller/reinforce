@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61", "cmake>=3.17", "ninja", "conan<2.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reinforce"
+version = "0.0.1"
+license = { file = "LICENSE" }
+description = "A 'Reinforcement Learning - An Introduction' Accompanying Implementation"
+requires-python = ">=3.7"
+authors = [
+    { name = "Michael Aichmueller", email = "m.aichmueller@gmail.com" },
+]
+dynamic = ["readme"]
+
+[tool.setuptools.dynamic]
+readme = { file = "src/reinforce/README.md", content-type = "text/markdown"}
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+]
+
+[project.urls]
+homepage = "https://github.com/maichmueller/reinforce"
+
+[tool.setuptools]
+zip-safe = false
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["reinforce"]
+
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+\.eggs
+| \.git
+| \.hg
+| \.mypy_cache
+| \.nox
+| \.tox
+| \.venv
+| _build
+| buck-out
+| build
+| dist
+)/
+'''
+
+[tool.isort]
+profile = "black"

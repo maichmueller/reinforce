@@ -1,0 +1,10 @@
+
+#ifndef REINFORCE_PYBINDING_DECLARATIONS_HPP
+#define REINFORCE_PYBINDING_DECLARATIONS_HPP
+
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
+
+
+#endif  // REINFORCE_PYBINDING_DECLARATIONS_HPP
