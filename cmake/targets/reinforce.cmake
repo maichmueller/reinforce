@@ -19,6 +19,7 @@ target_link_libraries(
         PUBLIC
         project_options
         CONAN_PKG::range-v3
+        pybind11::module
 )
 
 set_target_properties(${reinforce_lib} PROPERTIES CXX_VISIBILITY_PRESET hidden)
