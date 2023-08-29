@@ -31,7 +31,7 @@ CMAKE = find_executable("cmake")
 NINJA = find_executable("ninja")
 CONAN = find_executable("conan")
 
-pymodule_cmake_target_name = "reinforceegret"
+pymodule_cmake_target_name = "reinforce"
 compile_config = "Release"
 
 

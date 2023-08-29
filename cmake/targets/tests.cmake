@@ -11,6 +11,7 @@ register_reinforce_target(${reinforce_test}_all ${REINFORCE_TEST_SOURCES})
 target_link_libraries(
         ${reinforce_test}_all
         PRIVATE
+        project_options
         pybind11::module
         $<$<NOT:$<BOOL:USE_PYBIND11_FINDPYTHON>>:Python3::Module>
 )
