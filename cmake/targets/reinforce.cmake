@@ -19,6 +19,8 @@ target_link_libraries(
         PUBLIC
         project_options
         CONAN_PKG::range-v3
+        CONAN_PKG::fmt
+        CONAN_PKG::xtensor
         pybind11::module
 )
 

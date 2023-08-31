@@ -1,0 +1,15 @@
+from conans import ConanFile
+
+class HelloConan(ConanFile):
+    name = "hello"
+    version = "0.1"
+    settings = "os", "compiler", "build_type", "arch"
+
+    def source(self):
+        self.run("git clone https://github.com/conan-io/hello.git")
+        # You can also change branch, commit or whatever
+        # self.run("cd hello && git checkout 2fe5...")
+        #
+        # Or using the Git class:
+        # git = tools.Git(folder="hello")
+        # git.clone("https://github.com/conan-io/hello.git")

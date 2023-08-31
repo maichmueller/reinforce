@@ -11,4 +11,7 @@ target_link_libraries(
         project_warnings
         common_testing_utils
         CONAN_PKG::gtest
+        CONAN_PKG::fmt
+        CONAN_PKG::range-v3
+        pybind11::module
 )
