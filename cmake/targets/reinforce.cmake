@@ -21,6 +21,7 @@ target_link_libraries(
         CONAN_PKG::range-v3
         CONAN_PKG::fmt
         CONAN_PKG::xtensor
+        xtensor-python
         pybind11::module
 )
 

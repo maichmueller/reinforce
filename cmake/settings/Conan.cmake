@@ -29,4 +29,6 @@ macro(run_conan)
         PROFILE_AUTO
         ALL # ALL means that all the settings are taken from CMake's detection
     )
+    include(${PROJECT_BINARY_DIR}/conanbuildinfo.cmake)
+    include(${PROJECT_BINARY_DIR}/conan_paths.cmake)
 endmacro()

@@ -11,6 +11,11 @@
 #include "range/v3/all.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "variant"
+#define FORCE_IMPORT_ARRAY
+#include <xtensor/xaxis_slice_iterator.hpp>
+
+#include "xtensor-python/pyarray.hpp"
+#include "xtensor/xadapt.hpp"
 #include "xtensor/xarray.hpp"
 #include "xtensor/xio.hpp"
 #include "xtensor/xview.hpp"
@@ -21,9 +26,11 @@ namespace py = pybind11;
 
 template < typename T >
 using xarray = xt::xarray< T, xt::layout_type::row_major >;
+template < typename T >
+using pyarray = xt::pyarray< T, xt::layout_type::row_major >;
 
-
-using index_xarray = xt::xarray< size_t, xt::layout_type::row_major >;
+using idx_xarray = xt::xarray< size_t, xt::layout_type::row_major >;
+using idx_pyarray = xt::pyarray< size_t, xt::layout_type::row_major >;
 
 namespace np {
 
@@ -34,8 +41,10 @@ using index_array = py::array_t< size_t >;
 
 }  // namespace np
 
+enum class StateType { goal = 0, subgoal = 1, restart = 2, obstacle = 3 };
+
 template < size_t dim >
-class GridWorld {
+class Gridworld {
   public:
    /**
     * @brief Construct a GridWorld instance.
@@ -55,17 +64,17 @@ class GridWorld {
     * @param subgoal_states States where the agent incurs high subgoal.
     * @param restart_states States where the agent transitions to start.
     */
-   GridWorld(
+   Gridworld(
       std::array< size_t, dim > dimensions,
-      index_xarray start_states,
-      index_xarray goal_states,
-      std::variant< double, xarray< double > > goal_reward,
+      const idx_pyarray& start_states,
+      const idx_pyarray& goal_states,
+      std::variant< double, pyarray< double > > goal_reward,
       double step_reward = 0.,
-      std::variant< double, xarray< double > > transition_matrix = double{1.},
-      std::optional< index_xarray > subgoal_states = {},
-      std::variant< double, xarray< double > > subgoal_states_reward = double{0.},
-      std::optional< index_xarray > obs_states = {},
-      std::optional< index_xarray > restart_states = {},
+      std::variant< double, pyarray< double > > transition_matrix = double{1.},
+      std::optional< idx_pyarray > subgoal_states = {},
+      std::variant< double, pyarray< double > > subgoal_states_reward = double{0.},
+      std::optional< idx_pyarray > obs_states = {},
+      std::optional< idx_pyarray > restart_states = {},
       double restart_states_reward = 0.
    );
 
@@ -73,16 +82,27 @@ class GridWorld {
    constexpr static size_t m_num_actions = 2 * dim;
    std::array< size_t, dim > m_dimensions;
    /// shape (n, DIM)
-   index_xarray m_start_states;
-   index_xarray m_goal_states;
-   index_xarray m_subgoal_states;
-   index_xarray m_obs_states;
-   index_xarray m_restart_states;
+   idx_xarray m_start_states;
+   idx_xarray m_goal_states;
+   idx_xarray m_subgoal_states;
+   idx_xarray m_obs_states;
+   idx_xarray m_restart_states;
    /// shape (s_x1, s_x2, s_x..., s_xdim, a, s'_x1, s'_x2, ..., s'_xdim) where `s`, `s'` are
    /// the state and successor state to which `a`, the action, might lead.
    /// The entry in the matrix provides the probability of this transition.
    xarray< double > m_transition_tensor;
-   xarray< double > m_reward_tensor;
+   std::unordered_map<
+      std::vector< size_t >,
+      std::pair< StateType, double >,
+      decltype([](const auto& coords) {
+         size_t seed 0;
+         constexpr auto string_hasher = std::hash< std::string_view >{};
+         const auto& latest_entry = m_history.back();
+         for()
+         common::hash_combine(seed, string_hasher(std::get< 0 >(latest_entry).get()));
+      };) >
+      m_reward_tensor;
+   double m_step_reward;
 
    [[nodiscard]] constexpr std::span< double, std::dynamic_extent >
    c_array(const size_t size, const auto value) const
@@ -92,118 +112,100 @@ class GridWorld {
       return data;
    }
 
-   template < typename T >
-   auto array_like_lambda_gen(const xarray< T >& ref_array) const
-   {
-      return [&](double value) -> xarray< double > {
-         const auto shape = std::span{ref_array.shape(), size_t(ref_array.ndim())};
-         return xarray< double >{shape, c_array(size_t(ref_array.size()), value).data()};
-      };
-   }
-
-   auto array_from_value_lambda() const
-   {
-      return [&](double value) {
-         std::valarray< size_t > shape(dim * 2 + 1);
-         ranges::copy(m_dimensions, ranges::begin(shape));
-         shape[dim] = m_num_actions;
-         ranges::copy(m_dimensions, std::next(ranges::begin(shape), dim + 1));
-         std::array< size_t, dim * 2 + 1 > strides(sizeof(double));
-         for(size_t i = 0; i < shape.size() - 1; i++) {
-            // stride[i] = prod(shape[i+1:])
-            strides[i] = std::accumulate(
-               std::next(std::begin(shape), long(i) + 1),
-               std::end(shape),
-               size_t(1),
-               std::multiplies{}
-            );
-         }
-         return xarray< double >{
-            shape, strides, c_array(ranges::accumulate(shape, size_t(0)), value).data()};
-      };
-   }
-
-   template < typename T >
+   template < typename T, size_t dimensions = dim >
    void assert_dimensions(const xarray< T >& arr) const
    {
-      if(arr.ndim() != dim) {
+      auto arr_shape = arr.shape();
+      if(arr_shape.size() != 2) {
+         throw std::invalid_argument(
+            "Array is not exactly two dimensional. Actual dimensions: "
+            + std::to_string(arr_shape.size())
+         );
+      }
+      if(arr_shape[1] != dimensions) {
          std::stringstream sstream;
          sstream << "Dimension mismatch:\n"
-                 << "Passed array has dimension: " << arr.ndim()
-                 << "\nThe environment dimenion is: " << dim;
+                 << "Passed states array has coordinate dimensions: " << arr.dimension()
+                 << "\nThe expected dimensions are: " << dimensions;
          throw std::invalid_argument(sstream.str());
       }
    }
 
-   template < typename T, typename Rng >
-   void assert_shape(const xarray< T >& arr, Rng&& shape) const
+   template < typename Array, typename Rng >
+   void assert_shape(const Array& arr, Rng&& shape) const
    {
-      const auto arr_shape = std::span{arr.shape(), size_t(arr.ndim())};
+      auto arr_shape = arr.shape();
       if(not ranges::equal(arr_shape, shape)) {
          std::stringstream sstream;
          sstream << "Shape mismatch:\n"
                  << "Passed array has shape: " << fmt::format("{}", arr_shape)
-                 << "\nThe required shape is: " << fmt::format("{}", shape);
+                 << "\nThe required shape is: " << fmt::format("{}", std::forward< Rng >(shape));
          throw std::invalid_argument(sstream.str());
       }
    }
 
    xarray< double > _init_transition_tensor(
-      std::variant< double, xarray< double > > transition_matrix
+      std::variant< double, pyarray< double > > transition_matrix
    );
    xarray< double > _init_reward_tensor(
-      std::variant< double, xarray< double > > goal_reward,
-      double step_reward,
-      std::variant< double, xarray< double > > subgoal_states_reward,
+      std::variant< double, pyarray< double > > goal_reward,
+      std::variant< double, pyarray< double > > subgoal_states_reward,
       double restart_states_reward
    );
 
-   template < typename DType >
-   std::vector< size_t > _strides_from_shape(std::vector< size_t >& shape) const;
+   template < typename Array >
+   void rearrange_layout(Array& arr) const
+   {
+      if(arr.layout() != xt::layout_type::row_major) {
+         arr.resize(arr.shape(), xt::layout_type::row_major);
+      }
+   }
 };
 
 template < size_t dim >
-GridWorld< dim >::GridWorld(
+Gridworld< dim >::Gridworld(
    std::array< size_t, dim > dimensions,
-   index_xarray start_states,
-   index_xarray goal_states,
-   std::variant< double, xarray< double > > goal_reward,
+   const idx_pyarray& start_states,
+   const idx_pyarray& goal_states,
+   std::variant< double, pyarray< double > > goal_reward,
    double step_reward,
-   std::variant< double, xarray< double > > transition_matrix,
-   std::optional< index_xarray > subgoal_states,
-   std::variant< double, xarray< double > > subgoal_states_reward,
-   std::optional< index_xarray > obs_states,
-   std::optional< index_xarray > restart_states,
+   std::variant< double, pyarray< double > > transition_matrix,
+   std::optional< idx_pyarray > subgoal_states,
+   std::variant< double, pyarray< double > > subgoal_states_reward,
+   std::optional< idx_pyarray > obs_states,
+   std::optional< idx_pyarray > restart_states,
    double restart_states_reward
 )
     : m_dimensions(dimensions),
-      m_start_states(std::move(start_states)),
-      m_goal_states(std::move(goal_states)),
-      m_subgoal_states(subgoal_states.has_value() ? std::move(*subgoal_states) : index_xarray{}),
-      m_obs_states(obs_states.has_value() ? std::move(*obs_states) : index_xarray{}),
-      m_restart_states(restart_states.has_value() ? std::move(*restart_states) : index_xarray{}),
+      m_start_states(start_states),
+      m_goal_states(goal_states),
+      m_subgoal_states(subgoal_states.has_value() ? idx_xarray(*subgoal_states) : idx_xarray{}),
+      m_obs_states(obs_states.has_value() ? idx_xarray(*obs_states) : idx_xarray{}),
+      m_restart_states(restart_states.has_value() ? idx_xarray(*restart_states) : idx_xarray{}),
       m_transition_tensor(_init_transition_tensor(transition_matrix)),
-      m_reward_tensor(
-         _init_reward_tensor(goal_reward, step_reward, subgoal_states_reward, restart_states_reward)
+      m_reward_tensor(_init_reward_tensor(goal_reward, subgoal_states_reward, restart_states_reward)
       )
 {
+   size_t total_alloc = 0;
    for(const auto& arr :
-       {m_start_states, m_goal_states, m_obs_states, m_subgoal_states, m_restart_states}) {
-      if(arr.size() != 0) {
+       {std::ref(m_start_states),
+        std::ref(m_goal_states),
+        std::ref(m_obs_states),
+        std::ref(m_subgoal_states),
+        std::ref(m_restart_states)}) {
+      auto size = arr.get().size();
+      if(size != 0) {
          // if the array is not an empty one then we need to ensure that we are having the same
          // dimensions as expected by the env
-         assert_dimensions(arr);
+         assert_dimensions(arr.get());
       }
+      total_alloc += size;
    }
-   assert_shape(
-      m_transition_tensor,
-      ranges::concat_view(m_dimensions, std::array{m_num_actions}, m_dimensions)
-   );
 }
 
 template < size_t dim >
-xarray< double > GridWorld< dim >::_init_transition_tensor(
-   std::variant< double, xarray< double > > transition_matrix
+xarray< double > Gridworld< dim >::_init_transition_tensor(
+   std::variant< double, pyarray< double > > transition_matrix
 )
 {
    return std::visit(
@@ -213,111 +215,65 @@ xarray< double > GridWorld< dim >::_init_transition_tensor(
             ranges::copy(m_dimensions, ranges::begin(shape));
             shape[dim] = m_num_actions;
             ranges::copy(m_dimensions, std::next(ranges::begin(shape), dim + 1));
-            std::vector< size_t > strides = _strides_from_shape< dim >(shape);
-            return xarray< double >{
-               shape,
-               strides,
-               c_array(ranges::accumulate(shape, size_t(1), std::multiplies{}), value).data()};
+            size_t total_size = ranges::accumulate(shape, size_t(1), std::multiplies{});
+            return xarray< double >(xt::adapt< xt::layout_type::row_major >(
+               c_array(total_size, value).data(), total_size, xt::acquire_ownership(), shape
+            ));
          },
-         utils::identity},
+         [&](pyarray< double > arr) {
+            auto shape = ranges::to_vector(
+               ranges::concat_view(m_dimensions, std::array{m_num_actions}, m_dimensions)
+            );
+            assert_shape(arr, shape);
+            xarray< double > allocated(shape);
+            ranges::copy(arr, allocated.begin());
+            return allocated;
+         }},
       transition_matrix
    );
 }
-template < size_t dim >
-template < typename DType >
-std::vector< size_t > GridWorld< dim >::_strides_from_shape(std::vector< size_t >& shape) const
-{
-   std::vector< size_t > strides(dim * 2 + 1, sizeof(DType));
-   for(size_t i = 0; i < shape.size() - 1; i++) {
-      // stride[i] = prod(shape[i+1:])
-      strides[i] = std::accumulate(
-         std::next(std::begin(shape), long(i) + 1), std::end(shape), size_t(1), std::multiplies{}
-      );
-   }
-   return strides;
-}
 
 template < size_t dim >
-xarray< double > GridWorld< dim >::_init_reward_tensor(
-   std::variant< double, xarray< double > > goal_reward,
-   double step_reward,
-   std::variant< double, xarray< double > > subgoal_states_reward,
+xarray< double > Gridworld< dim >::_init_reward_tensor(
+   std::variant< double, pyarray< double > > goal_reward,
+   std::variant< double, pyarray< double > > subgoal_states_reward,
    double restart_states_reward
 )
 {
-   const size_t size = ranges::accumulate(m_dimensions, size_t(1), std::multiplies{});
-   auto data = std::span{new double[size], size};
-   std::fill(data.begin(), data.end(), step_reward);
+   xarray< double > reward(ranges::to_vector(m_dimensions));
 
-   xarray< double > reward{m_dimensions, _strides_from_shape< double >(m_dimensions), data};
+   const auto reward_setter = [&](auto access_functor) {
+      // iterate over axis 0 (the state index) to get a slice of the state coordinates
+      auto coord_begin = xt::axis_slice_begin(std::as_const(m_goal_states), 0);
+      auto coord_end = xt::axis_slice_end(std::as_const(m_goal_states), 0);
+      for(auto [idx_iter, counter] = std::pair{coord_begin, size_t(0)}; idx_iter != coord_end;
+          idx_iter++, counter++) {
+         reward.element(idx_iter->cbegin(), idx_iter->cend()) = access_functor(counter);
+      }
+   };
+
+   const auto assert_shape = [&](const pyarray< double >& r_goals) {
+      if(r_goals.shape(0) != m_goal_states.shape(0)) {
+         std::stringstream ss;
+         ss << "Length (" << r_goals.shape(0)
+            << ") of passed goal state reward array does not match number of goal states ("
+            << m_goal_states.shape(0) << ").";
+         throw std::invalid_argument(ss.str());
+      }
+   };
+
    std::visit(
       utils::overload{
-         [&](double r_goal) { m_goal_states.mutable_unchecked< dim >(); },
-         [&](const xarray< double >& r_goals) {
-
+         [&](double r_goal) { reward_setter([&](auto) { return r_goal; }); },
+         [&](const pyarray< double >& r_goals) {
+            assert_shape(r_goals);
+            reward_setter([&](auto index) { return r_goals(index); });
          }},
       goal_reward
    );
-   auto reader = reward.mutable_unchecked< dim >();
-}
 
-// template < typename T, size_t current_dim, size_t dim >
-// void iterate_array(const xarray< T >& array, size_t index)
-//{
-//    //   double sum = 0;
-//    //   for(py::ssize_t i = 0; i < r.shape(0); i++)
-//    //      for(py::ssize_t j = 0; j < r.shape(1); j++)
-//    //         for(py::ssize_t k = 0; k < r.shape(2); k++)
-//    //            sum += r(i, j, k);
-//    if constexpr(current_dim == dim - 1) {
-//       // Innermost loop: Process the element at the current indices
-//       for(size_t i = 0; i < buffer.shape[current_dim]; i++) {
-//          T value = buffer.ptr[index];
-//          // Do something with 'value'
-//       }
-//       for(indices[current_dim] = 0; indices[current_dim] < array.shape(current_dim);
-//           ++indices[current_dim]) {
-//          T value = array(indices);
-//          // Do something with 'value'
-//       }
-//    } else {
-//       // Recursive loop: Iterate through the current dimension and move to the next dimension
-//       for(indices[current_dim] = 0; indices[current_dim] < array.shape(current_dim);
-//           ++indices[current_dim]) {
-//          iterate_array(array, indices, current_dim + 1);
-//       }
-//    }
-// }
-//
-// namespace detail {
-// template < typename T, size_t current_dim, size_t dim >
-// void _iterate_array(const py::buffer_info& buffer, size_t index)
-//{
-//    //   double sum = 0;
-//    //   for(py::ssize_t i = 0; i < r.shape(0); i++)
-//    //      for(py::ssize_t j = 0; j < r.shape(1); j++)
-//    //         for(py::ssize_t k = 0; k < r.shape(2); k++)
-//    //            sum += r(i, j, k);
-//    if constexpr(current_dim == dim - 1) {
-//       // Innermost loop: Process the element at the current indices
-//       for(size_t i = 0; i < buffer.shape[current_dim]; i++) {
-//          T value = reinterpret_cast< T* >(buffer.ptr)[index];
-//          // Do something with 'value'
-//       }
-//       for(indices[current_dim] = 0; indices[current_dim] < array.shape(current_dim);
-//           ++indices[current_dim]) {
-//          T value = array(indices);
-//          // Do something with 'value'
-//       }
-//    } else {
-//       // Recursive loop: Iterate through the current dimension and move to the next dimension
-//       for(indices[current_dim] = 0; indices[current_dim] < array.shape(current_dim);
-//           ++indices[current_dim]) {
-//          iterate_array(array, indices, current_dim + 1);
-//       }
-//    }
-// }
-// }  // namespace detail
+   return reward;
+}
 
 }  // namespace force
 
