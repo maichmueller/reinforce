@@ -41,7 +41,28 @@ using index_array = py::array_t< size_t >;
 
 }  // namespace np
 
-enum class StateType { goal = 0, subgoal = 1, restart = 2, obstacle = 3 };
+template < typename ExpectedType, typename Range >
+concept expected_value_type = requires(Range rng) {
+   {
+      *(rng.begin())
+   } -> std::same_as< ExpectedType >;
+};
+
+struct CoordinateHasher {
+   using is_transparent = std::true_type;
+
+   template < ranges::range Range >
+   size_t operator()(const Range& coords) const noexcept
+      requires expected_value_type< size_t, Range >
+   {
+      constexpr auto string_hasher = std::hash< std::string >{};
+      std::stringstream ss;
+      std::copy(coords.begin(), coords.end(), std::ostream_iterator< size_t >(ss, ","));
+      return string_hasher(ss.str());
+   }
+};
+
+enum class StateType { default_ = 0, goal = 1, subgoal = 2, restart = 3, obstacle = 4 };
 
 template < size_t dim >
 class Gridworld {
@@ -91,17 +112,9 @@ class Gridworld {
    /// the state and successor state to which `a`, the action, might lead.
    /// The entry in the matrix provides the probability of this transition.
    xarray< double > m_transition_tensor;
-   std::unordered_map<
-      std::vector< size_t >,
-      std::pair< StateType, double >,
-      decltype([](const auto& coords) {
-         size_t seed 0;
-         constexpr auto string_hasher = std::hash< std::string_view >{};
-         const auto& latest_entry = m_history.back();
-         for()
-         common::hash_combine(seed, string_hasher(std::get< 0 >(latest_entry).get()));
-      };) >
-      m_reward_tensor;
+   std::
+      unordered_map< std::vector< const size_t >, std::pair< StateType, double >, CoordinateHasher >
+         m_reward_map;
    double m_step_reward;
 
    [[nodiscard]] constexpr std::span< double, std::dynamic_extent >
@@ -147,11 +160,16 @@ class Gridworld {
    xarray< double > _init_transition_tensor(
       std::variant< double, pyarray< double > > transition_matrix
    );
-   xarray< double > _init_reward_tensor(
+   auto _init_reward_map(
       std::variant< double, pyarray< double > > goal_reward,
       std::variant< double, pyarray< double > > subgoal_states_reward,
       double restart_states_reward
    );
+
+   void _enter_goal_rewards(
+      const std::variant< double, pyarray< double > >& goal_reward,
+      auto& reward_map
+   ) const;
 
    template < typename Array >
    void rearrange_layout(Array& arr) const
@@ -183,8 +201,8 @@ Gridworld< dim >::Gridworld(
       m_obs_states(obs_states.has_value() ? idx_xarray(*obs_states) : idx_xarray{}),
       m_restart_states(restart_states.has_value() ? idx_xarray(*restart_states) : idx_xarray{}),
       m_transition_tensor(_init_transition_tensor(transition_matrix)),
-      m_reward_tensor(_init_reward_tensor(goal_reward, subgoal_states_reward, restart_states_reward)
-      )
+      m_reward_map(_init_reward_map(goal_reward, subgoal_states_reward, restart_states_reward)),
+      m_step_reward(step_reward)
 {
    size_t total_alloc = 0;
    for(const auto& arr :
@@ -234,21 +252,38 @@ xarray< double > Gridworld< dim >::_init_transition_tensor(
 }
 
 template < size_t dim >
-xarray< double > Gridworld< dim >::_init_reward_tensor(
+auto Gridworld< dim >::_init_reward_map(
    std::variant< double, pyarray< double > > goal_reward,
    std::variant< double, pyarray< double > > subgoal_states_reward,
    double restart_states_reward
 )
 {
-   xarray< double > reward(ranges::to_vector(m_dimensions));
+   std::
+      unordered_map< std::vector< const size_t >, std::pair< StateType, double >, CoordinateHasher >
+         reward_map;
 
+   _enter_goal_rewards(goal_reward, reward_map);
+
+   return reward_map;
+}
+
+template < size_t dim >
+void Gridworld< dim >::_enter_goal_rewards(
+   const std::variant< double, pyarray< double > >& goal_reward,
+   auto& reward_map
+) const
+{
    const auto reward_setter = [&](auto access_functor) {
       // iterate over axis 0 (the state index) to get a slice of the state coordinates
       auto coord_begin = xt::axis_slice_begin(std::as_const(m_goal_states), 0);
       auto coord_end = xt::axis_slice_end(std::as_const(m_goal_states), 0);
       for(auto [idx_iter, counter] = std::pair{coord_begin, size_t(0)}; idx_iter != coord_end;
           idx_iter++, counter++) {
-         reward.element(idx_iter->cbegin(), idx_iter->cend()) = access_functor(counter);
+         reward_map.emplace(
+            std::piecewise_construct,
+            std::forward_as_type(idx_iter->cbegin(), idx_iter->cbegin()),
+            std::forward_as_tuple(StateType::goal, access_functor(counter))
+         );
       }
    };
 
@@ -271,8 +306,6 @@ xarray< double > Gridworld< dim >::_init_reward_tensor(
          }},
       goal_reward
    );
-
-   return reward;
 }
 
 }  // namespace force
