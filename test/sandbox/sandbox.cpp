@@ -67,10 +67,17 @@ inline py::array_t<double> add_arrays(py::array_t<double> input1, py::array_t<do
 int main()
 {
    py::scoped_interpreter g{};
-   py::array_t<double> npArray = py::array_t<double>(6);
-   py::array_t<double> npArray2 = py::array_t<double>(7);
+   py::exec("import sys; print(sys.executable)");
+   py::module_ sys = py::module_::import("sys");
+   py::print(sys.attr("path"));
+   py::exec("import numpy");
+//   py::module_ m = py::module_::import("numpy.core.multiarray");
 
-   auto rest = add_arrays(npArray, npArray2);
+
+//   py::array_t<double> npArray = py::array_t<double>(6);
+//   py::array_t<double> npArray2 = py::array_t<double>(7);
+//
+//   auto rest = add_arrays(npArray, npArray2);
 
 
 

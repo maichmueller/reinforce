@@ -45,7 +45,7 @@ template < typename ExpectedType, typename Range >
 concept expected_value_type = requires(Range rng) {
    {
       *(rng.begin())
-   } -> std::same_as< ExpectedType >;
+   } -> std::convertible_to< ExpectedType >;
 };
 
 struct CoordinateHasher {
@@ -67,6 +67,8 @@ enum class StateType { default_ = 0, goal = 1, subgoal = 2, restart = 3, obstacl
 template < size_t dim >
 class Gridworld {
   public:
+   using reward_map_type = std::
+      unordered_map< std::vector< size_t >, std::pair< StateType, double >, CoordinateHasher >;
    /**
     * @brief Construct a GridWorld instance.
     *
@@ -101,20 +103,18 @@ class Gridworld {
 
   private:
    constexpr static size_t m_num_actions = 2 * dim;
-   std::array< size_t, dim > m_dimensions;
+   std::array< size_t, dim > m_grid_shape;
    /// shape (n, DIM)
    idx_xarray m_start_states;
    idx_xarray m_goal_states;
    idx_xarray m_subgoal_states;
    idx_xarray m_obs_states;
    idx_xarray m_restart_states;
-   /// shape (s_x1, s_x2, s_x..., s_xdim, a, s'_x1, s'_x2, ..., s'_xdim) where `s`, `s'` are
+   /// shape (s_x1, s_x2, s_x..., s_xdim, a, s'_x1, s'_x2, ..., s'_xdim) where s, s' are
    /// the state and successor state to which `a`, the action, might lead.
    /// The entry in the matrix provides the probability of this transition.
    xarray< double > m_transition_tensor;
-   std::
-      unordered_map< std::vector< const size_t >, std::pair< StateType, double >, CoordinateHasher >
-         m_reward_map;
+   reward_map_type m_reward_map;
    double m_step_reward;
 
    [[nodiscard]] constexpr std::span< double, std::dynamic_extent >
@@ -161,14 +161,20 @@ class Gridworld {
       std::variant< double, pyarray< double > > transition_matrix
    );
    auto _init_reward_map(
-      std::variant< double, pyarray< double > > goal_reward,
-      std::variant< double, pyarray< double > > subgoal_states_reward,
-      double restart_states_reward
+      const std::variant< double, pyarray< double > >& goal_reward,
+      const std::variant< double, pyarray< double > >& subgoal_reward,
+      double restart_reward
    );
 
    void _enter_goal_rewards(
       const std::variant< double, pyarray< double > >& goal_reward,
-      auto& reward_map
+      reward_map_type& reward_map
+   ) const;
+
+   template < StateType state_type >
+   void _enter_rewards(
+      const std::variant< double, pyarray< double > >& reward,
+      reward_map_type& reward_map
    ) const;
 
    template < typename Array >
@@ -194,7 +200,7 @@ Gridworld< dim >::Gridworld(
    std::optional< idx_pyarray > restart_states,
    double restart_states_reward
 )
-    : m_dimensions(dimensions),
+    : m_grid_shape(dimensions),
       m_start_states(start_states),
       m_goal_states(goal_states),
       m_subgoal_states(subgoal_states.has_value() ? idx_xarray(*subgoal_states) : idx_xarray{}),
@@ -230,9 +236,9 @@ xarray< double > Gridworld< dim >::_init_transition_tensor(
       utils::overload{
          [&](double value) {
             std::vector< size_t > shape(dim * 2 + 1);
-            ranges::copy(m_dimensions, ranges::begin(shape));
+            ranges::copy(m_grid_shape, ranges::begin(shape));
             shape[dim] = m_num_actions;
-            ranges::copy(m_dimensions, std::next(ranges::begin(shape), dim + 1));
+            ranges::copy(m_grid_shape, std::next(ranges::begin(shape), dim + 1));
             size_t total_size = ranges::accumulate(shape, size_t(1), std::multiplies{});
             return xarray< double >(xt::adapt< xt::layout_type::row_major >(
                c_array(total_size, value).data(), total_size, xt::acquire_ownership(), shape
@@ -240,7 +246,7 @@ xarray< double > Gridworld< dim >::_init_transition_tensor(
          },
          [&](pyarray< double > arr) {
             auto shape = ranges::to_vector(
-               ranges::concat_view(m_dimensions, std::array{m_num_actions}, m_dimensions)
+               ranges::concat_view(m_grid_shape, std::array{m_num_actions}, m_grid_shape)
             );
             assert_shape(arr, shape);
             xarray< double > allocated(shape);
@@ -253,16 +259,17 @@ xarray< double > Gridworld< dim >::_init_transition_tensor(
 
 template < size_t dim >
 auto Gridworld< dim >::_init_reward_map(
-   std::variant< double, pyarray< double > > goal_reward,
-   std::variant< double, pyarray< double > > subgoal_states_reward,
-   double restart_states_reward
+   const std::variant< double, pyarray< double > >& goal_reward,
+   const std::variant< double, pyarray< double > >& subgoal_reward,
+   double restart_reward
 )
 {
-   std::
-      unordered_map< std::vector< const size_t >, std::pair< StateType, double >, CoordinateHasher >
-         reward_map;
+   std::unordered_map< std::vector< size_t >, std::pair< StateType, double >, CoordinateHasher >
+      reward_map;
 
-   _enter_goal_rewards(goal_reward, reward_map);
+   _enter_rewards< StateType::goal >(goal_reward, reward_map);
+   _enter_rewards< StateType::subgoal >(subgoal_reward, reward_map);
+   _enter_rewards< StateType::restart >(restart_reward, reward_map);
 
    return reward_map;
 }
@@ -270,7 +277,7 @@ auto Gridworld< dim >::_init_reward_map(
 template < size_t dim >
 void Gridworld< dim >::_enter_goal_rewards(
    const std::variant< double, pyarray< double > >& goal_reward,
-   auto& reward_map
+   reward_map_type& reward_map
 ) const
 {
    const auto reward_setter = [&](auto access_functor) {
@@ -281,7 +288,7 @@ void Gridworld< dim >::_enter_goal_rewards(
           idx_iter++, counter++) {
          reward_map.emplace(
             std::piecewise_construct,
-            std::forward_as_type(idx_iter->cbegin(), idx_iter->cbegin()),
+            std::forward_as_tuple(idx_iter->cbegin(), idx_iter->cbegin()),
             std::forward_as_tuple(StateType::goal, access_functor(counter))
          );
       }
@@ -305,6 +312,48 @@ void Gridworld< dim >::_enter_goal_rewards(
             reward_setter([&](auto index) { return r_goals(index); });
          }},
       goal_reward
+   );
+}
+
+template < size_t dim >
+template < StateType state_type >
+void Gridworld< dim >::_enter_rewards(
+   const std::variant< double, pyarray< double > >& reward,
+   reward_map_type& reward_map
+) const
+{
+   const auto reward_setter = [&](auto access_functor) {
+      // iterate over axis 0 (the state index) to get a slice of the state coordinates
+      auto coord_begin = xt::axis_slice_begin(std::as_const(m_goal_states), 0);
+      auto coord_end = xt::axis_slice_end(std::as_const(m_goal_states), 0);
+      for(auto [idx_iter, counter] = std::pair{coord_begin, size_t(0)}; idx_iter != coord_end;
+          idx_iter++, counter++) {
+         reward_map.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(idx_iter->cbegin(), idx_iter->cbegin()),
+            std::forward_as_tuple(state_type, access_functor(counter))
+         );
+      }
+   };
+
+   const auto assert_shape = [&](const pyarray< double >& r_goals) {
+      if(r_goals.shape(0) != m_goal_states.shape(0)) {
+         std::stringstream ss;
+         ss << "Length (" << r_goals.shape(0)
+            << ") of passed goal state reward array does not match number of goal states ("
+            << m_goal_states.shape(0) << ").";
+         throw std::invalid_argument(ss.str());
+      }
+   };
+
+   std::visit(
+      utils::overload{
+         [&](double r_goal) { reward_setter([&](auto) { return r_goal; }); },
+         [&](const pyarray< double >& r_goals) {
+            assert_shape(r_goals);
+            reward_setter([&](auto index) { return r_goals(index); });
+         }},
+      reward
    );
 }
 

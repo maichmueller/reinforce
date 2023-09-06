@@ -23,6 +23,7 @@ target_link_libraries(
         CONAN_PKG::xtensor
         xtensor-python
         pybind11::module
+        pybind11::lto
 )
 
 set_target_properties(${reinforce_lib} PROPERTIES CXX_VISIBILITY_PRESET hidden)
