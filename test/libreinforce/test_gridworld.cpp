@@ -29,7 +29,7 @@ TEST(Gridworld, construction)
    py::object arr = numpy.attr("arange")(2, 2);
    py::object arr2 = numpy.attr("arange")(2, 2);
    idx_pyarray pyarr{arr};
-//   Gridworld< 2 >({2, 3}, arr, arr2, 1.);
+   Gridworld< 2 >({2, 3}, arr, arr2, 1.);
 
    //   Gridworld< 2 >({2, 3}, idx_pyarray{3}, idx_pyarray{3}, 1.);
 }

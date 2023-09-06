@@ -166,11 +166,6 @@ class Gridworld {
       double restart_reward
    );
 
-   void _enter_goal_rewards(
-      const std::variant< double, pyarray< double > >& goal_reward,
-      reward_map_type& reward_map
-   ) const;
-
    template < StateType state_type >
    void _enter_rewards(
       const std::variant< double, pyarray< double > >& reward,
@@ -203,14 +198,23 @@ Gridworld< dim >::Gridworld(
     : m_grid_shape(dimensions),
       m_start_states(start_states),
       m_goal_states(goal_states),
-      m_subgoal_states(subgoal_states.has_value() ? idx_xarray(*subgoal_states) : idx_xarray{}),
-      m_obs_states(obs_states.has_value() ? idx_xarray(*obs_states) : idx_xarray{}),
-      m_restart_states(restart_states.has_value() ? idx_xarray(*restart_states) : idx_xarray{}),
+      m_subgoal_states(
+         subgoal_states.has_value() ? idx_xarray(*subgoal_states)
+                                    : xt::empty< size_t >(std::vector{0})
+      ),
+      m_obs_states(
+         obs_states.has_value() ? idx_xarray(*obs_states) : xt::empty< size_t >(std::vector{0})
+      ),
+      m_restart_states(
+         restart_states.has_value() ? idx_xarray(*restart_states)
+                                    : xt::empty< size_t >(std::vector{0})
+      ),
       m_transition_tensor(_init_transition_tensor(transition_matrix)),
       m_reward_map(_init_reward_map(goal_reward, subgoal_states_reward, restart_states_reward)),
       m_step_reward(step_reward)
 {
    size_t total_alloc = 0;
+   uint counter = 0;
    for(const auto& arr :
        {std::ref(m_start_states),
         std::ref(m_goal_states),
@@ -224,6 +228,7 @@ Gridworld< dim >::Gridworld(
          assert_dimensions(arr.get());
       }
       total_alloc += size;
+      counter++;
    }
 }
 
@@ -264,55 +269,11 @@ auto Gridworld< dim >::_init_reward_map(
    double restart_reward
 )
 {
-   std::unordered_map< std::vector< size_t >, std::pair< StateType, double >, CoordinateHasher >
-      reward_map;
-
+   reward_map_type reward_map;
    _enter_rewards< StateType::goal >(goal_reward, reward_map);
    _enter_rewards< StateType::subgoal >(subgoal_reward, reward_map);
    _enter_rewards< StateType::restart >(restart_reward, reward_map);
-
    return reward_map;
-}
-
-template < size_t dim >
-void Gridworld< dim >::_enter_goal_rewards(
-   const std::variant< double, pyarray< double > >& goal_reward,
-   reward_map_type& reward_map
-) const
-{
-   const auto reward_setter = [&](auto access_functor) {
-      // iterate over axis 0 (the state index) to get a slice of the state coordinates
-      auto coord_begin = xt::axis_slice_begin(std::as_const(m_goal_states), 0);
-      auto coord_end = xt::axis_slice_end(std::as_const(m_goal_states), 0);
-      for(auto [idx_iter, counter] = std::pair{coord_begin, size_t(0)}; idx_iter != coord_end;
-          idx_iter++, counter++) {
-         reward_map.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(idx_iter->cbegin(), idx_iter->cbegin()),
-            std::forward_as_tuple(StateType::goal, access_functor(counter))
-         );
-      }
-   };
-
-   const auto assert_shape = [&](const pyarray< double >& r_goals) {
-      if(r_goals.shape(0) != m_goal_states.shape(0)) {
-         std::stringstream ss;
-         ss << "Length (" << r_goals.shape(0)
-            << ") of passed goal state reward array does not match number of goal states ("
-            << m_goal_states.shape(0) << ").";
-         throw std::invalid_argument(ss.str());
-      }
-   };
-
-   std::visit(
-      utils::overload{
-         [&](double r_goal) { reward_setter([&](auto) { return r_goal; }); },
-         [&](const pyarray< double >& r_goals) {
-            assert_shape(r_goals);
-            reward_setter([&](auto index) { return r_goals(index); });
-         }},
-      goal_reward
-   );
 }
 
 template < size_t dim >
