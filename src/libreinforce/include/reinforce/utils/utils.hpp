@@ -4,7 +4,22 @@
 
 #include <utility>
 
-namespace force::utils {
+namespace force::detail {
+
+template < typename Iter >
+class RangeAdaptor {
+  public:
+   using type = Iter;
+   RangeAdaptor(Iter begin, Iter end) : m_begin(begin), m_end(end) {}
+
+   [[nodiscard]] auto begin() { return m_begin; }
+   [[nodiscard]] auto end() { return m_end; }
+   [[nodiscard]] auto begin() const { return m_begin; }
+   [[nodiscard]] auto end() const { return m_end; }
+
+  private:
+   Iter m_begin, m_end;
+};
 
 template < typename... Ts >
 struct overload: Ts... {

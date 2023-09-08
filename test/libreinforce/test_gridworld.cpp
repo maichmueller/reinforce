@@ -27,5 +27,5 @@ TEST(Gridworld, construction) {
     const idx_xarray goals{{2, 0, 0},
                            {2, 2, 1}};
     const idx_xarray starts{{0, 1, 2}};
-    auto grid_env = Gridworld<3>(std::vector{2, 3}, starts, goals, 1.);
+    auto grid_env = Gridworld<3>({2, 3}, starts, goals, 1.);
 }
