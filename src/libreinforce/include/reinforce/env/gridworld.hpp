@@ -12,8 +12,6 @@
 #include "reinforce/utils/utils.hpp"
 #include "variant"
 
-#define FORCE_IMPORT_ARRAY
-
 #include <xtensor/xaxis_slice_iterator.hpp>
 
 #include "xtensor-python/pyarray.hpp"
@@ -124,13 +122,14 @@ class Gridworld {
    );
 
    [[nodiscard]] auto coord_state(size_t state_index) const;
+   [[nodiscard]] auto index_state(std::span< size_t > coordinates) const;
 
   private:
    constexpr static size_t m_num_actions = 2 * dim;
    // the lengths of each grid dimension
    std::array< size_t, dim > m_grid_shape;
-   // the cumulative shape from the last dimension to the 0th dimension
-   std::array< size_t, dim > m_grid_cumul_shape;
+   // the cumulative product shape from the last dimension to the 0th dimension
+   std::array< size_t, dim > m_grid_shape_products;
    /// shape (n, DIM)
    idx_xarray m_start_states;
    idx_xarray m_goal_states;

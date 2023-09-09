@@ -23,20 +23,20 @@ Gridworld< dim >::Gridworld(
    double restart_states_reward
 )
     : m_grid_shape(_verify_shape(shape)),
-      m_grid_cumul_shape(std::invoke([&] {
+      m_grid_shape_products(std::invoke([&] {
          std::array< size_t, dim > grid_cumul_shape;
          // we set the last entry of the cumul shape to 1 as each shape must have at least
          grid_cumul_shape.back() = 1;
-         size_t cumsum = 0;
-         for(std::tuple< size_t &, size_t & > output_and_dimlen : ranges::views::zip(
+         size_t cumprod = 1;
+         for(std::tuple< size_t &, const size_t & > output_and_dimshape : ranges::views::zip(
                 // we drop the first in reverse (i.e. the last entry) since we want entry `i` to
-                // hold the cumsum up to and including `i-1`
+                // hold the cumprod up to and including `i-1`
                 ranges::views::reverse(grid_cumul_shape) | ranges::views::drop(1),
                 ranges::views::reverse(m_grid_shape)
              )) {
-            auto &[output, dim_length] = output_and_dimlen;
-            cumsum += dim_length;
-            output = cumsum;
+            auto &[output, dim_shape] = output_and_dimshape;
+            cumprod *= dim_shape;
+            output = cumprod;
          }
          return grid_cumul_shape;
       })),
@@ -191,22 +191,39 @@ template < size_t dim >
 auto Gridworld< dim >::coord_state(size_t state_index) const
 {
    std::array< size_t, dim > coords;
-   for(auto _ : ranges::enumerate(ranges::views::zip(m_grid_shape, m_grid_cumul_shape))) {
-      auto [i, shape_cumusum_pair] = _;
-      auto [shape, cumsum] = shape_cumusum_pair;
-      auto mod_result = std::div(state_index, cumsum);
-      if(mod_result.quot > 0) {
-         coords[i] = mod_result.quot;
-         state_index -= mod_result.rem;
-      } else {
-         // only for the very last domain does a quotient of 0 mean that we enter the remainder as
-         // coordinate value. Every dimension prior enters 0 and so passes the index on.
-         coords[i] = mod_result.rem * (i == dim - 1);
-      }
+   // we need the same type in std::div to avoid ambiguity. So we use long for both inputs.
+   long index = long(state_index);
+   for(auto _ : ranges::views::enumerate(ranges::views::zip(m_grid_shape, m_grid_shape_products))) {
+      auto [i, shape_and_product_pair] = _;
+      auto [shape, product] = shape_and_product_pair;
+      auto modulus_result = std::div(index, long(product));
+      coords[i] = size_t(modulus_result.quot);
+      index = modulus_result.rem;
    }
    return coords;
 }
 
+template < size_t dim >
+auto Gridworld< dim >::index_state(std::span< size_t > coordinates) const
+{
+   auto size = coordinates.size();
+   long int diff = long(dim) - long(size);
+   if(size < 0) {
+      std::stringstream ss;
+      ss << "More arguments (" << size << ") passed than dimensions in the grid (" << dim << ").";
+      throw std::invalid_argument(ss.str());
+   }
+   std::array< size_t, dim > coords;
+   // every dimension we have been given is used to fill up the coordinates from the end.
+   // all dimensions from the start for which we do not have a value will be given coordinate 0
+   // If coords={2,4,9} and dim = 5, then the actual passed coordinates are {0,0,2,4,9}
+   ranges::copy(coordinates, std::next(coords.begin(), diff));
+   ranges::fill(coords.begin(), std::next(coords.begin(), diff), 0);
+   return ranges::accumulate(ranges::views::zip(m_grid_shape, coords), size_t(0), [](auto _) {
+      auto [dim_len, coord] = _;
+      return dim_len * coord;
+   });
+}
 }  // namespace force
 
 #endif  // REINFORCE_GRIDWORLD_TCC
