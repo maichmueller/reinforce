@@ -28,7 +28,7 @@ TEST(Gridworld, construction)
    auto grid_env = Gridworld< 3 >(std::vector{1, 2, 3}, starts, goals, 1.);
 }
 
-class ThreeDimensionalGridworldParamsF:
+class IndexToCoordinatesParamsF:
     public ::testing::TestWithParam< std::tuple<
        size_t,  // index
        std::array< size_t, 3 >  // the expected coordinates
@@ -40,37 +40,51 @@ class ThreeDimensionalGridworldParamsF:
    Gridworld< 3 > gridworld{shape, idx_pyarray{{0, 0, 2}}, idx_pyarray{{0, 1, 0}}, 1.};
 };
 
-TEST_P(ThreeDimensionalGridworldParamsF, index_to_coordinates)
+TEST_P(IndexToCoordinatesParamsF, index_to_coordinates)
 {
    auto [index, expected_coordinates] = GetParam();
    auto computed_coordinates = gridworld.coord_state(index);
    EXPECT_EQ(computed_coordinates, expected_coordinates);
 }
 
-namespace {
+class TerminalParamsF:
+    public ::testing::TestWithParam< std::tuple<
+       size_t,  // state index
+       bool  // whether the state is terminal
+       > > {
+  public:
+   constexpr static std::array< size_t, 3 > shape = {3, 4, 5};
 
-using paramtuple = typename ThreeDimensionalGridworldParamsF::ParamType;
+  protected:
+   Gridworld< 3 > gridworld{
+      shape,
+      idx_pyarray{{0, 0, 2}},
+      /*goal_states=*/idx_pyarray{{1, 2, 3}, {2, 2, 2}},
+      1.};
+};
+
+TEST_P(TerminalParamsF, is_terminal)
+{
+   auto [index, expected_terminal] = GetParam();
+   auto answer_for_index = gridworld.is_terminal(index);
+   auto answer_for_coords = gridworld.is_terminal(gridworld.coord_state(index));
+   EXPECT_EQ(answer_for_index, answer_for_coords);
+   EXPECT_EQ(answer_for_index, expected_terminal);
+}
 
 INSTANTIATE_TEST_SUITE_P(
    index_to_coordinates_3d,
-   ThreeDimensionalGridworldParamsF,
+   IndexToCoordinatesParamsF,
    ::testing::ValuesIn(std::invoke([] {
-      std::vector< paramtuple > values;
-      constexpr auto shape = ThreeDimensionalGridworldParamsF::shape;
+      std::vector< typename IndexToCoordinatesParamsF::ParamType > values;
+      constexpr auto shape = IndexToCoordinatesParamsF::shape;
       values.reserve(ranges::accumulate(shape, size_t(0), std::plus{}));
       for(size_t i = 0; i < shape[0]; i++) {
          for(size_t j = 0; j < shape[1]; j++) {
             for(size_t k = 0; k < shape[2]; k++) {
-               //               fmt::print("Pre emplacement: index={} + {} + {} = {}\n", i, j, k, i
-               //               * (shape[1] * shape[2]) + j * shape[2] + k);
                values.emplace_back(
                   i * (shape[1] * shape[2]) + j * shape[2] + k, std::array< size_t, 3 >{i, j, k}
                );
-               //               fmt::print(
-               //                  "Input: {}, Expecting: {}\n",
-               //                  std::get< 0 >(values.back()),
-               //                  std::get< 1 >(values.back())
-               //               );
             }
          }
       }
@@ -78,4 +92,29 @@ INSTANTIATE_TEST_SUITE_P(
    }))
 );
 
-}  // namespace
+INSTANTIATE_TEST_SUITE_P(
+   is_terminal_,
+   TerminalParamsF,
+   ::testing::ValuesIn(std::invoke([] {
+      std::vector< typename TerminalParamsF::ParamType > values;
+      const std::vector< std::array< size_t, 3 > > chosen_goals{{1, 2, 3}, {2, 2, 2}};
+      constexpr auto shape = TerminalParamsF::shape;
+      values.reserve(ranges::accumulate(shape, size_t(0), std::plus{}));
+      for(size_t i = 0; i < shape[0]; i++) {
+         for(size_t j = 0; j < shape[1]; j++) {
+            for(size_t k = 0; k < shape[2]; k++) {
+               values.emplace_back(
+                  i * (shape[1] * shape[2]) + j * shape[2] + k,
+                  ranges::contains(chosen_goals, std::array{i, j, k})
+               );
+//               break;
+            }
+
+//            break;
+         }
+
+//         break;
+      }
+      return values;
+   }))
+);

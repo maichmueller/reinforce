@@ -10,9 +10,9 @@ template < size_t dim >
 template < ranges::range Range >
    requires expected_value_type< size_t, Range >
 Gridworld< dim >::Gridworld(
-   const Range &shape,
-   const idx_pyarray &start_states,
-   const idx_pyarray &goal_states,
+   const Range& shape,
+   const idx_pyarray& start_states,
+   const idx_pyarray& goal_states,
    std::variant< double, pyarray< double > > goal_reward,
    double step_reward,
    std::variant< double, pyarray< double > > transition_matrix,
@@ -22,19 +22,19 @@ Gridworld< dim >::Gridworld(
    std::optional< idx_pyarray > restart_states,
    double restart_states_reward
 )
-    : m_grid_shape(_verify_shape(shape)),
+    : m_grid_shape(_adapt_coords(shape)),
       m_grid_shape_products(std::invoke([&] {
          std::array< size_t, dim > grid_cumul_shape;
          // we set the last entry of the cumul shape to 1 as each shape must have at least
          grid_cumul_shape.back() = 1;
          size_t cumprod = 1;
-         for(std::tuple< size_t &, const size_t & > output_and_dimshape : ranges::views::zip(
+         for(std::tuple< size_t&, const size_t& > output_and_dimshape : ranges::views::zip(
                 // we drop the first in reverse (i.e. the last entry) since we want entry `i` to
                 // hold the cumprod up to and including `i-1`
                 ranges::views::reverse(grid_cumul_shape) | ranges::views::drop(1),
                 ranges::views::reverse(m_grid_shape)
              )) {
-            auto &[output, dim_shape] = output_and_dimshape;
+            auto& [output, dim_shape] = output_and_dimshape;
             cumprod *= dim_shape;
             output = cumprod;
          }
@@ -58,47 +58,94 @@ Gridworld< dim >::Gridworld(
       m_reward_map(_init_reward_map(goal_reward, subgoal_states_reward, restart_states_reward)),
       m_step_reward(step_reward)
 {
+   // we will now count the storage of all our special state definitions to relocate the possibly
+   // fragmented memory into one contiguous memory chunk in which segments are owned by the specific
+   // state arrays.
    size_t total_alloc = 0;
-   uint counter = 0;
-   for(const auto &arr :
-       {std::ref(m_start_states),
-        std::ref(m_goal_states),
-        std::ref(m_obs_states),
-        std::ref(m_subgoal_states),
-        std::ref(m_restart_states)}) {
-      auto size = arr.get().size();
+   auto array_list = {
+      std::ref(m_start_states),
+      std::ref(m_goal_states),
+      std::ref(m_obs_states),
+      std::ref(m_subgoal_states),
+      std::ref(m_restart_states)};
+   for(auto& arr : array_list | ranges::views::deref) {
+      auto size = arr.size();
       if(size != 0) {
-         // if the array is not an empty one then we need to ensure that we are having the same
-         // dimensions as expected by the env
-         assert_dimensions(arr.get());
+         // if the array is not an empty one then ensure that we have the same dimensions as env
+         assert_dimensions(arr);
       }
       total_alloc += size;
-      counter++;
    }
+   // use a unique ptr here, in order to avoid a memory leak in case of an exeception
+   auto data_uptr = std::make_unique< size_t[] >(total_alloc);
+   size_t* data_ptr_start = data_uptr.get();
+
+   auto adapt = [&](auto& arr, auto ownership_token) {
+      auto size = arr.size();
+      ranges::copy(arr, data_ptr_start);
+      arr = xt::adapt(data_ptr_start, size, ownership_token, arr.shape());
+      data_ptr_start += size;
+   };
+   // first array takes ownership of all memory
+   adapt(array_list.begin()->get(), xt::acquire_ownership{});
+   // we now no longer need the uptr to control the memory block. Ownership has been transferred.
+   data_uptr.release();
+   // all others do not take ownership
+   ranges::for_each(array_list | ranges::views::drop(1) | ranges::views::deref, [&](auto& arr) {
+      adapt(arr, xt::no_ownership{});
+   });
 }
+
 template < size_t dim >
-std::array< size_t, dim > Gridworld< dim >::_verify_shape(const ranges::range auto &rng) const
+template < ranges::range Range >
+std::array< size_t, dim > Gridworld< dim >::_verify_shape(const Range& rng) const
 {
-   auto dist = ranges::distance(rng);
+   static_assert(
+      std::forward_iterator< ranges::iterator_t< Range > >,
+      "Iterator type of range must be at least forward iterator (allow multiple passes)."
+   );
    constexpr long long_dim = long(dim);
+   auto dist = ranges::distance(rng);
+   std::array< size_t, dim > actual_shape;
    if(dist > long_dim) {
       std::stringstream ss;
       ss << "Expected a <=" << dim << "-dimensional shape parameter. Got " << dist << ".";
       throw std::invalid_argument(ss.str());
    }
+   ranges::copy(rng, actual_shape.begin());
    if(dist < long_dim) {
       // dimension of shape param is less than the dimension of the grid.
       // Pad length 1 for each unspecified dimension.
-      std::array< size_t, dim > actual_shape{};
-      ranges::copy(rng, actual_shape.begin());
       std::fill(std::next(actual_shape.begin(), dist), actual_shape.end(), 1);
-      return actual_shape;
    }
-   return std::invoke([&] {
-      std::array< size_t, dim > out;
-      ranges::copy(rng, out.begin());
-      return out;
-   });
+   return actual_shape;
+}
+
+template < size_t dim >
+template < ranges::range Range >
+std::array< size_t, dim > Gridworld< dim >::_adapt_coords(const Range& coords) const
+{
+   static_assert(
+      std::forward_iterator< ranges::iterator_t< Range > >,
+      "Iterator type of range must be at least forward iterator (allow multiple passes)."
+   );
+   constexpr long long_dim = long(dim);
+   auto dist = ranges::distance(coords);
+   std::array< size_t, dim > final_coords;
+   // initialize the coordinates to all 0.
+   ranges::fill(final_coords, 0);
+   const long diff = dist - long_dim;
+   // The condition diff > 0 checks how many surplus coordinates were provided. We drop those from
+   // the beginning, keeping only the `dim`-dimensional tail of coordinates. In the case diff < 0,
+   // we have fewer coordinates than `dim`, so for consistency’s sake we view the given coordinates
+   // as the tail coordinates and pad/leave the unspecified coordinates as 0.
+   auto [surplus_to_drop, copy_start_offset] = diff > 0 ? std::pair{diff, 0L}
+                                                        : std::pair{0L, -diff};
+   ranges::copy(
+      coords | ranges::views::drop(surplus_to_drop),
+      std::next(final_coords.begin(), copy_start_offset)
+   );
+   return final_coords;
 }
 
 template < size_t dim >
@@ -133,8 +180,8 @@ xarray< double > Gridworld< dim >::_init_transition_tensor(
 
 template < size_t dim >
 auto Gridworld< dim >::_init_reward_map(
-   const std::variant< double, pyarray< double > > &goal_reward,
-   const std::variant< double, pyarray< double > > &subgoal_reward,
+   const std::variant< double, pyarray< double > >& goal_reward,
+   const std::variant< double, pyarray< double > >& subgoal_reward,
    double restart_reward
 )
 {
@@ -148,8 +195,8 @@ auto Gridworld< dim >::_init_reward_map(
 template < size_t dim >
 template < StateType state_type >
 void Gridworld< dim >::_enter_rewards(
-   const std::variant< double, pyarray< double > > &reward,
-   reward_map_type &reward_map
+   const std::variant< double, pyarray< double > >& reward,
+   reward_map_type& reward_map
 ) const
 {
    const auto reward_setter = [&](auto access_functor) {
@@ -166,7 +213,7 @@ void Gridworld< dim >::_enter_rewards(
       }
    };
 
-   const auto assert_shape = [&](const pyarray< double > &r_goals) {
+   const auto assert_shape = [&](const pyarray< double >& r_goals) {
       if(r_goals.shape(0) != m_goal_states.shape(0)) {
          std::stringstream ss;
          ss << "Length (" << r_goals.shape(0)
@@ -179,7 +226,7 @@ void Gridworld< dim >::_enter_rewards(
    std::visit(
       detail::overload{
          [&](double r_goal) { reward_setter([&](auto) { return r_goal; }); },
-         [&](const pyarray< double > &r_goals) {
+         [&](const pyarray< double >& r_goals) {
             assert_shape(r_goals);
             reward_setter([&](auto index) { return r_goals(index); });
          }},
@@ -224,6 +271,25 @@ auto Gridworld< dim >::index_state(std::span< size_t > coordinates) const
       return dim_len * coord;
    });
 }
+
+template < size_t dim >
+template < ranges::range Range >
+bool Gridworld< dim >::is_terminal(const Range& coordinates) const
+{
+   return std::any_of(
+      xt::axis_slice_begin(m_goal_states, 1),
+      xt::axis_slice_end(m_goal_states, 1),
+      [&, adapted_coords = _adapt_coords(coordinates)](const auto& goal_coords) {
+         return ranges::all_of(
+            ranges::views::zip(goal_coords, adapted_coords),
+            [](const auto& coord_pair) {
+               return std::get< 0 >(coord_pair) == std::get< 1 >(coord_pair);
+            }
+         );
+      }
+   );
+}
+
 }  // namespace force
 
 #endif  // REINFORCE_GRIDWORLD_TCC

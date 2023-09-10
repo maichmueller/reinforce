@@ -3,6 +3,7 @@
 #define REINFORCE_GRIDWORLD_HPP
 
 #include <valarray>
+#include <xtensor/xaxis_slice_iterator.hpp>
 
 #include "fmt/format.h"
 #include "fmt/ranges.h"
@@ -11,9 +12,6 @@
 #include "range/v3/all.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "variant"
-
-#include <xtensor/xaxis_slice_iterator.hpp>
-
 #include "xtensor-python/pyarray.hpp"
 #include "xtensor/xadapt.hpp"
 #include "xtensor/xarray.hpp"
@@ -58,7 +56,7 @@ struct CoordinateHasher {
    using is_transparent = std::true_type;
 
    template < ranges::range Range >
-   size_t operator()(const Range &coords) const noexcept
+   size_t operator()(const Range& coords) const noexcept
       requires expected_value_type< size_t, Range >
    {
       constexpr auto string_hasher = std::hash< std::string >{};
@@ -95,22 +93,22 @@ class Gridworld {
     * @param restart_states States where the agent transitions to start.
     */
    template < std::integral I, typename... Args >
-   Gridworld(std::initializer_list< I > shape, Args &&...args)
+   Gridworld(std::initializer_list< I > shape, Args&&... args)
        : Gridworld(shape.begin(), shape.end(), std::forward< Args >(args)...)
    {
    }
    template < std::forward_iterator FwdIter, typename... Args >
       requires std::convertible_to< size_t, std::iter_value_t< FwdIter > >
-   Gridworld(FwdIter shape_begin, FwdIter shape_end, Args &&...args)
+   Gridworld(FwdIter shape_begin, FwdIter shape_end, Args&&... args)
        : Gridworld(detail::RangeAdaptor{shape_begin, shape_end}, std::forward< Args >(args)...)
    {
    }
    template < ranges::range Range >
       requires expected_value_type< size_t, Range >
    Gridworld(
-      const Range &shape,
-      const idx_pyarray &start_states,
-      const idx_pyarray &goal_states,
+      const Range& shape,
+      const idx_pyarray& start_states,
+      const idx_pyarray& goal_states,
       std::variant< double, pyarray< double > > goal_reward,
       double step_reward = 0.,
       std::variant< double, pyarray< double > > transition_matrix = double{1.},
@@ -123,6 +121,19 @@ class Gridworld {
 
    [[nodiscard]] auto coord_state(size_t state_index) const;
    [[nodiscard]] auto index_state(std::span< size_t > coordinates) const;
+   template < ranges::range Range >
+   [[nodiscard]] bool is_terminal(const Range& coordinates) const;
+   [[nodiscard]] bool is_terminal(size_t state_index) const
+   {
+      return is_terminal(coord_state(state_index));
+   }
+   [[nodiscard]] auto size() const { return m_grid_shape[0] * m_grid_shape_products[0]; };
+
+   auto& start_states() const { return m_start_states; }
+   auto& goal_states() const { return m_goal_states; }
+   auto& subgoal_states() const { return m_subgoal_states; }
+   auto& obstacle_states() const { return m_obs_states; }
+   auto& restart_states() const { return m_restart_states; }
 
   private:
    constexpr static size_t m_num_actions = 2 * dim;
@@ -132,9 +143,13 @@ class Gridworld {
    std::array< size_t, dim > m_grid_shape_products;
    /// shape (n, DIM)
    idx_xarray m_start_states;
+   /// shape (n, DIM)
    idx_xarray m_goal_states;
+   /// shape (n, DIM)
    idx_xarray m_subgoal_states;
+   /// shape (n, DIM)
    idx_xarray m_obs_states;
+   /// shape (n, DIM)
    idx_xarray m_restart_states;
    /// shape (s_x1, s_x2, s_x..., s_xdim, a, s'_x1, s'_x2, ..., s'_xdim) where s, s' are
    /// the state and successor state to which `a`, the action, might lead.
@@ -143,16 +158,17 @@ class Gridworld {
    reward_map_type m_reward_map;
    double m_step_reward;
 
-   [[nodiscard]] constexpr std::span< double, std::dynamic_extent >
+   [[nodiscard("Discarding this value will cause a memory leak.")]]  //
+   constexpr std::span< double, std::dynamic_extent >
    c_array(const size_t size, const auto value) const
    {
       auto data = std::span{new double[size], size};
-      std::fill(data.begin(), data.end(), value);
+      ranges::fill(data, value);
       return data;
    }
 
    template < typename T, size_t dimensions = dim >
-   void assert_dimensions(const xarray< T > &arr) const
+   void assert_dimensions(const xarray< T >& arr) const
    {
       auto arr_shape = arr.shape();
       if(arr_shape.size() != 2) {
@@ -171,7 +187,7 @@ class Gridworld {
    }
 
    template < typename Array, typename Rng >
-   void assert_shape(const Array &arr, Rng &&shape) const
+   void assert_shape(const Array& arr, Rng&& shape) const
    {
       auto arr_shape = arr.shape();
       if(not ranges::equal(arr_shape, shape)) {
@@ -183,26 +199,30 @@ class Gridworld {
       }
    }
 
-   std::array< size_t, dim > _verify_shape(const ranges::range auto &rng) const;
+   template < ranges::range Range >
+   std::array< size_t, dim > _adapt_coords(const Range& coords) const;
+
+   template < ranges::range Range >
+   std::array< size_t, dim > _verify_shape(const Range& coords) const;
 
    xarray< double > _init_transition_tensor(
       std::variant< double, pyarray< double > > transition_matrix
    );
 
    auto _init_reward_map(
-      const std::variant< double, pyarray< double > > &goal_reward,
-      const std::variant< double, pyarray< double > > &subgoal_reward,
+      const std::variant< double, pyarray< double > >& goal_reward,
+      const std::variant< double, pyarray< double > >& subgoal_reward,
       double restart_reward
    );
 
    template < StateType state_type >
    void _enter_rewards(
-      const std::variant< double, pyarray< double > > &reward,
-      reward_map_type &reward_map
+      const std::variant< double, pyarray< double > >& reward,
+      reward_map_type& reward_map
    ) const;
 
    template < typename Array >
-   void rearrange_layout(Array &arr) const
+   void rearrange_layout(Array& arr) const
    {
       if(arr.layout() != xt::layout_type::row_major) {
          arr.resize(arr.shape(), xt::layout_type::row_major);
