@@ -72,8 +72,8 @@ template < size_t dim >
 class Gridworld {
   public:
    using self = Gridworld;
-   using reward_map_type = std::
-      unordered_map< std::vector< size_t >, std::pair< StateType, double >, CoordinateHasher >;
+   using obs_type = size_t;
+   using reward_map_type = std::unordered_map< size_t, std::pair< StateType, double > >;
 
    /**
     * @brief Construct a GridWorld instance.
@@ -132,9 +132,9 @@ class Gridworld {
    {
       return is_terminal(coord_state(state_index));
    }
-   [[nodiscard]] auto size() const { return m_grid_shape[0] * m_grid_shape_products[0]; };
+   [[nodiscard]] size_t size() const { return m_grid_shape[0] * m_grid_shape_products[0]; };
 
-   std::tuple< size_t > step(unsigned int action) {}
+   std::tuple< obs_type > step(unsigned int action) {}
 
    auto& start_states() const { return m_start_states; }
    auto& goal_states() const { return m_goal_states; }
@@ -142,12 +142,22 @@ class Gridworld {
    auto& obstacle_states() const { return m_obs_states; }
    auto& restart_states() const { return m_restart_states; }
 
+   void reseed(std::mt19937_64::result_type seed) { m_rng = std::mt19937_64{seed}; }
+   obs_type reset(std::optional< std::mt19937_64::result_type > seed = std::nullopt)
+   {
+      if(seed.has_value()) {
+         reseed(*seed);
+      }
+      m_position = index_state(
+         xt::view(m_start_states, m_start_state_distribution(m_rng), xt::all())
+      );
+      return m_position;
+   }
+
   private:
    /// the number of actions are dependant only on the grid dimensionality. 'Back' and 'Forth' are
    /// the actions that can be done in each dimension.
    constexpr static size_t m_num_actions = 2 * dim;
-   /// the current position of the agent as index
-   size_t m_position;
    /// the lengths of each grid dimension
    std::array< size_t, dim > m_grid_shape;
    /// the cumulative product shape from the last dimension to the 0th dimension
@@ -164,12 +174,17 @@ class Gridworld {
    idx_xarray m_restart_states;
    /// shape (n,)
    std::discrete_distribution< size_t > m_start_state_distribution;
-   /// shape (s_x1, s_x2, s_x..., s_xdim, a, s'_x1, s'_x2, ..., s'_xdim) where s, s' are
-   /// the state and successor state to which `a`, the action, might lead.
-   /// The entry in the matrix provides the probability of this transition.
+   /// shape (N, a, N) where N are the total number of states (state and successor state indices to
+   /// which `a`, the action, might lead). The matrix value represents the transition probability.
    xarray< double > m_transition_tensor;
+   /// the reward map for a given state
    reward_map_type m_reward_map;
+   /// the reward an agent achieves/pays per step
    double m_step_reward;
+   /// the current position of the agent as index array
+   size_t m_position{};
+   /// the random number generator
+   std::mt19937_64 m_rng{std::random_device{}()};
 
    [[nodiscard("Discarding this value will cause a memory leak.")]]  //
    constexpr std::span< double, std::dynamic_extent >
@@ -242,7 +257,6 @@ class Gridworld {
       }
    }
 };
-
 
 }  // namespace force
 

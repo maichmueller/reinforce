@@ -104,6 +104,7 @@ Gridworld< dim >::Gridworld(
    ranges::for_each(array_list | ranges::views::drop(1) | ranges::views::deref, [&](auto& arr) {
       adapt(arr, xt::no_ownership{});
    });
+   reset();
 }
 
 template < size_t dim >
@@ -166,7 +167,8 @@ xarray< double > Gridworld< dim >::_init_transition_tensor(
    return std::visit(
       detail::overload{
          [&](double value) {
-            std::vector< size_t > shape(dim * 2 + 1);
+            size_t n_states = size();
+            xt::svector< size_t > shape{n_states, m_num_actions, n_states};
             ranges::copy(m_grid_shape, ranges::begin(shape));
             shape[dim] = m_num_actions;
             ranges::copy(m_grid_shape, std::next(ranges::begin(shape), dim + 1));
