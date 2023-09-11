@@ -148,10 +148,8 @@ class Gridworld {
       if(seed.has_value()) {
          reseed(*seed);
       }
-      m_position = index_state(
-         xt::view(m_start_states, m_start_state_distribution(m_rng), xt::all())
-      );
-      return m_position;
+      auto start_row_index = m_start_state_distribution(m_rng);
+      return (m_position = index_state(xt::view(m_start_states, start_row_index, xt::all())) _);
    }
 
   private:
