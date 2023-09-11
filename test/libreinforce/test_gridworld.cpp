@@ -90,7 +90,7 @@ auto idx_to_coords_parameters()
 }
 
 INSTANTIATE_TEST_SUITE_P(
-   index_to_coordinates_3d,
+   index_to_coordinates_serial,
    IndexToCoordinatesParamsF,
    ::testing::ValuesIn(idx_to_coords_parameters())
 );
