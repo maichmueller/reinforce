@@ -72,25 +72,42 @@ TEST_P(TerminalParamsF, is_terminal)
    EXPECT_EQ(answer_for_index, expected_terminal);
 }
 
+auto idx_to_coords_parameters()
+{
+   std::vector< typename IndexToCoordinatesParamsF::ParamType > values;
+   constexpr auto shape = IndexToCoordinatesParamsF::shape;
+   values.reserve(ranges::accumulate(shape, size_t(0), std::plus{}));
+   for(size_t i = 0; i < shape[0]; i++) {
+      for(size_t j = 0; j < shape[1]; j++) {
+         for(size_t k = 0; k < shape[2]; k++) {
+            values.emplace_back(
+               i * (shape[1] * shape[2]) + j * shape[2] + k, std::array< size_t, 3 >{i, j, k}
+            );
+         }
+      }
+   }
+   return values;
+}
+
 INSTANTIATE_TEST_SUITE_P(
    index_to_coordinates_3d,
    IndexToCoordinatesParamsF,
-   ::testing::ValuesIn(std::invoke([] {
-      std::vector< typename IndexToCoordinatesParamsF::ParamType > values;
-      constexpr auto shape = IndexToCoordinatesParamsF::shape;
-      values.reserve(ranges::accumulate(shape, size_t(0), std::plus{}));
-      for(size_t i = 0; i < shape[0]; i++) {
-         for(size_t j = 0; j < shape[1]; j++) {
-            for(size_t k = 0; k < shape[2]; k++) {
-               values.emplace_back(
-                  i * (shape[1] * shape[2]) + j * shape[2] + k, std::array< size_t, 3 >{i, j, k}
-               );
-            }
-         }
-      }
-      return values;
-   }))
+   ::testing::ValuesIn(idx_to_coords_parameters())
 );
+
+TEST_F(IndexToCoordinatesParamsF, index_to_coordinates_batch)
+{
+   auto values = idx_to_coords_parameters();
+   auto indices = ranges::to_vector(values | ranges::views::transform([](auto&& tuple) {
+                                       return std::get< 0 >(tuple);
+                                    }));
+   auto computed_coordinates = gridworld.coord_state(indices);
+   for(auto [res_idx, inp_idx] : ranges::views::enumerate(indices)) {
+      EXPECT_TRUE(
+         ranges::equal(xt::row(computed_coordinates, long(res_idx)), gridworld.coord_state(inp_idx))
+      );
+   }
+}
 
 INSTANTIATE_TEST_SUITE_P(
    is_terminal_,
@@ -107,13 +124,8 @@ INSTANTIATE_TEST_SUITE_P(
                   i * (shape[1] * shape[2]) + j * shape[2] + k,
                   ranges::contains(chosen_goals, std::array{i, j, k})
                );
-//               break;
             }
-
-//            break;
          }
-
-//         break;
       }
       return values;
    }))

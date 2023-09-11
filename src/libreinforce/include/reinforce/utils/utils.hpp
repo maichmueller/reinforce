@@ -5,6 +5,8 @@
 #include <utility>
 
 #include "range/v3/all.hpp"
+#include "xtensor/xadapt.hpp"
+#include "xtensor/xarray.hpp"
 
 namespace force::detail {
 
@@ -22,6 +24,14 @@ class RangeAdaptor {
   private:
    Iter m_begin, m_end;
 };
+
+template < typename ReturnArray, typename T, size_t N >
+ReturnArray
+adapt_stdarray(std::array< T, N > arr, xt::layout_type layout = xt::layout_type::row_major)
+{
+   std::vector< T > data(std::move_iterator(arr.begin()), std::move_iterator(arr.end()));
+   return ReturnArray(xt::adapt(data, std::vector{N}, layout));
+}
 
 template < typename... Ts >
 struct overload: Ts... {
@@ -130,35 +140,33 @@ class deref_view: public ranges::view_base {
    Range m_base;
 };
 
-template <ranges::range Range>
-struct deref_view<Range>::iterator {
-   using base = ranges::iterator_t<Range>;
-   using value_type =
-      std::remove_cvref_t<decltype(deref(*(std::declval<Range>().begin())))>;
-   using difference_type = ranges::range_difference_t<Range>;
+template < ranges::range Range >
+struct deref_view< Range >::iterator {
+   using base = ranges::iterator_t< Range >;
+   using value_type = std::remove_cvref_t< decltype(deref(*(std::declval< Range >().begin()))) >;
+   using difference_type = ranges::range_difference_t< Range >;
 
    iterator() = default;
 
    iterator(const base& b) : m_base{b} {}
 
-   iterator operator++(int) {
+   iterator operator++(int)
+   {
       auto tmp = *this;
       ++*this;
       return tmp;
    }
 
-   iterator& operator++() {
+   iterator& operator++()
+   {
       ++m_base;
       return *this;
    }
 
-   decltype(auto) operator*() const {
-      return deref(*m_base);
-   }
+   decltype(auto) operator*() const { return deref(*m_base); }
 
-   bool operator==(iterator const& rhs) const {
-      return m_base == rhs.m_base;
-   }
+   bool operator==(iterator const& rhs) const { return m_base == rhs.m_base; }
+
   private:
    base m_base;
 };

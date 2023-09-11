@@ -71,6 +71,7 @@ enum class StateType { default_ = 0, goal = 1, subgoal = 2, start = 3, restart =
 template < size_t dim >
 class Gridworld {
   public:
+   using self = Gridworld;
    using reward_map_type = std::
       unordered_map< std::vector< size_t >, std::pair< StateType, double >, CoordinateHasher >;
 
@@ -111,6 +112,7 @@ class Gridworld {
       const idx_pyarray& goal_states,
       std::variant< double, pyarray< double > > goal_reward,
       double step_reward = 0.,
+      std::optional< idx_pyarray > start_states_prob_weights = {},
       std::variant< double, pyarray< double > > transition_matrix = double{1.},
       std::optional< idx_pyarray > subgoal_states = {},
       std::variant< double, pyarray< double > > subgoal_states_reward = double{0.},
@@ -120,6 +122,9 @@ class Gridworld {
    );
 
    [[nodiscard]] auto coord_state(size_t state_index) const;
+   template < ranges::sized_range Range >
+      requires expected_value_type< size_t, Range >
+   [[nodiscard]] auto coord_state(const Range& indices) const;
    [[nodiscard]] auto index_state(std::span< size_t > coordinates) const;
    template < ranges::range Range >
    [[nodiscard]] bool is_terminal(const Range& coordinates) const;
@@ -129,6 +134,8 @@ class Gridworld {
    }
    [[nodiscard]] auto size() const { return m_grid_shape[0] * m_grid_shape_products[0]; };
 
+   std::tuple< size_t > step(unsigned int action) {}
+
    auto& start_states() const { return m_start_states; }
    auto& goal_states() const { return m_goal_states; }
    auto& subgoal_states() const { return m_subgoal_states; }
@@ -136,21 +143,27 @@ class Gridworld {
    auto& restart_states() const { return m_restart_states; }
 
   private:
+   /// the number of actions are dependant only on the grid dimensionality. 'Back' and 'Forth' are
+   /// the actions that can be done in each dimension.
    constexpr static size_t m_num_actions = 2 * dim;
-   // the lengths of each grid dimension
+   /// the current position of the agent as index
+   size_t m_position;
+   /// the lengths of each grid dimension
    std::array< size_t, dim > m_grid_shape;
-   // the cumulative product shape from the last dimension to the 0th dimension
+   /// the cumulative product shape from the last dimension to the 0th dimension
    std::array< size_t, dim > m_grid_shape_products;
    /// shape (n, DIM)
    idx_xarray m_start_states;
-   /// shape (n, DIM)
+   /// shape (m, DIM)
    idx_xarray m_goal_states;
-   /// shape (n, DIM)
+   /// shape (p, DIM)
    idx_xarray m_subgoal_states;
-   /// shape (n, DIM)
+   /// shape (l, DIM)
    idx_xarray m_obs_states;
-   /// shape (n, DIM)
+   /// shape (k, DIM)
    idx_xarray m_restart_states;
+   /// shape (n,)
+   std::discrete_distribution< size_t > m_start_state_distribution;
    /// shape (s_x1, s_x2, s_x..., s_xdim, a, s'_x1, s'_x2, ..., s'_xdim) where s, s' are
    /// the state and successor state to which `a`, the action, might lead.
    /// The entry in the matrix provides the probability of this transition.
@@ -229,6 +242,7 @@ class Gridworld {
       }
    }
 };
+
 
 }  // namespace force
 

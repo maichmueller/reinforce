@@ -15,6 +15,7 @@ Gridworld< dim >::Gridworld(
    const idx_pyarray& goal_states,
    std::variant< double, pyarray< double > > goal_reward,
    double step_reward,
+   std::optional< idx_pyarray > start_states_prob_weights,
    std::variant< double, pyarray< double > > transition_matrix,
    std::optional< idx_pyarray > subgoal_states,
    std::variant< double, pyarray< double > > subgoal_states_reward,
@@ -53,6 +54,15 @@ Gridworld< dim >::Gridworld(
       m_restart_states(
          restart_states.has_value() ? idx_xarray(*restart_states)
                                     : xt::empty< size_t >(std::initializer_list< size_t >{0})
+      ),
+      m_start_state_distribution(
+         start_states_prob_weights.has_value()
+            ? std::discrete_distribution<
+               size_t >{(*start_states_prob_weights).begin(), (*start_states_prob_weights).end()}
+            : std::invoke([&] {
+                 std::vector< int > weights(m_start_states.shape(0), 1);  // makes it uniform
+                 return std::discrete_distribution< size_t >{weights.begin(), weights.end()};
+              })
       ),
       m_transition_tensor(_init_transition_tensor(transition_matrix)),
       m_reward_map(_init_reward_map(goal_reward, subgoal_states_reward, restart_states_reward)),
@@ -251,6 +261,23 @@ auto Gridworld< dim >::coord_state(size_t state_index) const
 }
 
 template < size_t dim >
+template < ranges::sized_range Range >
+   requires expected_value_type< size_t, Range >
+auto Gridworld< dim >::coord_state(const Range& indices) const
+{
+   // create the output buffer first
+   idx_xarray coords_out(/*shape=*/xt::svector< size_t >{indices.size(), dim});
+   // process the indices one-by-one and emplace them in the data buffer
+   for(auto [row_idx, state_idx] : ranges::views::enumerate(indices)) {
+      auto coords = coord_state(state_idx);
+      for(auto&& [col_idx, entry] : ranges::views::enumerate(coords)) {
+         coords_out(row_idx, col_idx) = entry;
+      }
+   }
+   return coords_out;
+}
+
+template < size_t dim >
 auto Gridworld< dim >::index_state(std::span< size_t > coordinates) const
 {
    auto size = coordinates.size();
@@ -280,6 +307,9 @@ bool Gridworld< dim >::is_terminal(const Range& coordinates) const
       xt::axis_slice_begin(m_goal_states, 1),
       xt::axis_slice_end(m_goal_states, 1),
       [&, adapted_coords = _adapt_coords(coordinates)](const auto& goal_coords) {
+         // this should be ever so sightly more efficient than ranges::equal, since equal checks for
+         // same length which we already know is the case, because the coords are adapted and the
+         // goal coords are verified upon construction
          return ranges::all_of(
             ranges::views::zip(goal_coords, adapted_coords),
             [](const auto& coord_pair) {
