@@ -25,6 +25,25 @@ class RangeAdaptor {
    Iter m_begin, m_end;
 };
 
+template < typename Iter >
+class SizedRangeAdaptor {
+  public:
+   using type = Iter;
+   SizedRangeAdaptor(Iter begin, Iter end, size_t size) : m_begin(begin), m_end(end), m_size(size)
+   {
+   }
+
+   [[nodiscard]] auto begin() { return m_begin; }
+   [[nodiscard]] auto end() { return m_end; }
+   [[nodiscard]] auto begin() const { return m_begin; }
+   [[nodiscard]] auto end() const { return m_end; }
+   [[nodiscard]] auto size() const { return m_size; }
+
+  private:
+   Iter m_begin, m_end;
+   size_t m_size;
+};
+
 template < typename ReturnArray, typename T, size_t N >
 ReturnArray
 adapt_stdarray(std::array< T, N > arr, xt::layout_type layout = xt::layout_type::row_major)

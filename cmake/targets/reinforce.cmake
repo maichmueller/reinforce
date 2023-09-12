@@ -22,6 +22,7 @@ target_link_libraries(
         CONAN_PKG::fmt
         CONAN_PKG::xtensor
         xtensor-python
+        xtensor-blas
         pybind11::module
         pybind11::lto
 )

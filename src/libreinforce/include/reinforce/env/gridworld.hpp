@@ -12,6 +12,7 @@
 #include "range/v3/all.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "variant"
+#include "xtensor-blas/xlinalg.hpp"
 #include "xtensor-python/pyarray.hpp"
 #include "xtensor/xadapt.hpp"
 #include "xtensor/xarray.hpp"
@@ -22,13 +23,17 @@ namespace force {
 
 namespace py = pybind11;
 
-template < typename T >
-using xarray = xt::xarray< T, xt::layout_type::row_major >;
-template < typename T >
-using pyarray = xt::pyarray< T, xt::layout_type::row_major >;
+constexpr auto layout = xt::layout_type::row_major;
 
-using idx_xarray = xt::xarray< size_t, xt::layout_type::row_major >;
-using idx_pyarray = xt::pyarray< size_t, xt::layout_type::row_major >;
+template < typename T >
+using xarray = xt::xarray< T, layout >;
+template < typename T >
+using pyarray = xt::pyarray< T, layout >;
+
+using idx_xarray = xt::xarray< size_t, layout >;
+template < size_t dim >
+using idx_xtensor_stack = xt::xtensor_fixed< size_t, xt::xshape< dim >, layout >;
+using idx_pyarray = xt::pyarray< size_t, layout >;
 
 // namespace helper {
 // template < typename T, typename integer_constant >
@@ -124,10 +129,13 @@ class Gridworld {
    [[nodiscard]] auto coord_state(size_t state_index) const;
    template < ranges::sized_range Range >
       requires expected_value_type< size_t, Range >
-   [[nodiscard]] auto coord_state(const Range& indices) const;
-   [[nodiscard]] auto index_state(std::span< size_t > coordinates) const;
+   [[nodiscard]] auto coord_state(Range&& indices) const;
+
+   template < ranges::sized_range Range >
+      requires expected_value_type< size_t, Range >
+   [[nodiscard]] size_t index_state(Range&& coordinates) const;
    template < ranges::range Range >
-   [[nodiscard]] bool is_terminal(const Range& coordinates) const;
+   [[nodiscard]] bool is_terminal(Range&& coordinates) const;
    [[nodiscard]] bool is_terminal(size_t state_index) const
    {
       return is_terminal(coord_state(state_index));
@@ -149,7 +157,7 @@ class Gridworld {
          reseed(*seed);
       }
       auto start_row_index = m_start_state_distribution(m_rng);
-      return (m_position = index_state(xt::view(m_start_states, start_row_index, xt::all())) _);
+      return (m_position = index_state(xt::view(m_start_states, start_row_index, xt::all())));
    }
 
   private:
@@ -157,9 +165,9 @@ class Gridworld {
    /// the actions that can be done in each dimension.
    constexpr static size_t m_num_actions = 2 * dim;
    /// the lengths of each grid dimension
-   std::array< size_t, dim > m_grid_shape;
+   idx_xtensor_stack< dim > m_grid_shape;
    /// the cumulative product shape from the last dimension to the 0th dimension
-   std::array< size_t, dim > m_grid_shape_products;
+   idx_xtensor_stack< dim > m_grid_shape_products;
    /// shape (n, DIM)
    idx_xarray m_start_states;
    /// shape (m, DIM)
@@ -226,16 +234,16 @@ class Gridworld {
    }
 
    template < ranges::range Range >
-   std::array< size_t, dim > _adapt_coords(const Range& coords) const;
+   idx_xtensor_stack< dim > _adapt_coords(Range&& coords) const;
 
    template < ranges::range Range >
-   std::array< size_t, dim > _verify_shape(const Range& coords) const;
+   idx_xtensor_stack< dim > _verify_shape(Range&& coords) const;
 
    xarray< double > _init_transition_tensor(
       std::variant< double, pyarray< double > > transition_matrix
    );
 
-   auto _init_reward_map(
+   reward_map_type _init_reward_map(
       const std::variant< double, pyarray< double > >& goal_reward,
       const std::variant< double, pyarray< double > >& subgoal_reward,
       double restart_reward

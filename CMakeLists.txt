@@ -193,15 +193,8 @@ endif ()
 find_package(pybind11 REQUIRED)
 find_package(xtensor REQUIRED)
 find_package(range-v3 REQUIRED)
-# fetch and configure xtensor-python
-CPMAddPackage(
-        NAME xtensor-python  # The unique name of the dependency (should be the exported target's name)
-        GIT_TAG 0.26.1            # The minimum version of the dependency (optional, defaults to 0)
-        # Configuration options passed to the dependency (optional)
-        SYSTEM TRUE
-        DOWNLOAD_ONLY FALSE       # If set, the project is downloaded, but not configured (optional)
-        GITHUB_REPOSITORY xtensor-stack/xtensor-python
-)
+# install all CPM installed dependencies
+include(${DEPENDENCY_DIR}/CPM_deps.cmake)
 
 
 message("Configuring Shared Libraries.")

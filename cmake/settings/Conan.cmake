@@ -8,14 +8,14 @@ macro(run_conan)
     endif()
 
     include(${CMAKE_BINARY_DIR}/conan.cmake)
-
-    find_program(CONAN conan REQUIRED PATHS ${CONAN_PATH})
+    message("Given Conan Path: ${CONAN_PATH}")
+    find_program(CONAN_CMD conan REQUIRED PATHS ${CONAN_PATH})
 
     conan_cmake_run(
         CONANFILE
         ${DEPENDENCY_DIR}/${CONANFILE}
         CONAN_COMMAND
-        ${CONAN}
+        ${CONAN_CMD}
         ${CONAN_EXTRA_REQUIRES}
         OPTIONS
         ${CONAN_EXTRA_OPTIONS}
@@ -25,6 +25,8 @@ macro(run_conan)
         BUILD
         missing
         PROFILE
+        default
+        PROFILE_BUILD
         default
         PROFILE_AUTO
         ALL # ALL means that all the settings are taken from CMake's detection
