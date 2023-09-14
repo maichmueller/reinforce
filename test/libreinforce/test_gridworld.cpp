@@ -3,6 +3,7 @@
 #include "reinforce/reinforce.hpp"
 
 using namespace force;
+namespace py = pybind11;
 
 TEST(PythonImport, numpy)
 {
@@ -38,16 +39,14 @@ class IndexCoordinatesMappingExample {
 
 class IndexCoordinatesMappingParamsF:
     public IndexCoordinatesMappingExample,
-    public ::testing::Test {
-};
+    public ::testing::Test {};
 
 class ParameterizedIndexCoordinatesMappingParamsF:
     public IndexCoordinatesMappingExample,
     public ::testing::TestWithParam< std::tuple<
        size_t,  // index
        std::array< size_t, 3 >  // the associated coordinates
-       > >
-{};
+       > > {};
 
 TEST_P(ParameterizedIndexCoordinatesMappingParamsF, index_to_coordinates)
 {
@@ -86,8 +85,8 @@ INSTANTIATE_TEST_SUITE_P(
    ::testing::ValuesIn(idx_to_coords_parameters())
 );
 
-
-TEST_F(IndexCoordinatesMappingParamsF, index_to_coordinates_batch) {
+TEST_F(IndexCoordinatesMappingParamsF, index_to_coordinates_batch)
+{
    auto values = idx_to_coords_parameters();
    auto indices = ranges::to_vector(values | ranges::views::transform([](auto&& tuple) {
                                        return std::get< 0 >(tuple);

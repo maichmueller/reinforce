@@ -207,6 +207,29 @@ struct deref_fn {
    }
 };
 
+
+template < typename ExpectedType, typename Range >
+concept expected_value_type = requires(Range rng) {
+   {
+      *(rng.begin())
+   } -> std::convertible_to< ExpectedType >;
+};
+
+struct CoordinateHasher {
+   using is_transparent = std::true_type;
+
+   template < ranges::range Range >
+   size_t operator()(const Range& coords) const noexcept
+      requires expected_value_type< size_t, Range >
+   {
+      constexpr auto string_hasher = std::hash< std::string >{};
+      std::stringstream ss;
+      std::copy(coords.begin(), coords.end(), std::ostream_iterator< size_t >(ss, ","));
+      return string_hasher(ss.str());
+   }
+};
+
+
 }  // namespace force::detail
 
 namespace ranges::views {
