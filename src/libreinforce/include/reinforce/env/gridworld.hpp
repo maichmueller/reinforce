@@ -1,27 +1,26 @@
-
 #ifndef REINFORCE_GRIDWORLD_HPP
 #define REINFORCE_GRIDWORLD_HPP
 
-#include <valarray>
-#include <xtensor/xaxis_slice_iterator.hpp>
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+#include <pybind11/numpy.h>
 
-#include "fmt/format.h"
-#include "fmt/ranges.h"
-#include "optional"
-#include "pybind11/numpy.h"
-#include "range/v3/all.hpp"
+#include <optional>
+#include <range/v3/all.hpp>
+#include <valarray>
+#include <variant>
+#include <xtensor-blas/xlinalg.hpp>
+#include <xtensor-python/pyarray.hpp>
+#include <xtensor/xadapt.hpp>
+#include <xtensor/xarray.hpp>
+#include <xtensor/xaxis_slice_iterator.hpp>
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xio.hpp>
+#include <xtensor/xview.hpp>
+
 #include "reinforce/utils/utils.hpp"
-#include "variant"
-#include "xtensor-blas/xlinalg.hpp"
-#include "xtensor-python/pyarray.hpp"
-#include "xtensor/xadapt.hpp"
-#include "xtensor/xarray.hpp"
-#include "xtensor/xio.hpp"
-#include "xtensor/xview.hpp"
 
 namespace force {
-
-namespace py = pybind11;
 
 constexpr auto layout = xt::layout_type::row_major;
 
@@ -29,56 +28,48 @@ template < typename T >
 using xarray = xt::xarray< T, layout >;
 template < typename T >
 using pyarray = xt::pyarray< T, layout >;
+template < typename T, size_t... shape >
+using xstacktensor = xt::xtensor_fixed< T, xt::xshape< shape... >, layout >;
 
 using idx_xarray = xt::xarray< size_t, layout >;
+
 template < size_t dim >
-using idx_xtensor_stack = xt::xtensor_fixed< size_t, xt::xshape< dim >, layout >;
+using idx_xstacktensor = xstacktensor< size_t, dim >;
+
 using idx_pyarray = xt::pyarray< size_t, layout >;
-
-// namespace helper {
-// template < typename T, typename integer_constant >
-//    requires utils::is_convertible_without_narrowing_v< typename integer_constant::type, size_t >
-// struct array: std::array< T, integer_constant::value > {};
-// }  // namespace helper
-
-namespace np {
-
-template < typename T >
-using array = py::array_t< T >;
-
-using index_array = py::array_t< size_t >;
-
-}  // namespace np
-
-template < typename ExpectedType, typename Range >
-concept expected_value_type = requires(Range rng) {
-   {
-      *(rng.begin())
-   } -> std::convertible_to< ExpectedType >;
-};
-
-struct CoordinateHasher {
-   using is_transparent = std::true_type;
-
-   template < ranges::range Range >
-   size_t operator()(const Range& coords) const noexcept
-      requires expected_value_type< size_t, Range >
-   {
-      constexpr auto string_hasher = std::hash< std::string >{};
-      std::stringstream ss;
-      std::copy(coords.begin(), coords.end(), std::ostream_iterator< size_t >(ss, ","));
-      return string_hasher(ss.str());
-   }
-};
 
 enum class StateType { default_ = 0, goal = 1, subgoal = 2, start = 3, restart = 4, obstacle = 5 };
 
 template < size_t dim >
 class Gridworld {
+   /// Inheriting from the non-polymorphic base of unordered map is fine, as long as no state is
+   /// added (a non-polymorphic base has a non-virtual destructor, so the child state would never be
+   /// deleted upon destruction of the object)
+
+   class RewardMap: public std::unordered_map< size_t, std::pair< StateType, double > > {
+     public:
+      using base = std::unordered_map< size_t, std::pair< StateType, double > >;
+      using key_type = typename std::unordered_map< size_t, std::pair< StateType, double > >::
+         key_type;
+      using value_type = typename std::unordered_map< size_t, std::pair< StateType, double > >::
+         value_type;
+      using mapped_type = typename std::unordered_map< size_t, std::pair< StateType, double > >::
+         mapped_type;
+      using base::base;
+
+      constexpr auto find_or(const std::integral auto& key, const auto& default_value) const
+      {
+         auto find_iter = base::find(key);
+         if(find_iter != base::end()) {
+            return *find_iter;
+         }
+         return std::pair{StateType::default_, default_value};
+      }
+   };
+
   public:
    using self = Gridworld;
    using obs_type = size_t;
-   using reward_map_type = std::unordered_map< size_t, std::pair< StateType, double > >;
 
    /**
     * @brief Construct a GridWorld instance.
@@ -110,7 +101,7 @@ class Gridworld {
    {
    }
    template < ranges::range Range >
-      requires expected_value_type< size_t, Range >
+      requires detail::expected_value_type< size_t, Range >
    Gridworld(
       const Range& shape,
       const idx_pyarray& start_states,
@@ -128,21 +119,21 @@ class Gridworld {
 
    [[nodiscard]] auto coord_state(size_t state_index) const;
    template < ranges::sized_range Range >
-      requires expected_value_type< size_t, Range >
-   [[nodiscard]] auto coord_state(Range&& indices) const;
+      requires detail::expected_value_type< size_t, Range >
+   [[nodiscard]] auto coord_state(const Range& indices) const;
 
    template < ranges::sized_range Range >
-      requires expected_value_type< size_t, Range >
-   [[nodiscard]] size_t index_state(Range&& coordinates) const;
+      requires detail::expected_value_type< size_t, Range >
+   [[nodiscard]] size_t index_state(const Range& coordinates) const;
    template < ranges::range Range >
-   [[nodiscard]] bool is_terminal(Range&& coordinates) const;
+   [[nodiscard]] bool is_terminal(const Range& coordinates) const;
    [[nodiscard]] bool is_terminal(size_t state_index) const
    {
       return is_terminal(coord_state(state_index));
    }
-   [[nodiscard]] size_t size() const { return m_grid_shape[0] * m_grid_shape_products[0]; };
+   [[nodiscard]] size_t size() const { return m_size; };
 
-   std::tuple< obs_type > step(unsigned int action) {}
+   std::tuple< obs_type, double, bool, bool > step(size_t action);
 
    auto& start_states() const { return m_start_states; }
    auto& goal_states() const { return m_goal_states; }
@@ -160,14 +151,20 @@ class Gridworld {
       return (m_position = index_state(xt::view(m_start_states, start_row_index, xt::all())));
    }
 
+   [[nodiscard]] std::string action_name(size_t action) const;
+
+   [[nodiscard]] constexpr static auto n_actions() { return m_num_actions; }
+
   private:
    /// the number of actions are dependant only on the grid dimensionality. 'Back' and 'Forth' are
    /// the actions that can be done in each dimension.
    constexpr static size_t m_num_actions = 2 * dim;
    /// the lengths of each grid dimension
-   idx_xtensor_stack< dim > m_grid_shape;
+   idx_xstacktensor< dim > m_grid_shape;
    /// the cumulative product shape from the last dimension to the 0th dimension
-   idx_xtensor_stack< dim > m_grid_shape_products;
+   idx_xstacktensor< dim > m_grid_shape_products;
+   /// the total number of states in this grid
+   size_t m_size;
    /// shape (n, DIM)
    idx_xarray m_start_states;
    /// shape (m, DIM)
@@ -184,7 +181,7 @@ class Gridworld {
    /// which `a`, the action, might lead). The matrix value represents the transition probability.
    xarray< double > m_transition_tensor;
    /// the reward map for a given state
-   reward_map_type m_reward_map;
+   RewardMap m_reward_map;
    /// the reward an agent achieves/pays per step
    double m_step_reward;
    /// the current position of the agent as index array
@@ -234,16 +231,16 @@ class Gridworld {
    }
 
    template < ranges::range Range >
-   idx_xtensor_stack< dim > _adapt_coords(Range&& coords) const;
+   idx_xstacktensor< dim > _adapt_coords(const Range& coords_range) const;
 
    template < ranges::range Range >
-   idx_xtensor_stack< dim > _verify_shape(Range&& coords) const;
+   idx_xstacktensor< dim > _verify_shape(const Range& coords_range) const;
 
    xarray< double > _init_transition_tensor(
       std::variant< double, pyarray< double > > transition_matrix
    );
 
-   reward_map_type _init_reward_map(
+   RewardMap _init_reward_map(
       const std::variant< double, pyarray< double > >& goal_reward,
       const std::variant< double, pyarray< double > >& subgoal_reward,
       double restart_reward
@@ -252,7 +249,7 @@ class Gridworld {
    template < StateType state_type >
    void _enter_rewards(
       const std::variant< double, pyarray< double > >& reward,
-      reward_map_type& reward_map
+      RewardMap& reward_map
    ) const;
 
    template < typename Array >
@@ -262,6 +259,8 @@ class Gridworld {
          arr.resize(arr.shape(), xt::layout_type::row_major);
       }
    }
+
+   constexpr void _assert_action_in_bounds(size_t action);
 };
 
 }  // namespace force

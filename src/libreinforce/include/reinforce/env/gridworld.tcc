@@ -1,4 +1,3 @@
-
 #ifndef REINFORCE_GRIDWORLD_TCC
 #define REINFORCE_GRIDWORLD_TCC
 
@@ -6,9 +5,11 @@
 
 namespace force {
 
+using namespace xt::placeholders;  // to enaable `_` syntax
+
 template < size_t dim >
 template < ranges::range Range >
-   requires expected_value_type< size_t, Range >
+   requires detail::expected_value_type< size_t, Range >
 Gridworld< dim >::Gridworld(
    const Range& shape,
    const idx_pyarray& start_states,
@@ -25,7 +26,7 @@ Gridworld< dim >::Gridworld(
 )
     : m_grid_shape(_adapt_coords(shape)),
       m_grid_shape_products(std::invoke([&] {
-         idx_xtensor_stack< dim > grid_cumul_shape;
+         idx_xstacktensor< dim > grid_cumul_shape;
          // we set the last entry of the cumul shape to 1 as each shape must have at least
          grid_cumul_shape.back() = 1;
          size_t cumprod = 1;
@@ -40,6 +41,9 @@ Gridworld< dim >::Gridworld(
             output = cumprod;
          }
          return grid_cumul_shape;
+      })),
+      m_size(std::invoke([&] {
+         return ranges::accumulate(m_grid_shape, size_t(1), std::multiplies{});
       })),
       m_start_states(start_states),
       m_goal_states(goal_states),
@@ -109,21 +113,21 @@ Gridworld< dim >::Gridworld(
 
 template < size_t dim >
 template < ranges::range Range >
-idx_xtensor_stack< dim > Gridworld< dim >::_verify_shape(Range&& rng) const
+idx_xstacktensor< dim > Gridworld< dim >::_verify_shape(const Range& coords_range) const
 {
    static_assert(
       std::forward_iterator< ranges::iterator_t< Range > >,
       "Iterator type of range must be at least forward iterator (allow multiple passes)."
    );
    constexpr long long_dim = long(dim);
-   auto dist = ranges::distance(rng);
+   auto dist = ranges::distance(coords_range);
    std::array< size_t, dim > actual_shape;
    if(dist > long_dim) {
       std::stringstream ss;
       ss << "Expected a <=" << dim << "-dimensional shape parameter. Got " << dist << ".";
       throw std::invalid_argument(ss.str());
    }
-   ranges::copy(rng, actual_shape.begin());
+   ranges::copy(coords_range, actual_shape.begin());
    if(dist < long_dim) {
       // dimension of shape param is less than the dimension of the grid.
       // Pad length 1 for each unspecified dimension.
@@ -134,15 +138,15 @@ idx_xtensor_stack< dim > Gridworld< dim >::_verify_shape(Range&& rng) const
 
 template < size_t dim >
 template < ranges::range Range >
-idx_xtensor_stack< dim > Gridworld< dim >::_adapt_coords(Range&& coords) const
+idx_xstacktensor< dim > Gridworld< dim >::_adapt_coords(const Range& coords_range) const
 {
    static_assert(
       std::forward_iterator< ranges::iterator_t< std::remove_cvref_t< Range > > >,
       "Iterator type of range must be at least forward iterator (allow multiple passes)."
    );
    constexpr long long_dim = long(dim);
-   auto dist = ranges::distance(coords);
-   idx_xtensor_stack< dim > final_coords;
+   auto dist = ranges::distance(coords_range);
+   idx_xstacktensor< dim > final_coords;
    // initialize the coordinates to all 0.
    ranges::fill(final_coords, 0);
    const long diff = dist - long_dim;
@@ -153,7 +157,7 @@ idx_xtensor_stack< dim > Gridworld< dim >::_adapt_coords(Range&& coords) const
    auto [surplus_to_drop, copy_start_offset] = diff > 0 ? std::pair{diff, 0L}
                                                         : std::pair{0L, -diff};
    ranges::copy(
-      coords | ranges::views::drop(surplus_to_drop),
+      coords_range | ranges::views::drop(surplus_to_drop),
       std::next(final_coords.begin(), copy_start_offset)
    );
    return final_coords;
@@ -191,13 +195,13 @@ xarray< double > Gridworld< dim >::_init_transition_tensor(
 }
 
 template < size_t dim >
-Gridworld< dim >::reward_map_type Gridworld< dim >::_init_reward_map(
+Gridworld< dim >::RewardMap Gridworld< dim >::_init_reward_map(
    const std::variant< double, pyarray< double > >& goal_reward,
    const std::variant< double, pyarray< double > >& subgoal_reward,
    double restart_reward
 )
 {
-   reward_map_type reward_map;
+   RewardMap reward_map;
    _enter_rewards< StateType::goal >(goal_reward, reward_map);
    _enter_rewards< StateType::subgoal >(subgoal_reward, reward_map);
    _enter_rewards< StateType::restart >(restart_reward, reward_map);
@@ -208,7 +212,7 @@ template < size_t dim >
 template < StateType state_type >
 void Gridworld< dim >::_enter_rewards(
    const std::variant< double, pyarray< double > >& reward,
-   reward_map_type& reward_map
+   RewardMap& reward_map
 ) const
 {
    const auto reward_setter = [&](auto access_functor) {
@@ -250,7 +254,7 @@ void Gridworld< dim >::_enter_rewards(
 template < size_t dim >
 auto Gridworld< dim >::coord_state(size_t state_index) const
 {
-   std::array< size_t, dim > coords;
+   idx_xstacktensor< dim > coords;
    // we need the same type in std::div to avoid ambiguity. So we use long for both inputs.
    long index = long(state_index);
    for(auto [i, shape] : ranges::views::reverse(ranges::views::enumerate(m_grid_shape))) {
@@ -263,8 +267,8 @@ auto Gridworld< dim >::coord_state(size_t state_index) const
 
 template < size_t dim >
 template < ranges::sized_range Range >
-   requires expected_value_type< size_t, Range >
-auto Gridworld< dim >::coord_state(Range&& indices) const
+   requires detail::expected_value_type< size_t, Range >
+auto Gridworld< dim >::coord_state(const Range& indices) const
 {
    // create the output buffer first
    idx_xarray coords_out(/*shape=*/xt::svector< size_t >{indices.size(), dim});
@@ -280,8 +284,8 @@ auto Gridworld< dim >::coord_state(Range&& indices) const
 
 template < size_t dim >
 template < ranges::sized_range Range >
-   requires expected_value_type< size_t, Range >
-size_t Gridworld< dim >::index_state(Range&& coordinates) const
+   requires detail::expected_value_type< size_t, Range >
+size_t Gridworld< dim >::index_state(const Range& coordinates) const
 {
    auto size = ranges::distance(coordinates);
    long int diff = long(dim) - long(size);
@@ -290,7 +294,7 @@ size_t Gridworld< dim >::index_state(Range&& coordinates) const
       ss << "More arguments (" << size << ") passed than dimensions in the grid (" << dim << ").";
       throw std::invalid_argument(ss.str());
    }
-   idx_xtensor_stack< dim > coords;
+   idx_xstacktensor< dim > coords;
    // every dimension we have been given is used to fill up the coordinates from the end.
    // all dimensions from the start for which we do not have a value will be given coordinate 0
    // If coords={2,4,9} and dim = 5, then the actual passed coordinates are {0,0,2,4,9}
@@ -298,14 +302,14 @@ size_t Gridworld< dim >::index_state(Range&& coordinates) const
    ranges::fill(coords.begin(), std::next(coords.begin(), diff), 0);
    size_t state = 0;
    for(auto i : ranges::views::iota(0UL, dim)) {
-      state += m_grid_shape(i) * coords(i);
+      state += m_grid_shape_products(i) * coords(i);
    }
    return state;
 }
 
 template < size_t dim >
 template < ranges::range Range >
-bool Gridworld< dim >::is_terminal(Range&& coordinates) const
+bool Gridworld< dim >::is_terminal(const Range& coordinates) const
 {
    return std::any_of(
       xt::axis_slice_begin(m_goal_states, 1),
@@ -322,6 +326,41 @@ bool Gridworld< dim >::is_terminal(Range&& coordinates) const
          );
       }
    );
+}
+
+template < size_t dim >
+std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld< dim >::step(
+   size_t action
+)
+{
+}
+
+template < size_t dim >
+[[nodiscard]] std::string Gridworld< dim >::action_name(size_t action) const
+{
+   _assert_action_in_bounds(action);
+   if constexpr(dim == 2) {
+      constexpr std::array< std::string, n_actions() > avail_actions{"left", "right", "up", "down"};
+      return avail_actions[action];
+   }
+   if constexpr(dim == 3) {
+      constexpr std::array< std::string, n_actions() > avail_actions{
+         "left", "right", "up", "down", "in", "out"};
+      return avail_actions[action];
+   } else {
+      auto mod = std::div(long(action), long(dim));
+      return fmt::format("<DIM: {}, ACTION: {}>", mod.quot, mod.rem);
+   }
+}
+
+template < size_t dim >
+constexpr void Gridworld< dim >::_assert_action_in_bounds(size_t action)
+{
+   if(action >= n_actions()) {
+      throw std::invalid_argument(
+         fmt::format("Action ({}) is out of bounds ({})", action, n_actions())
+      );
+   }
 }
 
 }  // namespace force
