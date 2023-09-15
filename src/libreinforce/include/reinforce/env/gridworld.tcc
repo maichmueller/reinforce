@@ -212,7 +212,7 @@ void Gridworld< dim >::_enter_rewards(
 ) const
 {
    const auto reward_setter = [&](auto access_functor) {
-      // iterate over axis 0 (the state index) to get a slice of the state coordinates
+      // iterate over axis 0 (the state index) to get a slice over state coordinates
       auto coord_begin = xt::axis_slice_begin(std::as_const(m_goal_states), 0);
       auto coord_end = xt::axis_slice_end(std::as_const(m_goal_states), 0);
       for(auto [idx_iter, counter] = std::pair{coord_begin, size_t(0)}; idx_iter != coord_end;
@@ -253,12 +253,10 @@ auto Gridworld< dim >::coord_state(size_t state_index) const
    std::array< size_t, dim > coords;
    // we need the same type in std::div to avoid ambiguity. So we use long for both inputs.
    long index = long(state_index);
-   for(auto _ : ranges::views::enumerate(ranges::views::zip(m_grid_shape, m_grid_shape_products))) {
-      auto [i, shape_and_product_pair] = _;
-      auto [shape, product] = shape_and_product_pair;
-      auto modulus_result = std::div(index, long(product));
-      coords[i] = size_t(modulus_result.quot);
-      index = modulus_result.rem;
+   for(auto [i, shape] : ranges::views::reverse(ranges::views::enumerate(m_grid_shape))) {
+      auto modulus_result = std::div(index, long(shape));
+      coords[i] = size_t(modulus_result.rem);
+      index = modulus_result.quot;
    }
    return coords;
 }

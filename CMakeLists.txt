@@ -129,7 +129,7 @@ string(
         "$<$<AND:$<CONFIG:RELEASE>,$<BOOL:${ENABLE_FAST_MATH}>>:-ffast-math>"
         ">"
 )
-set(_extra_options "-ftemplate-backtrace-limit=0" "$<$<CXX_COMPILER_ID:GNU>:-fconcepts-diagnostics-depth=5>")
+set(_extra_options "-ftemplate-backtrace-limit=0" "$<$<CXX_COMPILER_ID:GNU>:-fconcepts-diagnostics-depth=10>")
 target_compile_options(project_options INTERFACE $<$<CXX_COMPILER_ID:Clang>:-stdlib=libstdc++> "${_options}"
         "${_extra_options}")
 

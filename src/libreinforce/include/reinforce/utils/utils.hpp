@@ -10,11 +10,13 @@
 
 namespace force::detail {
 
-template < typename Iter >
+template < typename Iterator, typename Sentinel >
+requires std::input_iterator<Iterator> and std::sentinel_for< Sentinel, Iterator>
 class RangeAdaptor {
   public:
-   using type = Iter;
-   RangeAdaptor(Iter begin, Iter end) : m_begin(begin), m_end(end) {}
+   using iterator_type = Iterator;
+   using sentinel_type = Sentinel;
+   RangeAdaptor(Iterator begin, Sentinel sentinel) : m_begin(begin), m_end(sentinel) {}
 
    [[nodiscard]] auto begin() { return m_begin; }
    [[nodiscard]] auto end() { return m_end; }
@@ -22,25 +24,20 @@ class RangeAdaptor {
    [[nodiscard]] auto end() const { return m_end; }
 
   private:
-   Iter m_begin, m_end;
+   iterator_type m_begin;
+   sentinel_type m_end;
 };
 
-template < typename Iter >
-class SizedRangeAdaptor {
+template < typename Iterator, typename Sentinel >
+class SizedRangeAdaptor: public RangeAdaptor< Iterator, Sentinel > {
   public:
-   using type = Iter;
-   SizedRangeAdaptor(Iter begin, Iter end, size_t size) : m_begin(begin), m_end(end), m_size(size)
+   SizedRangeAdaptor(Iterator begin, Sentinel sentinel, size_t size)
+       : RangeAdaptor< Iterator, Sentinel >(begin, sentinel), m_size(size)
    {
    }
-
-   [[nodiscard]] auto begin() { return m_begin; }
-   [[nodiscard]] auto end() { return m_end; }
-   [[nodiscard]] auto begin() const { return m_begin; }
-   [[nodiscard]] auto end() const { return m_end; }
    [[nodiscard]] auto size() const { return m_size; }
 
   private:
-   Iter m_begin, m_end;
    size_t m_size;
 };
 
