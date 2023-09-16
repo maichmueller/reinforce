@@ -5,7 +5,7 @@
 
 namespace force {
 
-using namespace xt::placeholders;  // to enaable `_` syntax
+using namespace xt::placeholders;  // to enaable `_` syntax in xt::range
 
 template < size_t dim >
 template < ranges::range Range >
@@ -74,7 +74,8 @@ Gridworld< dim >::Gridworld(
 {
    // we will now count the storage of all our special state definitions to relocate the possibly
    // fragmented memory into one contiguous memory chunk in which segments are owned by the specific
-   // state arrays.
+   // state arrays. This is a tiny optimization for memory contiguousness and is possible because we
+   // never change the setup of the grid after creating it.
    size_t total_alloc = 0;
    auto array_list = {
       std::ref(m_start_states),
@@ -308,24 +309,20 @@ size_t Gridworld< dim >::index_state(const Range& coordinates) const
 }
 
 template < size_t dim >
-template < ranges::range Range >
-bool Gridworld< dim >::is_terminal(const Range& coordinates) const
+constexpr idx_xstackvector< dim > Gridworld< dim >::action_as_vector(size_t action) const
 {
-   return std::any_of(
-      xt::axis_slice_begin(m_goal_states, 1),
-      xt::axis_slice_end(m_goal_states, 1),
-      [&, adapted_coords = _adapt_coords(coordinates)](const auto& goal_coords) {
-         // this should be ever so sightly more efficient than ranges::equal, since equal checks for
-         // same length which we already know is the case, because the coords are adapted and the
-         // goal coords are verified upon construction
-         return ranges::all_of(
-            ranges::views::zip(goal_coords, adapted_coords),
-            [](const auto& coord_pair) {
-               return std::get< 0 >(coord_pair) == std::get< 1 >(coord_pair);
-            }
-         );
-      }
-   );
+   _assert_action_in_bounds(action);
+   return _action_as_vector(action);
+}
+
+template < size_t dim >
+constexpr idx_xstackvector< dim > Gridworld< dim >::_action_as_vector(size_t action) const noexcept
+{
+   idx_xstackvector< dim > vector;
+   ranges::fill(vector, 0);
+   auto mod = std::div(long(action), 2L);
+   vector[mod.quot] = _direction_from_remainder(mod.rem);
+   return vector;
 }
 
 template < size_t dim >
@@ -333,6 +330,36 @@ std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld<
    size_t action
 )
 {
+   auto vector = action_as_vector(action);
+   auto next_position = coord_state(m_location) + vector;
+   auto next_position_index = index_state(next_position);
+   auto next_state_attr = m_reward_map.find_or(next_position_index, 0.);
+   for(auto [coordinate, shape] : ranges::views::zip(next_position, m_grid_shape)) {
+      if(coordinate < 0 or coordinate >= shape) {
+         // illegal move, we would be out of the grid bounds if we accepted it
+         // --> action has no effect
+         return std::tuple{m_location, 0., false, false};
+      }
+   };
+   switch(next_state_attr.first) {
+      case StateType::start:  // fall through to default
+      case StateType::default_: {
+         m_location = std::pair{next_position_index, next_position};
+         return std::tuple{m_location, m_step_reward + 0., false, false};
+      }
+      case StateType::subgoal: {
+         m_location = std::pair{next_position_index, next_position};
+         return std::tuple{m_location, m_step_reward + next_state_attr.second, false, false};
+      }
+      case StateType::goal: {
+         m_location = std::pair{next_position_index, next_position};
+         return std::tuple{m_location, m_step_reward + next_state_attr.second, true, false};
+      }
+      case StateType::obstacle: {
+         // we do not move so no step reward and no change whatsoever
+         return std::tuple{m_location, 0., false, false};
+      }
+   }
 }
 
 template < size_t dim >
@@ -340,25 +367,25 @@ template < size_t dim >
 {
    _assert_action_in_bounds(action);
    if constexpr(dim == 2) {
-      constexpr std::array< std::string, n_actions() > avail_actions{"left", "right", "up", "down"};
+      constexpr std::array< std::string, num_actions() > avail_actions{"left", "right", "down", "up"};
       return avail_actions[action];
    }
    if constexpr(dim == 3) {
-      constexpr std::array< std::string, n_actions() > avail_actions{
-         "left", "right", "up", "down", "in", "out"};
+      constexpr std::array< std::string, num_actions() > avail_actions{
+         "left", "right", "down", "up", "out", "in"};
       return avail_actions[action];
    } else {
       auto mod = std::div(long(action), long(dim));
-      return fmt::format("<DIM: {}, ACTION: {}>", mod.quot, mod.rem);
+      return fmt::format("<DIM: {}, DIRECTION: {}>", mod.quot, mod.rem == 0 ? -1 : 1);
    }
 }
 
 template < size_t dim >
-constexpr void Gridworld< dim >::_assert_action_in_bounds(size_t action)
+constexpr void Gridworld< dim >::_assert_action_in_bounds(size_t action) const
 {
-   if(action >= n_actions()) {
+   if(action >= num_actions()) {
       throw std::invalid_argument(
-         fmt::format("Action ({}) is out of bounds ({})", action, n_actions())
+         fmt::format("Action ({}) is out of bounds ({})", action, num_actions())
       );
    }
 }

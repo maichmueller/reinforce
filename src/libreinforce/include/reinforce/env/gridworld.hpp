@@ -35,6 +35,8 @@ using idx_xarray = xt::xarray< size_t, layout >;
 
 template < size_t dim >
 using idx_xstacktensor = xstacktensor< size_t, dim >;
+template < size_t dim >
+using idx_xstackvector = xstacktensor< long, dim >;
 
 using idx_pyarray = xt::pyarray< size_t, layout >;
 
@@ -45,7 +47,6 @@ class Gridworld {
    /// Inheriting from the non-polymorphic base of unordered map is fine, as long as no state is
    /// added (a non-polymorphic base has a non-virtual destructor, so the child state would never be
    /// deleted upon destruction of the object)
-
    class RewardMap: public std::unordered_map< size_t, std::pair< StateType, double > > {
      public:
       using base = std::unordered_map< size_t, std::pair< StateType, double > >;
@@ -69,7 +70,7 @@ class Gridworld {
 
   public:
    using self = Gridworld;
-   using obs_type = size_t;
+   using obs_type = std::pair< size_t, idx_xstacktensor< dim > >;
 
    /**
     * @brief Construct a GridWorld instance.
@@ -126,12 +127,14 @@ class Gridworld {
       requires detail::expected_value_type< size_t, Range >
    [[nodiscard]] size_t index_state(const Range& coordinates) const;
    template < ranges::range Range >
-   [[nodiscard]] bool is_terminal(const Range& coordinates) const;
+   [[nodiscard]] bool is_terminal(const Range& coordinates) const
+   {
+      return contains(m_goal_states, coordinates);
+   }
    [[nodiscard]] bool is_terminal(size_t state_index) const
    {
       return is_terminal(coord_state(state_index));
    }
-   [[nodiscard]] size_t size() const { return m_size; };
 
    std::tuple< obs_type, double, bool, bool > step(size_t action);
 
@@ -140,20 +143,26 @@ class Gridworld {
    auto& subgoal_states() const { return m_subgoal_states; }
    auto& obstacle_states() const { return m_obs_states; }
    auto& restart_states() const { return m_restart_states; }
+   auto& location() const { return m_location; }
+   auto& step_reward() const { return m_step_reward; }
+   [[nodiscard]] size_t size() const { return m_size; };
 
    void reseed(std::mt19937_64::result_type seed) { m_rng = std::mt19937_64{seed}; }
-   obs_type reset(std::optional< std::mt19937_64::result_type > seed = std::nullopt)
+   const obs_type& reset(std::optional< std::mt19937_64::result_type > seed = std::nullopt)
    {
       if(seed.has_value()) {
          reseed(*seed);
       }
-      auto start_row_index = m_start_state_distribution(m_rng);
-      return (m_position = index_state(xt::view(m_start_states, start_row_index, xt::all())));
+      auto row_index = m_start_state_distribution(m_rng);
+      idx_xstacktensor< dim > start_coordinates = xt::row(m_start_states, long(row_index));
+      return (m_location = std::pair{index_state(start_coordinates), start_coordinates});
    }
 
    [[nodiscard]] std::string action_name(size_t action) const;
 
-   [[nodiscard]] constexpr static auto n_actions() { return m_num_actions; }
+   [[nodiscard]] constexpr static auto num_actions() { return m_num_actions; }
+
+   [[nodiscard]] constexpr idx_xstackvector< dim > action_as_vector(size_t action) const;
 
   private:
    /// the number of actions are dependant only on the grid dimensionality. 'Back' and 'Forth' are
@@ -184,8 +193,8 @@ class Gridworld {
    RewardMap m_reward_map;
    /// the reward an agent achieves/pays per step
    double m_step_reward;
-   /// the current position of the agent as index array
-   size_t m_position{};
+   /// the current position of the agent as index array and associated coordinates
+   obs_type m_location{};
    /// the random number generator
    std::mt19937_64 m_rng{std::random_device{}()};
 
@@ -260,7 +269,47 @@ class Gridworld {
       }
    }
 
-   constexpr void _assert_action_in_bounds(size_t action);
+   constexpr void _assert_action_in_bounds(size_t action) const;
+
+   constexpr idx_xstackvector< dim > _action_as_vector(size_t action) const noexcept;
+
+   constexpr long _direction_from_remainder(long remainder) const noexcept
+   {
+      return remainder == 0 ? -1 : 1;
+   }
+
+   template < bool skip_size_check = false, ranges::range Range >
+      requires detail::expected_value_type< size_t, Range >
+   constexpr bool contains(const idx_xarray& states_arr, const Range& coordinates) const
+   {
+      if constexpr(not skip_size_check) {
+         if(auto size = ranges::distance(coordinates); size != dim) {
+            return false;
+         }
+      }
+      return std::any_of(
+         xt::axis_slice_begin(states_arr, 1),
+         xt::axis_slice_end(states_arr, 1),
+         [&, adapted_coords = _adapt_coords(coordinates)](const auto& obs_coords) {
+            return _equal_coords(obs_coords, adapted_coords);
+         }
+      );
+   }
+
+   /// Compares the two coordinate ranges for equal coordinates without checking for same length.
+   /// If the input coordinates do not have the same dimension,
+   /// then the outcome will only compare coordinates up to the smaller range's size.
+   template < ranges::range R1, ranges::range R2 >
+      requires(detail::expected_value_type< size_t, R1 > and detail::expected_value_type< size_t, R2 >)
+   constexpr bool _equal_coords(const R1& r1, const R2& r2) const noexcept
+   {
+      // this should be ever so sightly more efficient than ranges::equal, since equal checks
+      // for same length which we already know is the case, because the coords are adapted and
+      // the goal coords are verified upon construction
+      return ranges::all_of(ranges::views::zip(r1, r2), [](const auto& coord_pair) {
+         return std::get< 0 >(coord_pair) == std::get< 1 >(coord_pair);
+      });
+   }
 };
 
 }  // namespace force

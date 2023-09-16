@@ -29,7 +29,7 @@ TEST(Gridworld, construction)
    auto grid_env = Gridworld< 3 >(std::vector{1, 2, 3}, starts, goals, 1.);
 }
 
-class IndexCoordinatesMappingExample {
+class Gridworld3DimF {
   public:
    constexpr static std::array< size_t, 3 > shape = {3, 4, 5};
 
@@ -37,12 +37,10 @@ class IndexCoordinatesMappingExample {
    Gridworld< 3 > gridworld{shape, idx_pyarray{{0, 0, 2}}, idx_pyarray{{0, 1, 0}}, 1.};
 };
 
-class IndexCoordinatesMappingParamsF:
-    public IndexCoordinatesMappingExample,
-    public ::testing::Test {};
+class IndexCoordinatesMappingParamsF: public Gridworld3DimF, public ::testing::Test {};
 
 class ParameterizedIndexCoordinatesMappingParamsF:
-    public IndexCoordinatesMappingExample,
+    public Gridworld3DimF,
     public ::testing::TestWithParam< std::tuple<
        size_t,  // index
        std::array< size_t, 3 >  // the associated coordinates
