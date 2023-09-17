@@ -5,6 +5,7 @@ range-v3/0.12.0
 fmt/10.1.1
 xtensor/0.24.3
 openblas/0.3.20
+spdlog/1.12.0
 
 [generators]
 cmake

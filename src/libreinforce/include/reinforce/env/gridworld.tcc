@@ -212,16 +212,26 @@ Gridworld< dim >::RewardMap Gridworld< dim >::_init_reward_map(
 template < size_t dim >
 template < StateType state_type >
 void Gridworld< dim >::_enter_rewards(
-   const std::variant< double, pyarray< double > >& reward,
+   const std::variant< double, pyarray< double > >& reward_variant,
    RewardMap& reward_map
 ) const
 {
+   const auto& states = _states< state_type >();
+   if(states.size() == 0) {
+        SPDLOG_DEBUG("State type ({}) has an empty associated array. Not entering any values to reward map.", static_cast<int>(state_type), states);
+        return;
+   }
+   SPDLOG_DEBUG("State type's ({}) associated array: {}", static_cast<int>(state_type), states);
    const auto reward_setter = [&](auto access_functor) {
       // iterate over axis 0 (the state index) to get a slice over state coordinates
-      auto coord_begin = xt::axis_slice_begin(std::as_const(m_goal_states), 0);
-      auto coord_end = xt::axis_slice_end(std::as_const(m_goal_states), 0);
+      auto coord_begin = xt::axis_slice_begin(states, 1);
+      auto coord_end = xt::axis_slice_end(states, 1);
       for(auto [idx_iter, counter] = std::pair{coord_begin, size_t(0)}; idx_iter != coord_end;
           idx_iter++, counter++) {
+         SPDLOG_DEBUG(
+            "State index: {}",
+            index_state(detail::SizedRangeAdaptor{idx_iter->cbegin(), idx_iter->cend(), dim})
+         );
          reward_map.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(index_state(detail::SizedRangeAdaptor{
@@ -231,24 +241,24 @@ void Gridworld< dim >::_enter_rewards(
       }
    };
 
-   const auto assert_shape = [&](const pyarray< double >& r_goals) {
-      if(r_goals.shape(0) != m_goal_states.shape(0)) {
+   const auto assert_shape = [&](const pyarray< double >& reward_arr) {
+      if(reward_arr.shape(0) != states.shape(0)) {
          std::stringstream ss;
-         ss << "Length (" << r_goals.shape(0)
+         ss << "Length (" << reward_arr.shape(0)
             << ") of passed goal state reward array does not match number of goal states ("
-            << m_goal_states.shape(0) << ").";
+            << states.shape(0) << ").";
          throw std::invalid_argument(ss.str());
       }
    };
 
    std::visit(
       detail::overload{
-         [&](double r_goal) { reward_setter([&](auto) { return r_goal; }); },
-         [&](const pyarray< double >& r_goals) {
-            assert_shape(r_goals);
-            reward_setter([&](auto index) { return r_goals(index); });
+         [&](double reward_val) { reward_setter([&](auto) { return reward_val; }); },
+         [&](const pyarray< double >& reward_arr) {
+            assert_shape(reward_arr);
+            reward_setter([&](auto index) { return reward_arr(index); });
          }},
-      reward
+      reward_variant
    );
 }
 
@@ -367,7 +377,8 @@ template < size_t dim >
 {
    _assert_action_in_bounds(action);
    if constexpr(dim == 2) {
-      constexpr std::array< std::string, num_actions() > avail_actions{"left", "right", "down", "up"};
+      constexpr std::array< std::string, num_actions() > avail_actions{
+         "left", "right", "down", "up"};
       return avail_actions[action];
    }
    if constexpr(dim == 3) {

@@ -1,9 +1,15 @@
 #ifndef REINFORCE_GRIDWORLD_HPP
 #define REINFORCE_GRIDWORLD_HPP
 
+#ifndef SPDLOG_ACTIVE_LEVEL
+static_assert(false, "No logging level set.");
+#endif
+
+
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <pybind11/numpy.h>
+#include <spdlog/spdlog.h>
 
 #include <optional>
 #include <range/v3/all.hpp>
@@ -50,19 +56,13 @@ class Gridworld {
    class RewardMap: public std::unordered_map< size_t, std::pair< StateType, double > > {
      public:
       using base = std::unordered_map< size_t, std::pair< StateType, double > >;
-      using key_type = typename std::unordered_map< size_t, std::pair< StateType, double > >::
-         key_type;
-      using value_type = typename std::unordered_map< size_t, std::pair< StateType, double > >::
-         value_type;
-      using mapped_type = typename std::unordered_map< size_t, std::pair< StateType, double > >::
-         mapped_type;
       using base::base;
 
-      constexpr auto find_or(const std::integral auto& key, const auto& default_value) const
+      constexpr auto find_or(const std::integral auto& key, const double& default_value) const
       {
          auto find_iter = base::find(key);
          if(find_iter != base::end()) {
-            return *find_iter;
+            return (*find_iter).second;
          }
          return std::pair{StateType::default_, default_value};
       }
@@ -126,14 +126,15 @@ class Gridworld {
    template < ranges::sized_range Range >
       requires detail::expected_value_type< size_t, Range >
    [[nodiscard]] size_t index_state(const Range& coordinates) const;
+
+   [[nodiscard]] bool is_terminal(size_t state_index) const
+   {
+      return m_reward_map.find_or(state_index, 0.).first == StateType::goal;
+   }
    template < ranges::range Range >
    [[nodiscard]] bool is_terminal(const Range& coordinates) const
    {
-      return contains(m_goal_states, coordinates);
-   }
-   [[nodiscard]] bool is_terminal(size_t state_index) const
-   {
-      return is_terminal(coord_state(state_index));
+      return is_terminal(index_state(coordinates));
    }
 
    std::tuple< obs_type, double, bool, bool > step(size_t action);
@@ -257,7 +258,7 @@ class Gridworld {
 
    template < StateType state_type >
    void _enter_rewards(
-      const std::variant< double, pyarray< double > >& reward,
+      const std::variant< double, pyarray< double > >& reward_variant,
       RewardMap& reward_map
    ) const;
 
@@ -309,6 +310,26 @@ class Gridworld {
       return ranges::all_of(ranges::views::zip(r1, r2), [](const auto& coord_pair) {
          return std::get< 0 >(coord_pair) == std::get< 1 >(coord_pair);
       });
+   }
+
+   template < StateType state_type >
+   constexpr auto& _states() const
+   {
+      if constexpr(state_type == StateType::goal) {
+         return m_goal_states;
+      } else if constexpr(state_type == StateType::subgoal) {
+         return m_subgoal_states;
+      } else if constexpr(state_type == StateType::restart) {
+         return m_restart_states;
+      } else if constexpr(state_type == StateType::start) {
+         return m_start_states;
+      } else if constexpr(state_type == StateType::obstacle) {
+         return m_obs_states;
+      } else {
+         static_assert(
+            detail::always_false(state_type), "State type not associated with any arrays."
+         );
+      }
    }
 };
 

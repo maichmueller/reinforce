@@ -10,6 +10,11 @@
 
 namespace force::detail {
 
+template<typename T>
+consteval bool always_false(T) {
+   return false;
+}
+
 template < typename Iterator, typename Sentinel >
 requires std::input_iterator<Iterator> and std::sentinel_for< Sentinel, Iterator>
 class RangeAdaptor {
