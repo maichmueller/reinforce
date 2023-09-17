@@ -121,18 +121,18 @@ idx_xstacktensor< dim > Gridworld< dim >::_verify_shape(const Range& coords_rang
       "Iterator type of range must be at least forward iterator (allow multiple passes)."
    );
    constexpr long long_dim = long(dim);
-   auto dist = ranges::distance(coords_range);
+   auto n_coordinates = ranges::distance(coords_range);
    std::array< size_t, dim > actual_shape;
-   if(dist > long_dim) {
+   if(n_coordinates > long_dim) {
       std::stringstream ss;
-      ss << "Expected a <=" << dim << "-dimensional shape parameter. Got " << dist << ".";
+      ss << "Expected a <=" << dim << "-dimensional shape parameter. Got " << n_coordinates << ".";
       throw std::invalid_argument(ss.str());
    }
    ranges::copy(coords_range, actual_shape.begin());
-   if(dist < long_dim) {
+   if(n_coordinates < long_dim) {
       // dimension of shape param is less than the dimension of the grid.
-      // Pad length 1 for each unspecified dimension.
-      std::fill(std::next(actual_shape.begin(), dist), actual_shape.end(), 1);
+      // Pad length 1 at the end of the shape vector for each unspecified dimension.
+      ranges::fill(actual_shape | ranges::views::drop(n_coordinates), 1);
    }
    return actual_shape;
 }
@@ -218,10 +218,16 @@ void Gridworld< dim >::_enter_rewards(
 {
    const auto& states = _states< state_type >();
    if(states.size() == 0) {
-        SPDLOG_DEBUG("State type ({}) has an empty associated array. Not entering any values to reward map.", static_cast<int>(state_type), states);
-        return;
+      SPDLOG_DEBUG(fmt::format(
+         "State type ({}) has an empty associated array. Not entering any values to reward map.",
+         static_cast< int >(state_type),
+         states
+      ));
+      return;
    }
-   SPDLOG_DEBUG("State type's ({}) associated array: {}", static_cast<int>(state_type), states);
+   SPDLOG_DEBUG(fmt::format(
+      "State type's ({}) associated array: \n{}", static_cast< int >(state_type), states
+   ));
    const auto reward_setter = [&](auto access_functor) {
       // iterate over axis 0 (the state index) to get a slice over state coordinates
       auto coord_begin = xt::axis_slice_begin(states, 1);

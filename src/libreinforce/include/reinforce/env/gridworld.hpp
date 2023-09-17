@@ -5,8 +5,8 @@
 static_assert(false, "No logging level set.");
 #endif
 
-
 #include <fmt/format.h>
+#include <fmt/std.h>
 #include <fmt/ranges.h>
 #include <pybind11/numpy.h>
 #include <spdlog/spdlog.h>
@@ -25,6 +25,7 @@ static_assert(false, "No logging level set.");
 #include <xtensor/xview.hpp>
 
 #include "reinforce/utils/utils.hpp"
+#include "reinforce/utils/xarray_formatter.hpp"
 
 namespace force {
 
@@ -139,14 +140,15 @@ class Gridworld {
 
    std::tuple< obs_type, double, bool, bool > step(size_t action);
 
-   auto& start_states() const { return m_start_states; }
-   auto& goal_states() const { return m_goal_states; }
-   auto& subgoal_states() const { return m_subgoal_states; }
-   auto& obstacle_states() const { return m_obs_states; }
-   auto& restart_states() const { return m_restart_states; }
-   auto& location() const { return m_location; }
-   auto& step_reward() const { return m_step_reward; }
+   [[nodiscard]] auto& start_states() const { return m_start_states; }
+   [[nodiscard]] auto& goal_states() const { return m_goal_states; }
+   [[nodiscard]] auto& subgoal_states() const { return m_subgoal_states; }
+   [[nodiscard]] auto& obstacle_states() const { return m_obs_states; }
+   [[nodiscard]] auto& restart_states() const { return m_restart_states; }
+   [[nodiscard]] auto& location() const { return m_location; }
+   [[nodiscard]] auto& step_reward() const { return m_step_reward; }
    [[nodiscard]] size_t size() const { return m_size; };
+   [[nodiscard]] auto& shape() const { return m_grid_shape; };
 
    void reseed(std::mt19937_64::result_type seed) { m_rng = std::mt19937_64{seed}; }
    const obs_type& reset(std::optional< std::mt19937_64::result_type > seed = std::nullopt)
