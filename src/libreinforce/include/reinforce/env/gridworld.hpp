@@ -6,8 +6,8 @@ static_assert(false, "No logging level set.");
 #endif
 
 #include <fmt/format.h>
-#include <fmt/std.h>
 #include <fmt/ranges.h>
+#include <fmt/std.h>
 #include <pybind11/numpy.h>
 #include <spdlog/spdlog.h>
 
@@ -215,17 +215,18 @@ class Gridworld {
    {
       auto arr_shape = arr.shape();
       if(arr_shape.size() != 2) {
-         throw std::invalid_argument(
-            "Array is not exactly two dimensional. Actual dimensions: "
-            + std::to_string(arr_shape.size())
-         );
+         throw std::invalid_argument(fmt::format(
+            "Array is not exactly two dimensional. Actual dimensions: {}", arr_shape.size()
+         ));
       }
       if(arr_shape[1] != dimensions) {
-         std::stringstream sstream;
-         sstream << "Dimension mismatch:\n"
-                 << "Passed states array has coordinate dimensions: " << arr.dimension()
-                 << "\nThe expected dimensions are: " << dimensions;
-         throw std::invalid_argument(sstream.str());
+         throw std::invalid_argument(fmt::format(
+            "Dimension mismatch:\n"
+            "Passed states array has coordinate dimensions: {}\n"
+            "The expected dimensions are: {}",
+            arr.dimension(),
+            dimensions
+         ));
       }
    }
 
@@ -234,11 +235,13 @@ class Gridworld {
    {
       auto arr_shape = arr.shape();
       if(not ranges::equal(arr_shape, shape)) {
-         std::stringstream sstream;
-         sstream << "Shape mismatch:\n"
-                 << "Passed array has shape: " << fmt::format("{}", arr_shape)
-                 << "\nThe required shape is: " << fmt::format("{}", std::forward< Rng >(shape));
-         throw std::invalid_argument(sstream.str());
+         throw std::invalid_argument(fmt::format(
+            "Shape mismatch:\n"
+            "Passed array has shape: {}\n"
+            "The required shape is: {}",
+            arr_shape,
+            std::forward< Rng >(shape)
+         ));
       }
    }
 
@@ -300,39 +303,30 @@ class Gridworld {
    }
 
    /// Compares the two coordinate ranges for equal coordinates without checking for same length.
-   /// If the input coordinates do not have the same dimension,
-   /// then the outcome will only compare coordinates up to the smaller range's size.
+   /// If the input coordinates do not have the same dimension, then the outcome will only compare
+   /// coordinates up to the smaller range's size.
+   ///
+   /// Note, this essentially only foregoes the length check in ranges::equal.
+   /// \tparam R1 the 1st input range type, needs to be a range over `size_t`
+   /// \tparam R2 the 2nd input range type, needs to be a range over `size_t`
+   /// \param rng1 reference to the 1st input range
+   /// \param rng2 reference to the 2nd input range
+   /// \return bool, do both coordinate ranges agree
    template < ranges::range R1, ranges::range R2 >
       requires(detail::expected_value_type< size_t, R1 > and detail::expected_value_type< size_t, R2 >)
-   constexpr bool _equal_coords(const R1& r1, const R2& r2) const noexcept
+   constexpr bool _equal_coords(const R1& rng1, const R2& rng2) const noexcept
    {
       // this should be ever so sightly more efficient than ranges::equal, since equal checks
       // for same length which we already know is the case, because the coords are adapted and
       // the goal coords are verified upon construction
-      return ranges::all_of(ranges::views::zip(r1, r2), [](const auto& coord_pair) {
+      return ranges::all_of(ranges::views::zip(rng1, rng2), [](const auto& coord_pair) {
          return std::get< 0 >(coord_pair) == std::get< 1 >(coord_pair);
       });
    }
 
+   /// \brief returns the xarray associated holing all the states of the given state type.
    template < StateType state_type >
-   constexpr auto& _states() const
-   {
-      if constexpr(state_type == StateType::goal) {
-         return m_goal_states;
-      } else if constexpr(state_type == StateType::subgoal) {
-         return m_subgoal_states;
-      } else if constexpr(state_type == StateType::restart) {
-         return m_restart_states;
-      } else if constexpr(state_type == StateType::start) {
-         return m_start_states;
-      } else if constexpr(state_type == StateType::obstacle) {
-         return m_obs_states;
-      } else {
-         static_assert(
-            detail::always_false(state_type), "State type not associated with any arrays."
-         );
-      }
-   }
+   constexpr auto& _states() const;
 };
 
 }  // namespace force

@@ -7,16 +7,19 @@
 #include "range/v3/all.hpp"
 #include "xtensor/xadapt.hpp"
 #include "xtensor/xarray.hpp"
+#include <fmt/format.h>
+#include <fmt/ranges.h>
 
 namespace force::detail {
 
-template<typename T>
-consteval bool always_false(T) {
+template < typename T >
+consteval bool always_false(T)
+{
    return false;
 }
 
 template < typename Iterator, typename Sentinel >
-requires std::input_iterator<Iterator> and std::sentinel_for< Sentinel, Iterator>
+   requires std::input_iterator< Iterator > and std::sentinel_for< Sentinel, Iterator >
 class RangeAdaptor {
   public:
    using iterator_type = Iterator;
@@ -209,7 +212,6 @@ struct deref_fn {
    }
 };
 
-
 template < typename ExpectedType, typename Range >
 concept expected_value_type = requires(Range rng) {
    {
@@ -224,13 +226,9 @@ struct CoordinateHasher {
    size_t operator()(const Range& coords) const noexcept
       requires expected_value_type< size_t, Range >
    {
-      constexpr auto string_hasher = std::hash< std::string >{};
-      std::stringstream ss;
-      std::copy(coords.begin(), coords.end(), std::ostream_iterator< size_t >(ss, ","));
-      return string_hasher(ss.str());
+      return std::hash< std::string >{}(fmt::join(coords, ","));
    }
 };
-
 
 }  // namespace force::detail
 

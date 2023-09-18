@@ -124,9 +124,9 @@ idx_xstacktensor< dim > Gridworld< dim >::_verify_shape(const Range& coords_rang
    auto n_coordinates = ranges::distance(coords_range);
    std::array< size_t, dim > actual_shape;
    if(n_coordinates > long_dim) {
-      std::stringstream ss;
-      ss << "Expected a <=" << dim << "-dimensional shape parameter. Got " << n_coordinates << ".";
-      throw std::invalid_argument(ss.str());
+      throw std::invalid_argument(
+         fmt::format("Expected a <={}-dimensional shape parameter. Got {} .", dim, n_coordinates)
+      );
    }
    ranges::copy(coords_range, actual_shape.begin());
    if(n_coordinates < long_dim) {
@@ -249,11 +249,11 @@ void Gridworld< dim >::_enter_rewards(
 
    const auto assert_shape = [&](const pyarray< double >& reward_arr) {
       if(reward_arr.shape(0) != states.shape(0)) {
-         std::stringstream ss;
-         ss << "Length (" << reward_arr.shape(0)
-            << ") of passed goal state reward array does not match number of goal states ("
-            << states.shape(0) << ").";
-         throw std::invalid_argument(ss.str());
+         throw std::invalid_argument(fmt::format(
+            "Length ({}) of goal state reward array does not match number of goal states ({}).",
+            reward_arr.shape(0),
+            states.shape(0)
+         ));
       }
    };
 
@@ -307,9 +307,9 @@ size_t Gridworld< dim >::index_state(const Range& coordinates) const
    auto size = ranges::distance(coordinates);
    long int diff = long(dim) - long(size);
    if(diff < 0) {
-      std::stringstream ss;
-      ss << "More arguments (" << size << ") passed than dimensions in the grid (" << dim << ").";
-      throw std::invalid_argument(ss.str());
+      throw std::invalid_argument(
+         fmt::format("More arguments ({}) passed than dimensions in the grid ({}).", size, dim)
+      );
    }
    idx_xstacktensor< dim > coords;
    // every dimension we have been given is used to fill up the coordinates from the end.
@@ -404,6 +404,25 @@ constexpr void Gridworld< dim >::_assert_action_in_bounds(size_t action) const
       throw std::invalid_argument(
          fmt::format("Action ({}) is out of bounds ({})", action, num_actions())
       );
+   }
+}
+
+template < size_t dim >
+template < StateType state_type >
+constexpr auto& Gridworld< dim >::_states() const
+{
+   if constexpr(state_type == StateType::goal) {
+      return m_goal_states;
+   } else if constexpr(state_type == StateType::subgoal) {
+      return m_subgoal_states;
+   } else if constexpr(state_type == StateType::restart) {
+      return m_restart_states;
+   } else if constexpr(state_type == StateType::start) {
+      return m_start_states;
+   } else if constexpr(state_type == StateType::obstacle) {
+      return m_obs_states;
+   } else {
+      static_assert(detail::always_false(state_type), "State type not associated with any arrays.");
    }
 }
 
