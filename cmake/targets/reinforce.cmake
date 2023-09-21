@@ -22,6 +22,7 @@ target_link_libraries(
         CONAN_PKG::fmt
         CONAN_PKG::xtensor
         CONAN_PKG::spdlog
+        CONAN_PKG::frozen
         xtensor-python
         xtensor-blas
         pybind11::module

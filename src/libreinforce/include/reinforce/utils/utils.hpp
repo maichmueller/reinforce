@@ -2,13 +2,15 @@
 #ifndef REINFORCE_UTILS_HPP
 #define REINFORCE_UTILS_HPP
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+
 #include <utility>
 
 #include "range/v3/all.hpp"
 #include "xtensor/xadapt.hpp"
 #include "xtensor/xarray.hpp"
-#include <fmt/format.h>
-#include <fmt/ranges.h>
+
 
 namespace force::detail {
 

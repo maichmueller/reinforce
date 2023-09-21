@@ -143,3 +143,15 @@ INSTANTIATE_TEST_SUITE_P(
       return values;
    }))
 );
+
+class Gridworld3DimStepF: public Gridworld3DimF, public ::testing::Test {};
+
+TEST_F(Gridworld3DimStepF, step)
+{
+   std::pair< size_t, idx_xstacktensor< 3 > > observation;
+   double reward;
+   bool truncated, terminated;
+   for(auto action : std::vector< size_t >{0, 1, 0, 2, 4, 5, 0, 1}) {
+      std::tie(observation, reward, truncated, terminated) = gridworld.step(action);
+   }
+}

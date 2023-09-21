@@ -337,7 +337,7 @@ constexpr idx_xstackvector< dim > Gridworld< dim >::_action_as_vector(size_t act
    idx_xstackvector< dim > vector;
    ranges::fill(vector, 0);
    auto mod = std::div(long(action), 2L);
-   vector[mod.quot] = _direction_from_remainder(mod.rem);
+   vector[size_t(mod.quot)] = _direction_from_remainder(mod.rem);
    return vector;
 }
 
@@ -347,7 +347,7 @@ std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld<
 )
 {
    auto vector = action_as_vector(action);
-   auto next_position = coord_state(m_location) + vector;
+   auto next_position = xt::eval(std::get< 1 >(m_location) + vector);
    auto next_position_index = index_state(next_position);
    auto next_state_attr = m_reward_map.find_or(next_position_index, 0.);
    for(auto [coordinate, shape] : ranges::views::zip(next_position, m_grid_shape)) {
@@ -375,7 +375,14 @@ std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld<
          // we do not move so no step reward and no change whatsoever
          return std::tuple{m_location, 0., false, false};
       }
+      case StateType::restart: {
+         reset();
+         return std::tuple{m_location, m_step_reward + next_state_attr.second, false, false};
+      }
    }
+   throw std::logic_error(
+      fmt::format("Switch statement did not handle case ({}).", next_state_attr.first)
+   );
 }
 
 template < size_t dim >

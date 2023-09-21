@@ -8,6 +8,7 @@ static_assert(false, "No logging level set.");
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <fmt/std.h>
+#include <frozen/unordered_map.h>
 #include <pybind11/numpy.h>
 #include <spdlog/spdlog.h>
 
@@ -24,10 +25,33 @@ static_assert(false, "No logging level set.");
 #include <xtensor/xio.hpp>
 #include <xtensor/xview.hpp>
 
+#include "reinforce/utils/format.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 
 namespace force {
+
+enum class StateType { default_ = 0, goal = 1, subgoal = 2, start = 3, restart = 4, obstacle = 5 };
+
+namespace detail {
+constexpr frozen::unordered_map< StateType, std::string_view, 6 > state_type_names{
+   {StateType::default_, "default"},
+   {StateType::goal, "goal"},
+   {StateType::subgoal, "subgoal"},
+   {StateType::start, "start"},
+   {StateType::restart, "restart"},
+   {StateType::obstacle, "obstacle"}};
+
+template <>
+inline std::string to_string(const StateType& state_type)
+{
+   return std::string{state_type_names.at(state_type)};
+}
+
+template <>
+struct printable< StateType >: std::true_type {};
+
+}  // namespace detail
 
 constexpr auto layout = xt::layout_type::row_major;
 
@@ -47,25 +71,37 @@ using idx_xstackvector = xstacktensor< long, dim >;
 
 using idx_pyarray = xt::pyarray< size_t, layout >;
 
-enum class StateType { default_ = 0, goal = 1, subgoal = 2, start = 3, restart = 4, obstacle = 5 };
-
 template < size_t dim >
 class Gridworld {
    /// Inheriting from the non-polymorphic base of unordered map is fine, as long as no state is
-   /// added (a non-polymorphic base has a non-virtual destructor, so the child state would never be
-   /// deleted upon destruction of the object)
+   /// added (a non-polymorphic base has a non-virtual destructor, so the child state would never
+   /// be deleted upon destruction of the object)
+
+   constexpr static auto _default_reward_pair = std::pair{StateType::default_, 0.};
+
    class RewardMap: public std::unordered_map< size_t, std::pair< StateType, double > > {
      public:
       using base = std::unordered_map< size_t, std::pair< StateType, double > >;
       using base::base;
 
-      constexpr auto find_or(const std::integral auto& key, const double& default_value) const
+      template < typename DefaultT >
+      constexpr auto find_or(const std::integral auto& key, DefaultT&& default_value) const
       {
+         using default_type = std::remove_cvref_t< DefaultT >;
          auto find_iter = base::find(key);
          if(find_iter != base::end()) {
             return (*find_iter).second;
          }
-         return std::pair{StateType::default_, default_value};
+         if constexpr(std::same_as< typename base::mapped_type, default_type >) {
+            return std::forward< DefaultT >(default_value);
+         }
+         if constexpr(std::convertible_to< default_type, double >) {
+            return std::pair{StateType::default_, std::forward< DefaultT >(default_value)};
+         } else {
+            static_assert(
+               detail::always_false(default_value), "Default value type not recognized."
+            );
+         }
       }
    };
 
@@ -84,8 +120,8 @@ class Gridworld {
     * @param goal_reward The reward for reaching a goal state.
     * @param subgoal_state_reward The reward for transitioning to a subgoal state.
     * @param restart_state_reward The reward for transitioning to a restart state.
-    * @param transition_matrix The probability or probability matrix of successfully transitioning
-    * states.
+    * @param transition_matrix The probability or probability matrix of successfully
+    * transitioning states.
     * @param bias The probability of transitioning left or right if not successful.
     * @param obstacle_states States the agent cannot enter.
     * @param subgoal_states States where the agent incurs high subgoal.
@@ -168,8 +204,8 @@ class Gridworld {
    [[nodiscard]] constexpr idx_xstackvector< dim > action_as_vector(size_t action) const;
 
   private:
-   /// the number of actions are dependant only on the grid dimensionality. 'Back' and 'Forth' are
-   /// the actions that can be done in each dimension.
+   /// the number of actions are dependant only on the grid dimensionality. 'Back' and 'Forth'
+   /// are the actions that can be done in each dimension.
    constexpr static size_t m_num_actions = 2 * dim;
    /// the lengths of each grid dimension
    idx_xstacktensor< dim > m_grid_shape;
@@ -189,8 +225,9 @@ class Gridworld {
    idx_xarray m_restart_states;
    /// shape (n,)
    std::discrete_distribution< size_t > m_start_state_distribution;
-   /// shape (N, a, N) where N are the total number of states (state and successor state indices to
-   /// which `a`, the action, might lead). The matrix value represents the transition probability.
+   /// shape (N, a, N) where N are the total number of states (state and successor state indices
+   /// to which `a`, the action, might lead). The matrix value represents the transition
+   /// probability.
    xarray< double > m_transition_tensor;
    /// the reward map for a given state
    RewardMap m_reward_map;
@@ -303,8 +340,8 @@ class Gridworld {
    }
 
    /// Compares the two coordinate ranges for equal coordinates without checking for same length.
-   /// If the input coordinates do not have the same dimension, then the outcome will only compare
-   /// coordinates up to the smaller range's size.
+   /// If the input coordinates do not have the same dimension, then the outcome will only
+   /// compare coordinates up to the smaller range's size.
    ///
    /// Note, this essentially only foregoes the length check in ranges::equal.
    /// \tparam R1 the 1st input range type, needs to be a range over `size_t`
