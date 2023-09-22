@@ -144,14 +144,60 @@ INSTANTIATE_TEST_SUITE_P(
    }))
 );
 
-class Gridworld3DimStepF: public Gridworld3DimF, public ::testing::Test {};
+class Gridworld2DimF {
+  public:
+   constexpr static std::array< size_t, 2 > shape = {4, 5};
 
-TEST_F(Gridworld3DimStepF, step)
+  protected:
+   Gridworld< 2 > gridworld{shape, idx_pyarray{{0, 2}}, idx_pyarray{{3, 0}}, 1.};
+};
+
+class Gridworld2DimStepF: public Gridworld2DimF, public ::testing::Test {};
+
+TEST_F(Gridworld2DimStepF, step)
 {
    std::pair< size_t, idx_xstacktensor< 3 > > observation;
    double reward;
    bool truncated, terminated;
-   for(auto action : std::vector< size_t >{0, 1, 0, 2, 4, 5, 0, 1}) {
-      std::tie(observation, reward, truncated, terminated) = gridworld.step(action);
+   fmt::print(
+      "Gridworld specifics for `step` function test:\n"
+      "Start states: {}\n"
+      "Goal states: {}\n"
+      "Transition Tensor: {}\n",
+      gridworld.start_states(),
+      gridworld.goal_states(),
+      gridworld.transition_tensor()
+   );
+   for(auto action : std::vector< size_t >{
+          0,  // left  {0,2} (out of bounds)
+          1,  // right {1,2}
+          0,  // left  {0,2}
+          2,  // down  {0,1}
+          3,  // up    {0,2}
+          3,  // up    {0,3}
+          3,  // up    {0,4}
+          1,  // right {1,4}
+          1,  // right {2,4}
+          1,  // right {3,4}
+          1,  // right {4,4}
+          2,  // down  {4,3}
+          2,  // down  {4,2}
+          2,  // down  {4,1}
+          2,  // down  {4,0}
+          0,  // left  {3,0}
+          3,  // up    {3,1}
+       }) {
+      fmt::print(
+         "Location before: {}, Action index: {}, action name: {}\n",
+         gridworld.location(),
+         action,
+         gridworld.action_name(action)
+      );
+      std::tie(observation, reward, terminated, truncated) = gridworld.step(action);
+      fmt::print("Location after:  {}\n", gridworld.location());
+      if(terminated) {
+         fmt::print("Goal state reached. Terminated.");
+         break;
+      }
    }
 }

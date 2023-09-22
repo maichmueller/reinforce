@@ -8,9 +8,9 @@
 
 template < class T, xt::layout_type L, class A, class SA >
 struct fmt::formatter< xt::xarray< T, L, A, SA > >: fmt::ostream_formatter {};
-template < class T, size_t N, xt::layout_type L, class A>
+template < class T, size_t N, xt::layout_type L, class A >
 struct fmt::formatter< xt::xtensor< T, N, L, A > >: fmt::ostream_formatter {};
-template < class T, class FSH, xt::layout_type L, bool S>
+template < class T, class FSH, xt::layout_type L, bool S >
 struct fmt::formatter< xt::xtensor_fixed< T, FSH, L, S > >: fmt::ostream_formatter {};
 
 // Specify disambiguation specializations for xarray< T >.
@@ -27,11 +27,37 @@ struct fmt::formatter< xt::xtensor_fixed< T, FSH, L, S > >: fmt::ostream_formatt
       template <>             \
       struct fmt::formatter< xt::xarray< T > >: fmt::ostream_formatter {}
 #endif
+#ifndef XSTACKTENSOR_FORMATTER
+   #define XSTACKTENSOR_FORMATTER(T, ...)                                         \
+      template <>                                                                 \
+      struct fmt::formatter< xt::xtensor_fixed< T, xt::xshape< __VA_ARGS__ > > >: \
+          fmt::ostream_formatter {}
+#endif
 
 XARRY_FORMATTER(double);
 XARRY_FORMATTER(float);
 XARRY_FORMATTER(int);
 XARRY_FORMATTER(unsigned int);
 XARRY_FORMATTER(size_t);
+XSTACKTENSOR_FORMATTER(size_t, 1);
+XSTACKTENSOR_FORMATTER(size_t, 2);
+XSTACKTENSOR_FORMATTER(size_t, 3);
+XSTACKTENSOR_FORMATTER(size_t, 4);
+XSTACKTENSOR_FORMATTER(size_t, 5);
+XSTACKTENSOR_FORMATTER(size_t, 6);
+XSTACKTENSOR_FORMATTER(size_t, 7);
+XSTACKTENSOR_FORMATTER(size_t, 8);
+XSTACKTENSOR_FORMATTER(size_t, 9);
+XSTACKTENSOR_FORMATTER(size_t, 10);
+XSTACKTENSOR_FORMATTER(size_t, 11);
+XSTACKTENSOR_FORMATTER(size_t, 12);
+XSTACKTENSOR_FORMATTER(size_t, 13);
+XSTACKTENSOR_FORMATTER(size_t, 14);
+XSTACKTENSOR_FORMATTER(size_t, 15);
+XSTACKTENSOR_FORMATTER(size_t, 16);
+XSTACKTENSOR_FORMATTER(size_t, 17);
+XSTACKTENSOR_FORMATTER(size_t, 18);
+XSTACKTENSOR_FORMATTER(size_t, 19);
+XSTACKTENSOR_FORMATTER(size_t, 20);
 
 #endif  // REINFORCE_XARRAY_FORMATTER_HPP

@@ -167,32 +167,36 @@ idx_xstacktensor< dim > Gridworld< dim >::_adapt_coords(const Range& coords_rang
 template < size_t dim >
 xarray< double > Gridworld< dim >::_init_transition_tensor(
    std::variant< double, pyarray< double > > transition_matrix
-)
+) const
 {
-   return std::visit(
+   xt::svector< size_t > shape{m_size, m_num_actions, m_num_actions};
+   auto tensor = xarray< double >::from_shape(shape);
+   std::visit(
       detail::overload{
          [&](double value) {
-            size_t n_states = size();
-            xt::svector< size_t > shape{n_states, m_num_actions, n_states};
-            ranges::copy(m_grid_shape, ranges::begin(shape));
-            shape[dim] = m_num_actions;
-            ranges::copy(m_grid_shape, std::next(ranges::begin(shape), dim + 1));
-            size_t total_size = ranges::accumulate(shape, size_t(1), std::multiplies{});
-            return xarray< double >(xt::adapt< xt::layout_type::row_major >(
-               c_array(total_size, value).data(), total_size, xt::acquire_ownership(), shape
-            ));
+            if(value > 1.) {
+               throw std::invalid_argument(
+                  fmt::format("Transition probability must be <= 1. Given: {}", value)
+               );
+            }
+            for(auto [state, action_choice, action_realized] : ranges::views::cartesian_product(
+                   ranges::views::iota(0UL, m_size),
+                   ranges::views::iota(0UL, m_num_actions),
+                   ranges::views::iota(0UL, m_num_actions)
+                )) {
+               double probability = value * (action_realized == action_choice)
+                                    + (1. - value) / double(m_num_actions - 1.)
+                                         * (action_choice != action_realized);
+               tensor(state, action_choice, action_realized) = probability;
+            }
          },
          [&](pyarray< double > arr) {
-            auto shape = ranges::to_vector(
-               ranges::concat_view(m_grid_shape, std::array{m_num_actions}, m_grid_shape)
-            );
             assert_shape(arr, shape);
-            xarray< double > allocated(shape);
-            ranges::copy(arr, allocated.begin());
-            return allocated;
+            ranges::copy(arr, tensor.begin());
          }},
       transition_matrix
    );
+   return tensor;
 }
 
 template < size_t dim >
@@ -325,19 +329,26 @@ size_t Gridworld< dim >::index_state(const Range& coordinates) const
 }
 
 template < size_t dim >
-constexpr idx_xstackvector< dim > Gridworld< dim >::action_as_vector(size_t action) const
+constexpr std::array< long, dim > Gridworld< dim >::action_as_vector(size_t action) const
 {
    _assert_action_in_bounds(action);
    return _action_as_vector(action);
 }
 
 template < size_t dim >
-constexpr idx_xstackvector< dim > Gridworld< dim >::_action_as_vector(size_t action) const noexcept
+constexpr std::array< long, dim > Gridworld< dim >::_action_as_vector(size_t action) noexcept
 {
-   idx_xstackvector< dim > vector;
+   std::array< long, dim > vector;
    ranges::fill(vector, 0);
-   auto mod = std::div(long(action), 2L);
-   vector[size_t(mod.quot)] = _direction_from_remainder(mod.rem);
+   size_t quot, rem;
+   if(std::is_constant_evaluated()) {
+      quot = size_t(action / 2);
+      rem = action - size_t(action / 2) * 2;
+   } else {
+      auto mod = std::div(long(action), 2L);
+      quot = static_cast< size_t >(mod.quot), rem = static_cast< size_t >(mod.rem);
+   }
+   vector[quot] = _direction_from_remainder(rem);
    return vector;
 }
 
@@ -346,8 +357,23 @@ std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld<
    size_t action
 )
 {
-   auto vector = action_as_vector(action);
-   auto next_position = xt::eval(std::get< 1 >(m_location) + vector);
+   _assert_action_in_bounds(action);
+   // a list of all action vectors that we can simply access without cost since they are computed at
+   // compile time
+   constexpr static auto actions_to_vectors{std::invoke(
+      []< size_t... As >(std::index_sequence< As... >) {
+         return std::array< std::array< long, dim >, num_actions() >{
+            Gridworld< dim >::_action_as_vector(As)...};
+      },
+      std::make_index_sequence< num_actions() >{}
+   )};
+
+   auto transition_probs = xt::view(m_transition_tensor, location_idx(), action, xt::all());
+   size_t chosen_action = xt::random::
+      choice(xt::arange(num_actions()), 1, transition_probs, false, m_rng)(0);
+   SPDLOG_DEBUG(fmt::format("Passed action: {}, selected action: {}", action, chosen_action));
+   auto vector = to_xstackvector(actions_to_vectors[chosen_action]);
+   auto next_position = xt::eval(location() + vector);
    auto next_position_index = index_state(next_position);
    auto next_state_attr = m_reward_map.find_or(next_position_index, 0.);
    for(auto [coordinate, shape] : ranges::views::zip(next_position, m_grid_shape)) {
@@ -390,17 +416,17 @@ template < size_t dim >
 {
    _assert_action_in_bounds(action);
    if constexpr(dim == 2) {
-      constexpr std::array< std::string, num_actions() > avail_actions{
+      constexpr std::array< std::string_view, num_actions() > avail_actions{
          "left", "right", "down", "up"};
-      return avail_actions[action];
+      return std::string{avail_actions[action]};
    }
    if constexpr(dim == 3) {
-      constexpr std::array< std::string, num_actions() > avail_actions{
+      constexpr std::array< std::string_view, num_actions() > avail_actions{
          "left", "right", "down", "up", "out", "in"};
-      return avail_actions[action];
+      return std::string{avail_actions[action]};
    } else {
       auto mod = std::div(long(action), long(dim));
-      return fmt::format("<DIM: {}, DIRECTION: {}>", mod.quot, mod.rem == 0 ? -1 : 1);
+      return fmt::format("<DIM: {}, DIRECTION: {}>", mod.quot, _direction_from_remainder(mod.rem));
    }
 }
 
@@ -431,6 +457,13 @@ constexpr auto& Gridworld< dim >::_states() const
    } else {
       static_assert(detail::always_false(state_type), "State type not associated with any arrays.");
    }
+}
+
+template < size_t dim >
+std::string Gridworld< dim >::render() const
+{
+   throw std::logic_error("Not implemented yet.");
+   return fmt::format("Start states: ");
 }
 
 }  // namespace force

@@ -8,6 +8,7 @@ static_assert(false, "No logging level set.");
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <fmt/std.h>
+#include <frozen/map.h>
 #include <frozen/unordered_map.h>
 #include <pybind11/numpy.h>
 #include <spdlog/spdlog.h>
@@ -23,6 +24,7 @@ static_assert(false, "No logging level set.");
 #include <xtensor/xaxis_slice_iterator.hpp>
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xio.hpp>
+#include <xtensor/xrandom.hpp>
 #include <xtensor/xview.hpp>
 
 #include "reinforce/utils/format.hpp"
@@ -47,9 +49,6 @@ inline std::string to_string(const StateType& state_type)
 {
    return std::string{state_type_names.at(state_type)};
 }
-
-template <>
-struct printable< StateType >: std::true_type {};
 
 }  // namespace detail
 
@@ -181,10 +180,12 @@ class Gridworld {
    [[nodiscard]] auto& subgoal_states() const { return m_subgoal_states; }
    [[nodiscard]] auto& obstacle_states() const { return m_obs_states; }
    [[nodiscard]] auto& restart_states() const { return m_restart_states; }
-   [[nodiscard]] auto& location() const { return m_location; }
+   [[nodiscard]] auto& transition_tensor() const { return m_transition_tensor; }
    [[nodiscard]] auto& step_reward() const { return m_step_reward; }
    [[nodiscard]] size_t size() const { return m_size; };
    [[nodiscard]] auto& shape() const { return m_grid_shape; };
+   [[nodiscard]] auto& location() const { return std::get< 1 >(m_location); };
+   [[nodiscard]] auto& location_idx() const { return std::get< 0 >(m_location); };
 
    void reseed(std::mt19937_64::result_type seed) { m_rng = std::mt19937_64{seed}; }
    const obs_type& reset(std::optional< std::mt19937_64::result_type > seed = std::nullopt)
@@ -197,11 +198,13 @@ class Gridworld {
       return (m_location = std::pair{index_state(start_coordinates), start_coordinates});
    }
 
+   [[nodiscard]] std::string render() const;
+
    [[nodiscard]] std::string action_name(size_t action) const;
 
    [[nodiscard]] constexpr static auto num_actions() { return m_num_actions; }
 
-   [[nodiscard]] constexpr idx_xstackvector< dim > action_as_vector(size_t action) const;
+   [[nodiscard]] constexpr std::array< long, dim > action_as_vector(size_t action) const;
 
   private:
    /// the number of actions are dependant only on the grid dimensionality. 'Back' and 'Forth'
@@ -214,6 +217,9 @@ class Gridworld {
    /// the total number of states in this grid
    size_t m_size;
    /// shape (n, DIM)
+   /// This member's data storage is shared by all the following states containers blow.
+   /// Post construction of the gridworld opbject, do not modify this member's data buffer anymore
+   /// or memory access faults will occur.
    idx_xarray m_start_states;
    /// shape (m, DIM)
    idx_xarray m_goal_states;
@@ -225,9 +231,9 @@ class Gridworld {
    idx_xarray m_restart_states;
    /// shape (n,)
    std::discrete_distribution< size_t > m_start_state_distribution;
-   /// shape (N, a, N) where N are the total number of states (state and successor state indices
-   /// to which `a`, the action, might lead). The matrix value represents the transition
-   /// probability.
+   /// shape (N, A, A) where N is the total number of states (state indices) and A the total number
+   /// of actions (same at each state). The tensor value for an input (s, a, a') represents the
+   /// probability of ultimately applying action a' when in state s and choosing action a.
    xarray< double > m_transition_tensor;
    /// the reward map for a given state
    RewardMap m_reward_map;
@@ -290,7 +296,7 @@ class Gridworld {
 
    xarray< double > _init_transition_tensor(
       std::variant< double, pyarray< double > > transition_matrix
-   );
+   ) const;
 
    RewardMap _init_reward_map(
       const std::variant< double, pyarray< double > >& goal_reward,
@@ -314,9 +320,10 @@ class Gridworld {
 
    constexpr void _assert_action_in_bounds(size_t action) const;
 
-   constexpr idx_xstackvector< dim > _action_as_vector(size_t action) const noexcept;
+   constexpr static std::array< long, dim > _action_as_vector(size_t action) noexcept;
 
-   constexpr long _direction_from_remainder(long remainder) const noexcept
+   template < std::integral T >
+   constexpr static long _direction_from_remainder(T remainder) noexcept
    {
       return remainder == 0 ? -1 : 1;
    }
@@ -364,6 +371,14 @@ class Gridworld {
    /// \brief returns the xarray associated holing all the states of the given state type.
    template < StateType state_type >
    constexpr auto& _states() const;
+
+   template < ranges::range Range >
+   idx_xstackvector< dim > to_xstackvector(const Range& range) const
+   {
+      idx_xstackvector< dim > vec;
+      ranges::copy(range, vec.begin());
+      return vec;
+   }
 };
 
 }  // namespace force
