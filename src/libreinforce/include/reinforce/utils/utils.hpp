@@ -14,6 +14,13 @@
 
 namespace force::detail {
 
+template<typename Tuple, std::size_t... Ints>
+constexpr auto tuple_slice(Tuple&& tuple, std::index_sequence<Ints...>)
+{
+   return std::tuple<std::tuple_element_t<Ints, Tuple>...>(
+      std::get<Ints>(std::forward<Tuple>(tuple))...);
+}
+
 template < typename T >
 consteval bool always_false(T)
 {

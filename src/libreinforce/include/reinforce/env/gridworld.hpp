@@ -2,7 +2,7 @@
 #define REINFORCE_GRIDWORLD_HPP
 
 #ifndef SPDLOG_ACTIVE_LEVEL
-static_assert(false, "No logging level set.");
+static_assert(false, "No logging level set. Please define the macro 'SPDLOG_ACTIVE_LEVEL'");
 #endif
 
 #include <fmt/format.h>
@@ -29,7 +29,9 @@ static_assert(false, "No logging level set.");
 
 #include "reinforce/utils/format.hpp"
 #include "reinforce/utils/utils.hpp"
+#include "reinforce/utils/math.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
+#include "reinforce/utils/xtensor_typedefs.hpp"
 
 namespace force {
 
@@ -52,23 +54,6 @@ inline std::string to_string(const StateType& state_type)
 
 }  // namespace detail
 
-constexpr auto layout = xt::layout_type::row_major;
-
-template < typename T >
-using xarray = xt::xarray< T, layout >;
-template < typename T >
-using pyarray = xt::pyarray< T, layout >;
-template < typename T, size_t... shape >
-using xstacktensor = xt::xtensor_fixed< T, xt::xshape< shape... >, layout >;
-
-using idx_xarray = xt::xarray< size_t, layout >;
-
-template < size_t dim >
-using idx_xstacktensor = xstacktensor< size_t, dim >;
-template < size_t dim >
-using idx_xstackvector = xstacktensor< long, dim >;
-
-using idx_pyarray = xt::pyarray< size_t, layout >;
 
 template < size_t dim >
 class Gridworld {

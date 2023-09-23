@@ -279,7 +279,7 @@ auto Gridworld< dim >::coord_state(size_t state_index) const
    // we need the same type in std::div to avoid ambiguity. So we use long for both inputs.
    long index = long(state_index);
    for(auto [i, shape] : ranges::views::reverse(ranges::views::enumerate(m_grid_shape))) {
-      auto modulus_result = std::div(index, long(shape));
+      auto modulus_result = modulo(index, long(shape));
       coords[i] = size_t(modulus_result.rem);
       index = modulus_result.quot;
    }
@@ -340,17 +340,11 @@ constexpr std::array< long, dim > Gridworld< dim >::_action_as_vector(size_t act
 {
    std::array< long, dim > vector;
    ranges::fill(vector, 0);
-   size_t quot, rem;
-   if(std::is_constant_evaluated()) {
-      quot = size_t(action / 2);
-      rem = action - size_t(action / 2) * 2;
-   } else {
-      auto mod = std::div(long(action), 2L);
-      quot = static_cast< size_t >(mod.quot), rem = static_cast< size_t >(mod.rem);
-   }
-   vector[quot] = _direction_from_remainder(rem);
+   auto [quot, rem] = modulo(action, 2);
+   vector[size_t(quot)] = _direction_from_remainder(rem);
    return vector;
 }
+
 
 template < size_t dim >
 std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld< dim >::step(
@@ -425,7 +419,7 @@ template < size_t dim >
          "left", "right", "down", "up", "out", "in"};
       return std::string{avail_actions[action]};
    } else {
-      auto mod = std::div(long(action), long(dim));
+      auto mod = modulo(action, dim);
       return fmt::format("<DIM: {}, DIRECTION: {}>", mod.quot, _direction_from_remainder(mod.rem));
    }
 }

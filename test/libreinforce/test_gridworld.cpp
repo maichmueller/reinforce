@@ -160,10 +160,12 @@ TEST_F(Gridworld2DimStepF, step)
    double reward;
    bool truncated, terminated;
    fmt::print(
-      "Gridworld specifics for `step` function test:\n"
+      "Gridworld for `step` function test:\n"
+      "Shape: {}\n"
       "Start states: {}\n"
       "Goal states: {}\n"
       "Transition Tensor: {}\n",
+      gridworld.shape(),
       gridworld.start_states(),
       gridworld.goal_states(),
       gridworld.transition_tensor()
