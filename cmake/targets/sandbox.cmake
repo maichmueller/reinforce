@@ -18,7 +18,9 @@ target_link_libraries(
         project_warnings
         CONAN_PKG::range-v3
         CONAN_PKG::xtensor
+        xtensor-python
         CONAN_PKG::fmt
         pybind11::module
+        pybind11::embed
         pybind11::lto
 )

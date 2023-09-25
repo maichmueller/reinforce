@@ -4,6 +4,7 @@
 #include "reinforce/env/gridworld.hpp"
 #include "reinforce/spaces/space.hpp"
 #include "reinforce/spaces/discrete.hpp"
+#include "reinforce/spaces/box.hpp"
 #include "reinforce/utils/utils.hpp"
 
 #endif  // REINFORCE_REINFORCE_HPP

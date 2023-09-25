@@ -22,7 +22,7 @@ class Discrete: public Space< T_cov > {
    using base::rng;
 
    explicit Discrete(int n, int start = 0, std::optional< size_t > seed = std::nullopt)
-       : base({}, pybind11::dtype("np.int64"), seed), m_nr_values(n), m_start(start)
+       : base({}, seed), m_nr_values(n), m_start(start)
    {
       if(n <= 0) {
          throw std::invalid_argument("n (counts) have to be positive");

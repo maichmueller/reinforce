@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "pybind11/embed.h"
+#include "xtensor/xarray.hpp"
 
 struct M {
    M() { std::cout << "CTOR\n"; }
@@ -31,55 +32,60 @@ struct M {
       std::cout << "MOVE assignment\n";
       return *this;
    }
-
 };
 
+// #include <array>
+// #include <random>
+// #include <iostream>
+//
+// #include <range/v3/all.hpp>
+//
+// #include "fmt/format.h"
+// #include "fmt/core.h"
+// #include "fmt/std.h"
+#define FORCE_IMPORT_ARRAY
 
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+#include <xtensor-python/pyarray.hpp>
 
-namespace py = pybind11;
+#include "xtensor/xadapt.hpp"
+#include "xtensor/xarray.hpp"
+#include "xtensor/xio.hpp"
+#include "xtensor/xview.hpp"
 
-inline py::array_t<double> add_arrays(py::array_t<double> input1, py::array_t<double> input2) {
-   py::buffer_info buf1 = input1.request(), buf2 = input2.request();
+template < typename T >
+class MyC {
+   template < typename U >
+   MyC(std::variant< U, std::vector< U > > v) : m_v(v)
+   {
+   }
 
-   if (buf1.ndim != 1 || buf2.ndim != 1)
-      throw std::runtime_error("Number of dimensions must be one");
+  private:
+   std::variant< T, std::vector< T > > m_v;
+};
 
-   if (buf1.size != buf2.size)
-      throw std::runtime_error("Input shapes must match");
-
-   /* No pointer is passed, so NumPy will allocate the buffer */
-   auto result = py::array_t<double>(buf1.size);
-
-   py::buffer_info buf3 = result.request();
-
-   double *ptr1 = static_cast<double *>(buf1.ptr);
-   double *ptr2 = static_cast<double *>(buf2.ptr);
-   double *ptr3 = static_cast<double *>(buf3.ptr);
-
-   for (size_t idx = 0; idx < buf1.shape[0]; idx++)
-      ptr3[idx] = ptr1[idx] + ptr2[idx];
-
-   return result;
-}
+template < typename U >
+MyC(std::variant< U, std::vector< U > > v) -> MyC< U >;
 
 int main()
 {
-   py::scoped_interpreter g{};
-   py::exec("import sys; print(sys.executable)");
-   py::module_ sys = py::module_::import("sys");
-   py::print(sys.attr("path"));
-   py::exec("import numpy");
-//   py::module_ m = py::module_::import("numpy.core.multiarray");
+   pybind11::scoped_interpreter g{};
+   xt::import_numpy();
 
-
-//   py::array_t<double> npArray = py::array_t<double>(6);
-//   py::array_t<double> npArray2 = py::array_t<double>(7);
-//
-//   auto rest = add_arrays(npArray, npArray2);
-
-
-
-   return 0;
+   //   MyC{3};
+   //   //   auto arr = xt::pyarray<double>::from_shape(xt::svector{2,3});
+   //      auto arr = xt::pyarray< double >{{0, 1, 2}, {3, 4, 5}};
+   xt::xarray< double > arr2{
+      {std::numeric_limits< double >::infinity(), -std::numeric_limits< double >::infinity(), 0}};
+   //      xt::xarray< double > arr2 = xt::adapt(
+   //      std::move(arr.ptr()), 6, xt::acquire_ownership{}, xt::svector{2, 3}
+   //   );
+   //   arr.release();
+   std::cout << "is inf: " << std::isinf(arr2(0)) << std::endl;
+   std::cout << "is inf: " << std::isinf(arr2(1)) << std::endl;
+   std::cout << "is inf: " << std::isinf(arr2(2)) << std::endl;
+      std::cout << arr2 << std::endl;
+   //   std::cout << arr2 << std::endl;
+   //   arr2 = std::move(arr);
+   //   std::cout << arr << std::endl;
+   //   std::cout << arr2 << std::endl;
 }

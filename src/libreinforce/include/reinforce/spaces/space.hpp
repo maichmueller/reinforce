@@ -14,16 +14,17 @@ namespace force {
 
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
-// Define a generic Space class
+/// \brief The generic Space base class
+///
+/// The specifics are almost 1:1 adapted from the corresponding definition of the openai/gymnasium
+/// python class.
 template < typename T_cov >
 class Space {
   public:
-   Space(
-      std::optional< std::vector< int > > shape = std::nullopt,
-      std::optional< std::variant< std::string, pybind11::dtype > > dtype = std::nullopt,
-      std::optional< size_t > seed = std::nullopt
-   )
-       : m_shape(std::move(shape)), m_dtype(std::move(dtype)), m_rng(seed_rng(seed))
+   using value_type = T_cov;
+
+   Space(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
+       : m_shape(std::move(shape)), m_rng(seed_rng(seed))
    {
    }
    virtual ~Space() = default;
@@ -37,23 +38,11 @@ class Space {
    // Check if the value is a valid member of this space
    virtual bool contains(const T_cov& value) const = 0;
 
-   virtual std::vector< T_cov > to_jsonable(const std::vector< T_cov >& sample_n) const
-   {
-      return sample_n;
-   }
-
-   virtual std::vector< T_cov > from_jsonable(const std::vector< T_cov >& sample_n) const
-   {
-      return sample_n;
-   }
-
    // Checks whether this space can be flattened to a Box
    virtual bool is_np_flattenable() const { return false; }
 
    // Return the shape of the space
    auto& shape() const { return m_shape; }
-   /// the dtype variant reference
-   auto& dtype() const { return m_dtype; }
    /// const rng reference for external rng state inspection
    auto& rng() const { return m_rng; }
 
@@ -62,8 +51,7 @@ class Space {
    auto& rng() { return m_rng; }
 
   private:
-   std::optional< std::vector< int > > m_shape;
-   std::optional< std::variant< std::string, pybind11::dtype > > m_dtype;
+   xt::svector< int > m_shape;
    std::mt19937_64 m_rng;
 
    // Seed the PRNG
