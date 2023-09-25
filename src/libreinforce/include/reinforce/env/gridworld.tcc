@@ -187,7 +187,7 @@ xarray< double > Gridworld< dim >::_init_transition_tensor(
                double probability = value * (action_realized == action_choice)
                                     + (1. - value) / double(m_num_actions - 1.)
                                          * (action_choice != action_realized);
-               tensor(state, action_choice, action_realized) = probability;
+               tensor.unchecked(state, action_choice, action_realized) = probability;
             }
          },
          [&](pyarray< double > arr) {
@@ -323,7 +323,7 @@ size_t Gridworld< dim >::index_state(const Range& coordinates) const
    ranges::fill(coords.begin(), std::next(coords.begin(), diff), 0);
    size_t state = 0;
    for(auto i : ranges::views::iota(0UL, dim)) {
-      state += m_grid_shape_products(i) * coords(i);
+      state += m_grid_shape_products.unchecked(i) * coords(i);
    }
    return state;
 }
@@ -344,7 +344,6 @@ constexpr std::array< long, dim > Gridworld< dim >::_action_as_vector(size_t act
    vector[size_t(quot)] = _direction_from_remainder(rem);
    return vector;
 }
-
 
 template < size_t dim >
 std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld< dim >::step(
