@@ -18,25 +18,25 @@ namespace force {
 ///
 /// The specifics are almost 1:1 adapted from the corresponding definition of the openai/gymnasium
 /// python class.
-template < typename T_cov >
-class Space {
+template < typename T >
+class TypedSpace {
   public:
-   using value_type = T_cov;
+   using value_type = T;
 
-   Space(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
+   TypedSpace(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
        : m_shape(std::move(shape)), m_rng(seed_rng(seed))
    {
    }
-   virtual ~Space() = default;
+   virtual ~TypedSpace() = default;
 
    // Randomly sample an element of this space
-   virtual T_cov sample(std::optional< xarray< int8_t > > mask = std::nullopt) = 0;
+   virtual T sample(std::optional< xarray< int8_t > > mask = std::nullopt) = 0;
 
    // Seed the PRNG of this space
    void seed(size_t seed) { seed_rng(seed); }
 
    // Check if the value is a valid member of this space
-   virtual bool contains(const T_cov& value) const = 0;
+   virtual bool contains(const T& value) const = 0;
 
    // Checks whether this space can be flattened to a Box
    virtual bool is_np_flattenable() const { return false; }

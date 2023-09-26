@@ -17,59 +17,52 @@ namespace force {
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-class Box: public Space< xarray< T > > {
+class TypedBox: public TypedSpace< xarray< T > > {
   public:
-   using base = Space< T >;
+   using base = TypedSpace< T >;
    using base::shape;
    using base::rng;
 
    template < typename... Args >
-   Box(const T& low, const T& high, Args&&... args)
-       : Box(xarray< T >{low}, xarray< T >{high}, std::forward< Args >(args)...)
+   TypedBox(const T& low, const T& high, Args&&... args)
+       : TypedBox(xarray< T >{low}, xarray< T >{high}, std::forward< Args >(args)...)
    {
    }
    template < template < typename... > class Array, typename... Args >
       requires detail::is_any_v< Array< T >, pyarray< T >, std::vector< T > >
-   Box(const Array< T >& low, const Array< T >& high, Args&&... args)
-       : Box(xarray< T >{low}, xarray< T >{high}, std::forward< Args >(args)...)
+   TypedBox(const Array< T >& low, const Array< T >& high, Args&&... args)
+       : TypedBox(xarray< T >(low), xarray< T >(high), std::forward< Args >(args)...)
    {
    }
 
-   Box(
+   TypedBox(
       const xarray< T >& low,
       const xarray< T >& high,
       const std::optional< std::vector< int > >& shape_ = std::nullopt,
       std::optional< size_t > seed = std::nullopt
    )
        : base(shape_, seed),
-         low(broadcast_value(low, shape(), '-')),
-         high(broadcast_value(high, shape(), '+'))
+         low(low),
+         high(high),
+         low_repr(_short_repr(low)),
+         high_repr(_short_repr(high)),
+         bounded_below(not xt::isinf(low)),
+         bounded_above(not xt::isinf(high))
    {
-      low = std::vector< T >(shape_size, low);
-      high = std::vector< T >(shape_size, high);
-
-      low_repr = _short_repr(low);
-      high_repr = _short_repr(high);
    }
 
-   bool is_bounded(std::string_view manner = "both")
+   bool is_bounded(std::string_view manner = "")
    {
-      bool below = std::all_of(bounded_below.begin(), bounded_below.end(), [](bool b) {
-         return b;
-      });
-      bool above = std::all_of(bounded_above.begin(), bounded_above.end(), [](bool b) {
-         return b;
-      });
+      const auto below = [&] { return xt::all(bounded_below); };
+      const auto above = [&] { return xt::all(bounded_above); };
 
-      if(manner == "both") {
-         return below && above;
-      } else if(manner == "below") {
-         return below;
-      } else if(manner == "above") {
-         return above;
-      } else {
-         throw std::invalid_argument("manner is not in {'below', 'above', 'both'}");
+      if(manner == "below") {
+         return below();
       }
+      if(manner == "above") {
+         return above();
+      }
+      return below() and above();
    }
 
    T sample(const std::optional< xarray< int8_t > >& /*unused*/ = std::nullopt)
@@ -90,25 +83,25 @@ class Box: public Space< xarray< T > > {
       }
 
       for(auto&& [i, bounds] :
-          ranges::views::enumerate(ranges::views::zip(bounded_below, bounded_above)
-          )) {
+          ranges::views::enumerate(ranges::views::zip(bounded_below, bounded_above))) {
          auto&& [low_bound, upp_bound] = bounds;
-         switch((-1) % low_bound + 1 % upp_bound) {
+         switch((low_bound ? 1 : -1) + int(upp_bound)) {
             case -1: {
-               // [A, infinity)
-               sample = low[i] + xt::random::exponential(xt::xshape<1>{}, 1., rng());
-            }
-            case 0 : {
-               // [A, B]
-               sample += xt::random::rand(xt::xshape<1>{}, low[i], high[i], rng());
-            }
-            case 1: {
-               // (-infinity, B]
-               sample -= static_cast< T >(std::exponential_distribution< double >()(rng())) + high[i];
-            }
-            case 2: {
                // (-infinity, infinity)
                sample += static_cast< T >(std::normal_distribution< double >()(rng()));
+            }
+            case 0: {
+               // (-infinity, B]
+               sample -= static_cast< T >(std::exponential_distribution< double >()(rng()))
+                         + high[i];
+            }
+            case 1: {
+               // [A, infinity)
+               sample = low[i] + xt::random::exponential(xt::xshape< 1 >{}, 1., rng());
+            }
+            case 2: {
+               // [A, B]
+               sample += xt::random::rand(xt::xshape< 1 >{}, low[i], high[i], rng());
             }
          }
          if(not low_bound and not upp_bound) {
@@ -149,7 +142,7 @@ class Box: public Space< xarray< T > > {
       );
    }
 
-   bool operator==(const Box< T >& other)
+   bool operator==(const TypedBox< T >& other)
    {
       return xt::equal(shape(), other.shape()) and xt::equal(low, other.low)
              and xt::equal(high, other.high);
@@ -158,33 +151,12 @@ class Box: public Space< xarray< T > > {
    // Add other methods and properties as needed
 
   private:
-   std::vector< bool > bounded_below;
-   std::vector< bool > bounded_above;
    xarray< T > low;
    xarray< T > high;
    std::string low_repr;
    std::string high_repr;
-
-
-   std::vector< T >
-   broadcast_value(const xarray< T >& value, const std::vector< int >& shape, char inf_sign)
-   {
-      if(xt::isinf(value)) {
-         if(inf_sign == '+') {
-            return std::numeric_limits< T >::infinity();
-         }
-         if(inf_sign == '-') {
-            return -std::numeric_limits< T >::infinity();
-         }
-      } else {
-         return std::vector< T >(shape().size(), value);
-      }
-      if(xt::any(xt::isinf(value))) {
-         xarray< T > inf_value = broadcast_value(static_cast< T >(0), 1, inf_sign);
-         xarray< T > inf_value return broadcasted;
-      }
-      return value;
-   }
+   xarray< bool > bounded_below;
+   xarray< bool > bounded_above;
 };
 
 }  // namespace force

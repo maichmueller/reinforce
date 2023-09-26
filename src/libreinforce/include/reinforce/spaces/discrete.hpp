@@ -15,13 +15,13 @@
 
 namespace force {
 
-template < std::integral T_cov >
-class Discrete: public Space< T_cov > {
+template < std::integral T >
+class TypedDiscrete: public TypedSpace< T > {
   public:
-   using base = Space< T_cov >;
+   using base = TypedSpace< T >;
    using base::rng;
 
-   explicit Discrete(int n, int start = 0, std::optional< size_t > seed = std::nullopt)
+   explicit TypedDiscrete(int n, int start = 0, std::optional< size_t > seed = std::nullopt)
        : base({}, seed), m_nr_values(n), m_start(start)
    {
       if(n <= 0) {
@@ -70,7 +70,7 @@ class Discrete: public Space< T_cov > {
       return fmt::format("Discrete({})", m_nr_values);
    }
 
-   bool operator==(const Discrete< T_cov >& other)
+   bool operator==(const TypedDiscrete< T >& other)
    {
       return m_nr_values == other.m_nr_values && m_start == other.m_start;
    }
