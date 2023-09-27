@@ -6,6 +6,9 @@
 
 namespace force {
 
+template< typename T = double>
+constexpr auto infinity = std::numeric_limits<T>::infinity();
+
 namespace detail {
 
 template < typename T >

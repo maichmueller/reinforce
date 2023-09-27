@@ -1,23 +1,30 @@
 #ifndef REINFORCE_BOX_HPP
 #define REINFORCE_BOX_HPP
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+#include <spdlog/spdlog.h>
+
+#include <cassert>
 #include <iostream>
 #include <limits>
 #include <optional>
 #include <random>
+#include <range/v3/all.hpp>
 #include <stdexcept>
 #include <variant>
 #include <vector>
 
 #include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/type_traits.hpp"
+#include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
 namespace force {
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-class TypedBox: public TypedSpace< xarray< T > > {
+class TypedBox: public TypedSpace< T > {
   public:
    using base = TypedSpace< T >;
    using base::shape;
@@ -35,13 +42,9 @@ class TypedBox: public TypedSpace< xarray< T > > {
    {
    }
 
-   TypedBox(
-      const xarray< T >& low,
-      const xarray< T >& high,
-      const std::optional< std::vector< int > >& shape_ = std::nullopt,
-      std::optional< size_t > seed = std::nullopt
-   )
-       : base(shape_, seed),
+   template < typename... Args >
+   TypedBox(const xarray< T >& low, const xarray< T >& high, Args&&... args)
+       : base(std::forward< Args >(args)...),
          m_low(low),
          m_high(high),
          m_bounded_below(not xt::isinf(low)),
@@ -49,14 +52,18 @@ class TypedBox: public TypedSpace< xarray< T > > {
    {
       auto low_shape = low.shape();
       auto high_shape = high.shape();
-      if(low_shape != high_shape) {
+
+      SPDLOG_DEBUG(fmt::format(
+         "Low shape {}, high shape: {}, specified shape: {}", low_shape, high_shape, shape()
+      ));
+      if(not ranges::equal(high_shape, low_shape)) {
          throw std::invalid_argument(fmt::format(
             "'Low' and 'High' bound arrays need to have the same shape. Given:\n{}\nand\n{}",
             low_shape,
             high_shape
          ));
       }
-      if(shape_.has_value() and *shape_ != low_shape) {
+      if(shape().size() > 0 and not ranges::equal(shape(), low_shape)) {
          throw std::invalid_argument(fmt::format(
             "Given shape and shape of 'Low' and 'High' bound arrays have to be the. "
             "Given:\n{}\nand\n{}\nand\n{}",
@@ -78,11 +85,11 @@ class TypedBox: public TypedSpace< xarray< T > > {
       if(manner == "above") {
          return above();
       }
-      ASSERT(manner.empty());
+      assert(manner.empty());
       return below() and above();
    }
 
-   T sample(const std::optional< xarray< int8_t > >& /*unused*/ = std::nullopt)
+   xarray< T > sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt) override
    {
       xarray< T > samples = xt::empty< T >(shape());
 
@@ -125,13 +132,16 @@ class TypedBox: public TypedSpace< xarray< T > > {
       return samples;
    }
 
-   template < typename U >
-      requires std::is_convertible_v< U, T >
-   bool contains(U&& x)
+   bool contains(const T& t) const override
    {
-      T t(std::forward< U >(x));
-      return m_low <= t and m_high >= t;
+      return ranges::any_of(ranges::views::zip(m_low, m_high), [&](const auto& low_high) {
+         auto&& [low, high] = low_high;
+         return low <= t and high >= t;
+      });
    }
+
+   // Checks whether this space can be flattened to a Box
+   bool is_flattenable() const override { return true; }
 
    std::string repr() { return fmt::format("Box({}, {}, {})", m_low, m_high, shape()); }
 

@@ -32,7 +32,7 @@ class TypedDiscrete: public TypedSpace< T > {
       }
    }
 
-   int sample(std::optional< xarray< bool > > mask_opt = std::nullopt)
+   xarray< T > sample(const std::optional< xarray< bool > >& mask_opt = std::nullopt)
    {
       if(mask_opt.has_value()) {
          const auto& mask = *mask_opt;
@@ -57,7 +57,7 @@ class TypedDiscrete: public TypedSpace< T > {
          return m_start;
       }
       std::uniform_int_distribution< int > dist(0, m_nr_values - 1);
-      return m_start + dist(rng());
+      return xarray< T >{m_start + dist(rng())};
    }
 
    bool contains(int value) { return m_start <= value && value < m_start + m_nr_values; }
