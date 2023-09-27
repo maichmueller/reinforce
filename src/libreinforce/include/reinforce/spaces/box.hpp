@@ -42,19 +42,35 @@ class TypedBox: public TypedSpace< xarray< T > > {
       std::optional< size_t > seed = std::nullopt
    )
        : base(shape_, seed),
-         low(low),
-         high(high),
-         low_repr(_short_repr(low)),
-         high_repr(_short_repr(high)),
-         bounded_below(not xt::isinf(low)),
-         bounded_above(not xt::isinf(high))
+         m_low(low),
+         m_high(high),
+         m_bounded_below(not xt::isinf(low)),
+         m_bounded_above(not xt::isinf(high))
    {
+      auto low_shape = low.shape();
+      auto high_shape = high.shape();
+      if(low_shape != high_shape) {
+         throw std::invalid_argument(fmt::format(
+            "'Low' and 'High' bound arrays need to have the same shape. Given:\n{}\nand\n{}",
+            low_shape,
+            high_shape
+         ));
+      }
+      if(shape_.has_value() and *shape_ != low_shape) {
+         throw std::invalid_argument(fmt::format(
+            "Given shape and shape of 'Low' and 'High' bound arrays have to be the. "
+            "Given:\n{}\nand\n{}\nand\n{}",
+            shape(),
+            low_shape,
+            high_shape
+         ));
+      }
    }
 
    bool is_bounded(std::string_view manner = "")
    {
-      const auto below = [&] { return xt::all(bounded_below); };
-      const auto above = [&] { return xt::all(bounded_above); };
+      constexpr auto below = [&] { return xt::all(m_bounded_below); };
+      constexpr auto above = [&] { return xt::all(m_bounded_above); };
 
       if(manner == "below") {
          return below();
@@ -62,101 +78,76 @@ class TypedBox: public TypedSpace< xarray< T > > {
       if(manner == "above") {
          return above();
       }
+      ASSERT(manner.empty());
       return below() and above();
    }
 
    T sample(const std::optional< xarray< int8_t > >& /*unused*/ = std::nullopt)
    {
-      xarray< T > sample = xt::empty< T >(shape());
-      size_t shape_size = ranges::accumulate(shape(), size_t(0), std::multiplies{});
-      // Masking arrays which classify the coordinates according to interval type
-      std::vector< bool > unbounded(shape_size, false);
-      std::vector< bool > upp_bounded(shape_size, false);
-      std::vector< bool > low_bounded(shape_size, false);
-      std::vector< bool > bounded(shape_size, false);
-
-      for(const auto idx : ranges::views::iota(0UL, shape_size)) {
-         unbounded[idx] = not bounded_below[idx] and not bounded_above[idx];
-         upp_bounded[idx] = not bounded_below[idx] and bounded_above[idx];
-         low_bounded[idx] = bounded_below[idx] and not bounded_above[idx];
-         bounded[idx] = bounded_below[idx] and bounded_above[idx];
-      }
+      xarray< T > samples = xt::empty< T >(shape());
 
       for(auto&& [i, bounds] :
-          ranges::views::enumerate(ranges::views::zip(bounded_below, bounded_above))) {
-         auto&& [low_bound, upp_bound] = bounds;
-         switch((low_bound ? 1 : -1) + int(upp_bound)) {
+          ranges::views::enumerate(ranges::views::zip(m_bounded_below, m_bounded_above))) {
+         auto&& [lower_bounded, upper_bounded] = bounds;
+         auto& entry = samples.data_element(i);
+         switch(auto choice = (lower_bounded ? 1 : -1) + int(upper_bounded)) {
             case -1: {
                // (-infinity, infinity)
-               sample += static_cast< T >(std::normal_distribution< double >()(rng()));
+               entry = std::normal_distribution< T >{}(rng());
+               break;
             }
             case 0: {
                // (-infinity, B]
-               sample -= static_cast< T >(std::exponential_distribution< double >()(rng()))
-                         + high[i];
+               entry = m_high.data_element(i) - std::exponential_distribution< T >{1}(rng());
+               break;
             }
             case 1: {
                // [A, infinity)
-               sample = low[i] + xt::random::exponential(xt::xshape< 1 >{}, 1., rng());
+               entry = m_low.data_element(i) + std::exponential_distribution< T >{1}(rng());
+               break;
             }
             case 2: {
                // [A, B]
-               sample += xt::random::rand(xt::xshape< 1 >{}, low[i], high[i], rng());
+               using distribution = std::conditional_t<
+                  std::is_integral_v< T >,
+                  std::uniform_int_distribution< T >,
+                  std::uniform_real_distribution< T > >;
+               entry = distribution{m_low.data_element(i), m_high.data_element(i)}(rng());
+               break;
+            }
+            default: {
+               throw std::logic_error(
+                  fmt::format("Case generation created unexpected case {}.", choice)
+               );
             }
          }
-         if(not low_bound and not upp_bound) {
-            sample += static_cast< T >(std::normal_distribution< double >()(rng()));
-         } else if(low_bound and not upp_bound) {
-            sample += static_cast< T >(std::exponential_distribution< double >()(rng())) + low[i];
-         } else if(not low_bound and upp_bound) {
-            sample -= static_cast< T >(std::exponential_distribution< double >()(rng())) + high[i];
-         } else if(low_bound and upp_bound) {
-            sample += static_cast< T >(
-               std::uniform_real_distribution< double >(low[i], high[i])(rng())
-            );
-         }
       }
-
-      if constexpr(std::is_integral_v< T >) {
-         sample = static_cast< T >(std::floor(sample));
-      }
-
-      return sample;
+      return samples;
    }
 
    template < typename U >
       requires std::is_convertible_v< U, T >
    bool contains(U&& x)
    {
-      T t(x);
-      return low <= t and high >= t;
+      T t(std::forward< U >(x));
+      return m_low <= t and m_high >= t;
    }
 
-   std::string repr()
-   {
-      return fmt::format(
-         "Box({}, {}, {})",
-         low_repr,
-         high_repr,
-         ranges::accumulate(shape(), size_t(0), std::multiplies{})
-      );
-   }
+   std::string repr() { return fmt::format("Box({}, {}, {})", m_low, m_high, shape()); }
 
    bool operator==(const TypedBox< T >& other)
    {
-      return xt::equal(shape(), other.shape()) and xt::equal(low, other.low)
-             and xt::equal(high, other.high);
+      return xt::equal(shape(), other.shape()) and xt::equal(m_low, other.m_low)
+             and xt::equal(m_high, other.m_high);
    }
 
    // Add other methods and properties as needed
 
   private:
-   xarray< T > low;
-   xarray< T > high;
-   std::string low_repr;
-   std::string high_repr;
-   xarray< bool > bounded_below;
-   xarray< bool > bounded_above;
+   xarray< T > m_low;
+   xarray< T > m_high;
+   xarray< bool > m_bounded_below;
+   xarray< bool > m_bounded_above;
 };
 
 }  // namespace force
