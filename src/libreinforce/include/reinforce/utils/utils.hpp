@@ -14,6 +14,9 @@
 
 namespace force::detail {
 
+template < typename To >
+constexpr auto static_to = [](const auto& t) { return static_cast< To >(t); };
+
 template < typename Tuple, std::size_t... Ints >
 constexpr auto tuple_slice(Tuple&& tuple, std::index_sequence< Ints... >)
 {

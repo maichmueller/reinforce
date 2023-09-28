@@ -17,6 +17,7 @@
 
 #include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/type_traits.hpp"
+#include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
@@ -43,8 +44,16 @@ class TypedBox: public TypedSpace< T > {
    }
 
    template < typename... Args >
-   TypedBox(const xarray< T >& low, const xarray< T >& high, Args&&... args)
-       : base(std::forward< Args >(args)...),
+   TypedBox(
+      const xarray< T >& low,
+      const xarray< T >& high,
+      const xt::svector< int >& shape_ = {},
+      Args&&... args
+   )
+       : base(
+          shape_.empty() ? xt::svector< int >(low.shape().begin(), low.shape().end()) : shape_,
+          std::forward< Args >(args)...
+       ),
          m_low(low),
          m_high(high),
          m_bounded_below(not xt::isinf(low)),
@@ -73,9 +82,7 @@ class TypedBox: public TypedSpace< T > {
                high_shape
             ));
          }
-      } else {
-         shape() = ranges::to<xt::svector<int>>(low_shape | detail::cast);
-      }
+      } 
    }
 
    bool is_bounded(std::string_view manner = "")

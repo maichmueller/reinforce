@@ -54,9 +54,5 @@ TEST(Space, Box_multi_variates_sample)
    const xarray< double > high{{0, infinity<>, 0}, {0, 2, 2}};
    auto box = TypedBox< double >{low, high};
    auto sample = box.sample();
-   fmt::print("{}\n", sample.shape());
-   for(auto v : sample) {
-      fmt::print("{}\n", v);
-   }
    fmt::print("{}", sample);
 }
