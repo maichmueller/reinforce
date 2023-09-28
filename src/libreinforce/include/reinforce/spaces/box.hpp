@@ -63,14 +63,18 @@ class TypedBox: public TypedSpace< T > {
             high_shape
          ));
       }
-      if(shape().size() > 0 and not ranges::equal(shape(), low_shape)) {
-         throw std::invalid_argument(fmt::format(
-            "Given shape and shape of 'Low' and 'High' bound arrays have to be the. "
-            "Given:\n{}\nand\n{}\nand\n{}",
-            shape(),
-            low_shape,
-            high_shape
-         ));
+      if(shape().size() > 0) {
+         if(not ranges::equal(shape(), low_shape)) {
+            throw std::invalid_argument(fmt::format(
+               "Given shape and shape of 'Low' and 'High' bound arrays have to be the. "
+               "Given:\n{}\nand\n{}\nand\n{}",
+               shape(),
+               low_shape,
+               high_shape
+            ));
+         }
+      } else {
+         shape() = ranges::to<xt::svector<int>>(low_shape | detail::cast);
       }
    }
 
@@ -92,7 +96,7 @@ class TypedBox: public TypedSpace< T > {
    xarray< T > sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt) override
    {
       xarray< T > samples = xt::empty< T >(shape());
-
+      SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
       for(auto&& [i, bounds] :
           ranges::views::enumerate(ranges::views::zip(m_bounded_below, m_bounded_above))) {
          auto&& [lower_bounded, upper_bounded] = bounds;

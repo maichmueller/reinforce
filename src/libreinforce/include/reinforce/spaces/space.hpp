@@ -46,6 +46,8 @@ class TypedSpace {
    auto& rng() const { return m_rng; }
 
   protected:
+   // mutable shape reference of the space
+   auto& shape() { return m_shape; }
    /// mutable rng reference for derived classes to forward random state
    auto& rng() { return m_rng; }
 
