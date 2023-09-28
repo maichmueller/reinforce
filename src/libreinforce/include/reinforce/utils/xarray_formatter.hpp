@@ -5,6 +5,7 @@
 #include <fmt/std.h>
 
 #include <xtensor/xarray.hpp>
+#include <xtensor/xio.hpp>
 
 template < class T, xt::layout_type L, class A, class SA >
 struct fmt::formatter< xt::xarray< T, L, A, SA > >: fmt::ostream_formatter {};
