@@ -252,6 +252,18 @@ class TypedBox: public TypedSpace< T > {
    xarray< T > m_high;
    xarray< bool > m_bounded_below;
    xarray< bool > m_bounded_above;
+
+   bool _equals(const TypedSpace< T >& rhs) const override
+   {
+      // we can safely use static-cast here, because the base checks for type-identity first and
+      // only calls equals if the types of two compared objects are the same (hence
+      // TypedDiscrete<T>)
+      const auto& other_cast = static_cast< const TypedBox< T >& >(rhs);
+      return xt::equal(m_low, other_cast.m_low)  //
+             and xt::equal(m_high, other_cast.m_high)
+             and xt::equal(m_bounded_below, other_cast.m_bounded_below)
+             and xt::equal(m_bounded_above, other_cast.m_bounded_above);
+   }
 };
 
 }  // namespace force

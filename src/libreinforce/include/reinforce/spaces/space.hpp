@@ -45,17 +45,24 @@ class TypedSpace {
    /// const rng reference for external rng state inspection
    auto& rng() const { return m_rng; }
 
+   bool operator==(const TypedSpace& rhs) const
+   {
+      return typeid(*this) == typeid(rhs) and shape() == rhs.shape() and _equals(rhs);
+   }
+
   protected:
    // mutable shape reference of the space
    auto& shape() { return m_shape; }
    /// mutable rng reference for derived classes to forward random state
    auto& rng() { return m_rng; }
 
+   virtual bool _equals(const TypedSpace& rhs) const = 0;
+
   private:
    xt::svector< int > m_shape;
    std::mt19937_64 m_rng;
 
-   // Seed the PRNG
+   // Seed a PRNG
    auto seeded_rng(std::optional< size_t > seed)
    {
       return std::mt19937_64{seed.value_or(std::random_device{}())};
