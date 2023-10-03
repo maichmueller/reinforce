@@ -33,6 +33,15 @@ class TypedDiscrete: public TypedSpace< T > {
 
    xarray< T > sample(const std::optional< xarray< bool > >& mask_opt = std::nullopt) override
    {
+      return sample(size_t(1), mask_opt);
+   }
+
+   xarray< T > sample(
+      size_t nr_samples,
+      const std::optional< xarray< bool > >& mask_opt = std::nullopt
+   ) override
+   {
+      auto samples = xt::empty< T >(xt::svector{nr_samples});
       if(mask_opt.has_value()) {
          const auto& mask = *mask_opt;
          if(mask.size() != m_nr_values) {
@@ -52,12 +61,18 @@ class TypedDiscrete: public TypedSpace< T > {
 
          if(not valid_indices.empty()) {
             const std::uniform_int_distribution< size_t > dist(0UL, valid_indices.size() - 1);
-            return m_start + static_cast< T >(valid_indices[dist(rng())]);
+            for(auto i : ranges::views::iota(0UL, nr_samples)) {
+               samples.unchecked(i) = m_start + dist(rng());
+            }
+            return samples;
          }
-         return m_start;
+         return {};
       }
       std::uniform_int_distribution< int > dist(0, m_nr_values - 1);
-      return {m_start + dist(rng())};
+      for(auto i : ranges::views::iota(0UL, nr_samples)) {
+         samples.unchecked(i) = m_start + dist(rng());
+      }
+      return samples;
    }
 
    bool contains(int value) { return m_start <= value && value < m_start + m_nr_values; }

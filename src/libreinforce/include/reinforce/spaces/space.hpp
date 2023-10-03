@@ -30,6 +30,8 @@ class TypedSpace {
 
    // Randomly sample an element of this space
    virtual xarray< T > sample(const std::optional< xarray< bool > >& mask = std::nullopt) = 0;
+   virtual xarray< T >
+   sample(size_t nr_samples, const std::optional< xarray< bool > >& mask = std::nullopt) = 0;
 
    // Seed the PRNG of this space
    void seed(size_t seed) { m_rng = seeded_rng(seed); }

@@ -165,8 +165,10 @@ class TypedBox: public TypedSpace< T > {
       return samples;
    }
 
-   xarray< T >
-   sample(size_t nr_samples, const std::optional< xarray< bool > >& /*unused*/ = std::nullopt)
+   xarray< T > sample(
+      size_t nr_samples,
+      const std::optional< xarray< bool > >& /*unused*/ = std::nullopt
+   ) override
    {
       xt::svector< int > samples_shape = shape();
       samples_shape.push_back(static_cast< int >(nr_samples));
@@ -259,10 +261,10 @@ class TypedBox: public TypedSpace< T > {
       // only calls equals if the types of two compared objects are the same (hence
       // TypedDiscrete<T>)
       const auto& other_cast = static_cast< const TypedBox< T >& >(rhs);
-      return xt::equal(m_low, other_cast.m_low)  //
-             and xt::equal(m_high, other_cast.m_high)
-             and xt::equal(m_bounded_below, other_cast.m_bounded_below)
-             and xt::equal(m_bounded_above, other_cast.m_bounded_above);
+      return xt::all(xt::equal(m_low, other_cast.m_low))  //
+             and xt::all(xt::equal(m_high, other_cast.m_high))
+             and xt::all(xt::equal(m_bounded_below, other_cast.m_bounded_below))
+             and xt::all(xt::equal(m_bounded_above, other_cast.m_bounded_above));
    }
 };
 

@@ -28,8 +28,12 @@ TEST(Space, Box_single_variates_sample)
    const xarray< double > low{-infinity<>, 0, -10};
    const xarray< double > high{0, infinity<>, 10};
    auto box = TypedBox< double >{low, high};
-   auto sample = box.sample();
-   fmt::print("{}", sample);
+   auto samples = box.sample(10000);
+   fmt::print("Samples:\n{}", samples);
+   for(auto i : ranges::views::iota(0, 3)) {
+      EXPECT_TRUE(xt::all(xt::view(samples, i, xt::all()) >= low(i)));
+      EXPECT_TRUE(xt::all(xt::view(samples, i, xt::all()) <= high(i)));
+   }
 }
 
 TEST(Space, Box_multi_variates_constructor)
@@ -51,6 +55,11 @@ TEST(Space, Box_multi_variates_sample)
    const xarray< double > low{{-infinity<>, 0, -1}, {-infinity<>, 4, 1}};
    const xarray< double > high{{3, infinity<>, 0}, {7, 5, 11}};
    auto box = TypedBox< double >{low, high};
-   auto sample = box.sample(10);
-   fmt::print("{}", sample);
+   auto samples = box.sample(10000);
+   fmt::print("Samples:\n{}", samples);
+   for(auto [i, j] :
+       ranges::views::cartesian_product(ranges::views::iota(0, 2), ranges::views::iota(0, 3))) {
+      EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) >= low(i, j)));
+      EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) <= high(i, j)));
+   }
 }
