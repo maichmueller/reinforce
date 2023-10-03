@@ -15,8 +15,8 @@ namespace force {
 
 /// \brief The generic Space base class
 ///
-/// The specifics are almost 1:1 adapted from the corresponding definition of the openai/gymnasium
-/// python class.
+/// The specifics are made to work as closely as possible to the corresponding internals of the
+/// openai/gymnasium python class.
 template < typename T >
 class TypedSpace {
   public:
