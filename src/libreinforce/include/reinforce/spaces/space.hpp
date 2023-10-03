@@ -22,7 +22,7 @@ class TypedSpace {
   public:
    using value_type = T;
 
-   TypedSpace(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
+   explicit TypedSpace(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
        : m_shape(std::move(shape)), m_rng(seeded_rng(seed))
    {
    }

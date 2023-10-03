@@ -23,7 +23,6 @@ TEST(Space, Box_single_variates_constructor)
    EXPECT_THROW((TypedBox< double >{low, high, xt::svector{1, 3}}), std::invalid_argument);
 }
 
-
 TEST(Space, Box_single_variates_sample)
 {
    const xarray< double > low{-infinity<>, 0, -10};
@@ -32,7 +31,6 @@ TEST(Space, Box_single_variates_sample)
    auto sample = box.sample();
    fmt::print("{}", sample);
 }
-
 
 TEST(Space, Box_multi_variates_constructor)
 {
@@ -50,9 +48,9 @@ TEST(Space, Box_multi_variates_constructor)
 
 TEST(Space, Box_multi_variates_sample)
 {
-   const xarray< double > low{{-infinity<>, 0, -1}, {-infinity<>, 1, 1}};
-   const xarray< double > high{{0, infinity<>, 0}, {0, 2, 2}};
+   const xarray< double > low{{-infinity<>, 0, -1}, {-infinity<>, 4, 1}};
+   const xarray< double > high{{3, infinity<>, 0}, {7, 5, 11}};
    auto box = TypedBox< double >{low, high};
-   auto sample = box.sample();
+   auto sample = box.sample(10);
    fmt::print("{}", sample);
 }

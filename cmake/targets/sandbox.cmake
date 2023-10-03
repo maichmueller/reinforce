@@ -14,7 +14,8 @@ set_target_properties(
 target_link_libraries(
         sandbox
         PRIVATE
-#        ${reinforce_lib}
+        ${reinforce_lib}
+        project_options
         project_warnings
         CONAN_PKG::range-v3
         CONAN_PKG::xtensor

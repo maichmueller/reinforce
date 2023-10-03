@@ -70,7 +70,7 @@ template < class T, class... Ts >
 inline constexpr bool is_any_v = is_any< T, Ts... >::value;
 
 template < class T, class... Ts >
-struct is_none: ::std::negation< ::std::disjunction< ::std::is_same< T, Ts >... > > {};
+struct is_none: ::std::negation< is_any< T, Ts... > > {};
 template < class T, class... Ts >
 inline constexpr bool is_none_v = is_none< T, Ts... >::value;
 
@@ -79,7 +79,12 @@ struct all_same: ::std::conjunction< ::std::is_same< T, Ts >... > {};
 template < class T, class... Ts >
 inline constexpr bool all_same_v = all_same< T, Ts... >::value;
 
-
+template < typename T, typename U >
+consteval bool same_as(const T&, const U&)
+{
+   return std::same_as< T, U >;
 }
+
+}  // namespace force::detail
 
 #endif  // REINFORCE_TYPE_TRAITS_HPP

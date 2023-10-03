@@ -3,6 +3,7 @@
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
+#include <fmt/std.h>
 #include <spdlog/spdlog.h>
 
 #include <cassert>
@@ -14,8 +15,12 @@
 #include <stdexcept>
 #include <variant>
 #include <vector>
+#include <xtensor/xrandom.hpp>
+#include <xtensor/xstrided_view.hpp>
+#include <xtensor/xview.hpp>
 
 #include "reinforce/spaces/space.hpp"
+#include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
@@ -82,7 +87,20 @@ class TypedBox: public TypedSpace< T > {
                high_shape
             ));
          }
-      } 
+      }
+      SPDLOG_DEBUG(fmt::format(
+         "Bounds:\n{}", std::invoke([&] {
+            xarray< std::string > bounds = xt::empty< std::string >(shape());
+            for(auto [i, bound_string] : ranges::views::enumerate(
+                   ranges::views::zip(m_low, m_high) | ranges::views::transform([](auto pair) {
+                      return fmt::format("[{}, {}]", pair.first, pair.second);
+                   })
+                )) {
+               bounds.flat(i) = bound_string;
+            };
+            return bounds;
+         })
+      ));
    }
 
    bool is_bounded(std::string_view manner = "")
@@ -107,21 +125,24 @@ class TypedBox: public TypedSpace< T > {
       for(auto&& [i, bounds] :
           ranges::views::enumerate(ranges::views::zip(m_bounded_below, m_bounded_above))) {
          auto&& [lower_bounded, upper_bounded] = bounds;
+         // for single samples we can use flat indexing
          auto& entry = samples.data_element(i);
          switch(auto choice = (lower_bounded ? 1 : -1) + int(upper_bounded)) {
             case -1: {
                // (-infinity, infinity)
-               entry = std::normal_distribution< T >{}(rng());
+               entry = static_cast< T >(std::normal_distribution< double >{}(rng()));
                break;
             }
             case 0: {
                // (-infinity, B]
-               entry = m_high.data_element(i) - std::exponential_distribution< T >{1}(rng());
+               entry = m_high.data_element(i)
+                       - static_cast< T >(std::exponential_distribution< double >{1}(rng()));
                break;
             }
             case 1: {
                // [A, infinity)
-               entry = m_low.data_element(i) + std::exponential_distribution< T >{1}(rng());
+               entry = m_low.data_element(i)
+                       + static_cast< T >(std::exponential_distribution< double >{1}(rng()));
                break;
             }
             case 2: {
@@ -130,7 +151,69 @@ class TypedBox: public TypedSpace< T > {
                   std::is_integral_v< T >,
                   std::uniform_int_distribution< T >,
                   std::uniform_real_distribution< T > >;
-               entry = distribution{m_low.data_element(i), m_high.data_element(i)}(rng());
+               entry = static_cast< T >(distribution{
+                  m_low.data_element(i), m_high.data_element(i)}(rng()));
+               break;
+            }
+            default: {
+               throw std::logic_error(
+                  fmt::format("Case generation created unexpected case {}.", choice)
+               );
+            }
+         }
+      }
+      return samples;
+   }
+
+   xarray< T >
+   sample(size_t nr_samples, const std::optional< xarray< bool > >& /*unused*/ = std::nullopt)
+   {
+      xt::svector< int > samples_shape = shape();
+      samples_shape.push_back(static_cast< int >(nr_samples));
+      SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples_shape));
+      xarray< T > samples = xt::empty< T >(std::move(samples_shape));
+
+      for(auto&& [i, bounds] :
+          ranges::views::enumerate(ranges::views::zip(m_bounded_below, m_bounded_above))) {
+         auto&& [lower_bounded, upper_bounded] = bounds;
+         // convert the flat index i to an indexing list for the given shape
+         auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
+         // add all entries of the variate's access in the shape
+         xt::xstrided_slice_vector index_stride(coordinates.begin(), coordinates.end());
+         // add all the sampling indices so that they can be emplaced all at once
+         index_stride.emplace_back(xt::all());
+         auto entry_view = xt::strided_view(samples, index_stride);
+         SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
+         auto draw_shape = xt::svector< size_t >{nr_samples};
+         switch(auto choice = (lower_bounded ? 1 : -1) + int(upper_bounded)) {
+               // we use the `double` versions of all the sampling functions of xtensor even if `T`
+               // were to be integral. xtensor casts the sampled double floating points to `T`
+               // implicitly, so we do not need to handle this manually.
+            case -1: {
+               // (-infinity, infinity)
+               entry_view = xt::random::randn(draw_shape, 0., 1., rng());
+               break;
+            }
+            case 0: {
+               // (-infinity, B]
+               entry_view = m_high.data_element(i) - xt::random::exponential(draw_shape, 1., rng());
+               break;
+            }
+            case 1: {
+               // [A, infinity)
+               entry_view = m_low.data_element(i) + xt::random::exponential(draw_shape, 1., rng());
+               break;
+            }
+            case 2: {
+               // [A, B]
+               using distribution = std::conditional_t<
+                  std::is_integral_v< T >,
+                  decltype(fwd_lambda(xt::random::randint)),
+                  decltype(fwd_lambda(xt::random::rand< double >)) >;
+
+               entry_view = distribution{}(
+                  draw_shape, m_low.data_element(i), m_high.data_element(i), rng()
+               );
                break;
             }
             default: {
