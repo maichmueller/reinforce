@@ -63,3 +63,16 @@ TEST(Space, Box_multi_variates_sample)
       EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) <= high(i, j)));
    }
 }
+
+TEST(Space, Box_bounds)
+{
+   const xarray< double > low{{-infinity<>, 0, -1}, {-infinity<>, 4, 1}};
+   const xarray< double > high{{3, infinity<>, 0}, {7, 5, 11}};
+   auto box = TypedBox< double >{low, high};
+   EXPECT_EQ((std::pair{-infinity<>, 3.}), box.bounds(std::array{0, 0}));
+   EXPECT_EQ((std::pair{0., infinity<>}), box.bounds(std::array{0, 1}));
+   EXPECT_EQ((std::pair{-1., 0.}), box.bounds(std::array{0, 2}));
+   EXPECT_EQ((std::pair{-infinity<>, 7.}), box.bounds(std::array{1, 0}));
+   EXPECT_EQ((std::pair{4., 5.}), box.bounds(std::array{1, 1}));
+   EXPECT_EQ((std::pair{1., 11.}), box.bounds(std::array{1, 2}));
+}

@@ -117,6 +117,14 @@ class TypedBox: public TypedSpace< T > {
       assert(manner.empty());
       return below() and above();
    }
+   template < ranges::range Range >
+      requires std::forward_iterator< ranges::iterator_t< Range > >
+   std::pair< T, T > bounds(const Range& index_range) const
+   {
+      return std::pair{
+         m_low.element(index_range.begin(), index_range.end()),
+         m_high.element(index_range.begin(), index_range.end())};
+   }
 
    xarray< T > sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt) override
    {
