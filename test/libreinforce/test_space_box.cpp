@@ -34,6 +34,13 @@ TEST(Space, Box_single_variates_sample)
       EXPECT_TRUE(xt::all(xt::view(samples, i, xt::all()) >= low(i)));
       EXPECT_TRUE(xt::all(xt::view(samples, i, xt::all()) <= high(i)));
    }
+   for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
+      samples = box.sample();
+      for(auto i : ranges::views::iota(0, 3)) {
+         EXPECT_TRUE(xt::all(xt::view(samples, i) >= low(i)));
+         EXPECT_TRUE(xt::all(xt::view(samples, i) <= high(i)));
+      }
+   }
 }
 
 TEST(Space, Box_multi_variates_constructor)
@@ -61,6 +68,14 @@ TEST(Space, Box_multi_variates_sample)
        ranges::views::cartesian_product(ranges::views::iota(0, 2), ranges::views::iota(0, 3))) {
       EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) >= low(i, j)));
       EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) <= high(i, j)));
+   }
+   for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
+      samples = box.sample();
+      for(auto [i, j] :
+          ranges::views::cartesian_product(ranges::views::iota(0, 2), ranges::views::iota(0, 3))) {
+         EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) >= low(i, j)));
+         EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) <= high(i, j)));
+      }
    }
 }
 
