@@ -30,14 +30,10 @@ macro(run_conan)
             BASIC_SETUP
             CMAKE_TARGETS # individual targets to link to
             KEEP_RPATHS
-            BUILD
-            missing
-            PROFILE
-            default
-            PROFILE_BUILD
-            default
-            PROFILE_AUTO
-            ALL # ALL means that all the settings are taken from CMake's detection
+            BUILD missing
+            PROFILE default
+            PROFILE_BUILD default
+            PROFILE_AUTO ALL # ALL means that all the settings are taken from CMake's detection
     )
     include(${PROJECT_BINARY_DIR}/conanbuildinfo.cmake)
     include(${PROJECT_BINARY_DIR}/conan_paths.cmake)
