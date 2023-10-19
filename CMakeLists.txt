@@ -11,7 +11,7 @@ include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 # options
-option(ENABLE_BUILD_DOCS "Enable building the docs. Requires doxygen to be installed on the system" ON)
+option(ENABLE_BUILD_DOCS "Enable building the docs. Requires doxygen to be installed on the system" OFF)
 option(ENABLE_BUILD_PYTHON_EXTENSION "Enable building the python extension." ON)
 option(ENABLE_BUILD_BENCHMARK "Enable building of the benchmarks." OFF)
 option(ENABLE_BUILD_SANDBOX "Enable building of the sandbox testbed (Only for development purposes)." ON)
@@ -80,7 +80,9 @@ set(_docs_DOXYGEN_WORKING_DIR ${PROJECT_REINFORCE_INCLUDE_DIR}) # has to be rela
 message(STATUS "SETTINGS PRINT start:")
 
 message("CMake Generator: ${CMAKE_GENERATOR}")
+message("C Compiler: ${CMAKE_C_COMPILER}")
 message("C++ Compiler: ${CMAKE_CXX_COMPILER}")
+message("C Compiler Info: ${CMAKE_C_COMPILER_ID}, version ${CMAKE_C_COMPILER_VERSION}")
 message("C++ Compiler Info: ${CMAKE_CXX_COMPILER_ID}, version ${CMAKE_CXX_COMPILER_VERSION}")
 message("CURRENT CMAKE BINARY DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 
@@ -144,8 +146,8 @@ include(${_cmake_DIR}/settings/CPM.cmake)
 # let cpm try to find other deps locally first (find_package) to allow interplay with conan
 set(CPM_USE_LOCAL_PACKAGES TRUE)
 # the deps to be downloaded by conan
-include(${_cmake_DIR}/settings/Conan.cmake)
-run_conan()
+#include(${_cmake_DIR}/settings/Conan.cmake)
+#run_conan()
 
 # set the standard project settings
 include(${_cmake_DIR}/settings/StandardProjectSettings.cmake)
@@ -184,15 +186,16 @@ if (ENABLE_PCH)
             <array>)
 endif ()
 
+
+find_package(xtensor REQUIRED)
+find_package(range-v3 REQUIRED)
 if (USE_PYBIND11_FINDPYTHON)
     set(PYBIND11_FINDPYTHON TRUE)
 else ()
     set(PYBIND11_FINDPYTHON FALSE)
     find_package(Python3 COMPONENTS Interpreter Development NumPy)
 endif ()
-find_package(pybind11 REQUIRED)
-find_package(xtensor REQUIRED)
-find_package(range-v3 REQUIRED)
+#find_package(pybind11 REQUIRED)
 # install all CPM installed dependencies
 include(${DEPENDENCY_DIR}/CPM_deps.cmake)
 
