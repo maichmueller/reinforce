@@ -9,15 +9,19 @@ macro(run_conan)
 
     include(${CMAKE_BINARY_DIR}/conan.cmake)
     message("Given Conan Path: ${CONAN_PATH}")
-    find_program(CONAN_CMD conan REQUIRED PATHS ${CONAN_PATH})
+    if (DEFINED CONAN_PATH)
+        find_program(CONAN_CMD conan REQUIRED PATHS ${CONAN_PATH} NO_DEFAULT_PATH)
+    else ()
+        find_program(CONAN_CMD conan REQUIRED)
+    endif ()
     message("Found conan: ${CONAN_CMD}")
     execute_process(COMMAND ${CONAN_CMD} "--version")
 
-#    conan_cmake_autodetect(settings)
-#    conan_cmake_install(PATH_OR_REFERENCE ${CMAKE_CURRENT_SOURCE_DIR}/${DEPENDENCY_DIR}/${CONANFILE}
-#            GENERATOR CMakeDeps CMakeToolchain
-#            OUTPUT_FOLDER ${CMAKE_BINARY_DIR}
-#            SETTINGS ${settings})
+    #    conan_cmake_autodetect(settings)
+    #    conan_cmake_install(PATH_OR_REFERENCE ${CMAKE_CURRENT_SOURCE_DIR}/${DEPENDENCY_DIR}/${CONANFILE}
+    #            GENERATOR CMakeDeps CMakeToolchain
+    #            OUTPUT_FOLDER ${CMAKE_BINARY_DIR}
+    #            SETTINGS ${settings})
     conan_cmake_run(
             CONANFILE
             ${DEPENDENCY_DIR}/${CONANFILE}
