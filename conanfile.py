@@ -9,6 +9,9 @@ class ConanApplication(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeDeps"
 
+    def configure(self):
+        self.options["fmt"].header_only = True
+
     def layout(self):
         cmake_layout(self)
 
