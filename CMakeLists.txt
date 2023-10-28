@@ -3,7 +3,8 @@ cmake_minimum_required(VERSION 3.17)
 project(
         reinforce
         VERSION 0.0.1
-        LANGUAGES CXX)
+        LANGUAGES CXX
+)
 
 string(TOLOWER ${PROJECT_NAME} PROJECT_NAME_LOWERCASE)
 
@@ -146,8 +147,21 @@ include(${_cmake_DIR}/settings/CPM.cmake)
 # let cpm try to find other deps locally first (find_package) to allow interplay with conan
 set(CPM_USE_LOCAL_PACKAGES TRUE)
 # the deps to be downloaded by conan
-#include(${_cmake_DIR}/settings/Conan.cmake)
-#run_conan()
+if (DEFINED CONAN_PATH)
+    message("Explicit Conan path specified by user: ${CONAN_PATH}. Using `find_program` searching ony in this path.")
+    find_program(CONAN_CMD conan REQUIRED PATHS ${CONAN_PATH} NO_DEFAULT_PATH)
+else ()
+    message("NO explicit Conan path specified by user. Using `find_program` with default settings.")
+    find_program(CONAN_CMD conan REQUIRED)
+endif ()
+execute_process(COMMAND ${CONAN_CMD} "--version" OUTPUT_VARIABLE _CONAN_VERSION_OUTPUT)
+message(STATUS "Found conan: ${CONAN_CMD} - ${_CONAN_VERSION_OUTPUT}")
+string(REGEX MATCH ".*Conan version ([0-9]+\\.[0-9]+\\.[0-9]+)" FOO "${_CONAN_VERSION_OUTPUT}")
+if (${CMAKE_MATCH_1} VERSION_LESS "2.0.0")
+    #if (${_CONAN_VERSION} STRLESS "2")
+    include(${_cmake_DIR}/settings/Conan.cmake)
+    run_conan()
+endif ()
 
 # set the standard project settings
 include(${_cmake_DIR}/settings/StandardProjectSettings.cmake)
@@ -187,15 +201,32 @@ if (ENABLE_PCH)
 endif ()
 
 
-find_package(xtensor REQUIRED)
-find_package(range-v3 REQUIRED)
 if (USE_PYBIND11_FINDPYTHON)
     set(PYBIND11_FINDPYTHON TRUE)
 else ()
     set(PYBIND11_FINDPYTHON FALSE)
-    find_package(Python3 COMPONENTS Interpreter Development NumPy)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development NumPy)
 endif ()
-#find_package(pybind11 REQUIRED)
+message(STATUS "Python3_FOUND: ${Python3_FOUND}")
+message(STATUS "Python3_VERSION: ${Python3_VERSION}")
+message(STATUS "Python3_EXECUTABLE: ${Python3_EXECUTABLE}")
+message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
+message(STATUS "Python3_LIBRARY_DIRS: ${Python3_LIBRARY_DIRS}")
+message(STATUS "Python3_LIBRARIES: ${Python3_LIBRARIES}")
+
+message(STATUS "Python3_Interpreter_FOUND: ${Python3_Interpreter_FOUND}")
+message(STATUS "Python3_INTERPRETER_ID: ${Python3_INTERPRETER_ID}")
+
+message(STATUS "Python3_Development_FOUND: ${Python3_Development_FOUND}")
+message(STATUS "Python3_Development.Module_FOUND: ${Python3_Development.Module_FOUND}")
+
+message(STATUS "Python3_NumPy_FOUND: ${Python3_NumPy_FOUND}")
+message(STATUS "Python3_NumPy_INCLUDE_DIRS: ${Python3_NumPy_INCLUDE_DIRS}")
+message(STATUS "Python3_NumPy_VERSION: ${Python3_NumPy_VERSION}")
+set(NUMPY_FOUND TRUE)
+find_package(pybind11 REQUIRED)
+find_package(xtensor REQUIRED)
+find_package(range-v3 REQUIRED)
 # install all CPM installed dependencies
 include(${DEPENDENCY_DIR}/CPM_deps.cmake)
 
