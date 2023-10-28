@@ -6,9 +6,13 @@ build
 .tox
 **/__pycache__/**
 **/*.egg-info/**
+/deps/docker-stash/*
+!/deps/docker-stash/README.md
 
 *.so
 
 *.pyd
 
 *.egg
+
+.vscode/
