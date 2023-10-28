@@ -5,7 +5,7 @@
 
 namespace force {
 
-using namespace xt::placeholders;  // to enaable `_` syntax in xt::range
+using namespace xt::placeholders;  // to enable `_` syntax in xt::range
 
 template < size_t dim >
 template < ranges::range Range >
@@ -347,7 +347,7 @@ constexpr std::array< long, dim > Gridworld< dim >::_action_as_vector(size_t act
 
 template < size_t dim >
 std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld< dim >::step(
-   size_t action
+   size_t action  
 )
 {
    _assert_action_in_bounds(action);
@@ -377,7 +377,7 @@ std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld<
       }
    };
    switch(next_state_attr.first) {
-      case StateType::start:  // fall through to default
+      case StateType::start:  // fall through to default_
       case StateType::default_: {
          m_location = std::pair{next_position_index, next_position};
          return std::tuple{m_location, m_step_reward + 0., false, false};

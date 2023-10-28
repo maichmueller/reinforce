@@ -6,8 +6,8 @@
 
 namespace force {
 
-template< typename T = double>
-constexpr auto infinity = std::numeric_limits<T>::infinity();
+template < typename T = double >
+constexpr auto infinity = std::numeric_limits< T >::infinity();
 
 namespace detail {
 
@@ -24,12 +24,11 @@ constexpr detail::modulo_result< result_type > modulo(T1 number, T2 dividend)
    if(std::is_constant_evaluated()) {
       auto number_ = result_type(number);
       auto dividend_ = result_type(dividend);
-      return detail::modulo_result< result_type >(
-         number_ / dividend_, number_ - (number_ / dividend_) * dividend_
-      );
+      return detail::modulo_result< result_type >{
+         number_ / dividend_, number_ - (number_ / dividend_) * dividend_};
    }
    auto mod = std::div(long(number), long(dividend));
-   return detail::modulo_result< result_type >(mod.quot, mod.rem);
+   return detail::modulo_result< result_type >{mod.quot, mod.rem};
 }
 
 }  // namespace force
