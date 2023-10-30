@@ -18,15 +18,16 @@ target_link_libraries(
         ${reinforce_lib}
         PUBLIC
         project_options
-        CONAN_PKG::range-v3
-        CONAN_PKG::fmt
-        CONAN_PKG::xtensor
-        CONAN_PKG::spdlog
-        CONAN_PKG::frozen
+        range-v3::range-v3
+        fmt::fmt-header-only
+        xtensor
+        spdlog::spdlog
+        frozen::frozen
         xtensor-python
         xtensor-blas
         pybind11::module
         pybind11::lto
+        "${Python3_LIBRARIES}"
 )
 
 set_target_properties(${reinforce_lib} PROPERTIES CXX_VISIBILITY_PRESET hidden)
@@ -37,4 +38,4 @@ target_compile_definitions(
         # turn off logging in release build, allow debug-level logging in debug build
         SPDLOG_ACTIVE_LEVEL=$<$<CONFIG:RELEASE>:SPDLOG_LEVEL_OFF>$<$<CONFIG:DEBUG>:SPDLOG_LEVEL_DEBUG>
 )
-print_target_properties(${reinforce_lib})
+

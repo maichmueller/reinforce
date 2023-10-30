@@ -96,6 +96,7 @@ message("REINFORCE c++ library name: ${reinforce_lib}")
 message("REINFORCE python extension name: ${reinforce_pymodule}")
 message("BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
 message("FAST MATH SWITCH: ${ENABLE_FAST_MATH}")
+message("USE PYBIND11 FIND-PYTHON: ${USE_PYBIND11_FINDPYTHON}")
 
 message(STATUS "SETTINGS PRINT end.\n")
 
@@ -207,6 +208,8 @@ else ()
     set(PYBIND11_FINDPYTHON FALSE)
     find_package(Python3 REQUIRED COMPONENTS Interpreter Development NumPy)
 endif ()
+find_package(pybind11 REQUIRED)
+
 message(STATUS "Python3_FOUND: ${Python3_FOUND}")
 message(STATUS "Python3_VERSION: ${Python3_VERSION}")
 message(STATUS "Python3_EXECUTABLE: ${Python3_EXECUTABLE}")
@@ -223,20 +226,25 @@ message(STATUS "Python3_Development.Module_FOUND: ${Python3_Development.Module_F
 message(STATUS "Python3_NumPy_FOUND: ${Python3_NumPy_FOUND}")
 message(STATUS "Python3_NumPy_INCLUDE_DIRS: ${Python3_NumPy_INCLUDE_DIRS}")
 message(STATUS "Python3_NumPy_VERSION: ${Python3_NumPy_VERSION}")
-set(NUMPY_FOUND TRUE)
-find_package(pybind11 REQUIRED)
+
 find_package(xtensor REQUIRED)
 find_package(range-v3 REQUIRED)
+find_package(fmt REQUIRED)
+find_package(frozen REQUIRED)
+find_package(spdlog REQUIRED)
+find_package(OpenBLAS REQUIRED)
+add_definitions(-DHAVE_CBLAS=1)
+find_package(LAPACK REQUIRED)
 # install all CPM installed dependencies
+#set(CMAKE_FIND_DEBUG_MODE TRUE)
 include(${DEPENDENCY_DIR}/CPM_deps.cmake)
-
 
 message("Configuring Shared Libraries.")
 include(${_cmake_DIR}/targets/shared_libs.cmake)
 message("Configuring Core Library '${reinforce_lib}'.")
 include(${_cmake_DIR}/targets/reinforce.cmake)
 if (ENABLE_TESTING)
-    find_package("GTest")
+    find_package(GTest REQUIRED)
     enable_testing()
     message("Configuring Tests.")
     include(${_cmake_DIR}/targets/tests.cmake)
@@ -257,5 +265,9 @@ if (ENABLE_BUILD_SANDBOX)
     message("Configuring Sandbox Build.")
     include(${_cmake_DIR}/targets/sandbox.cmake)
 endif ()
+
+# This prints a summary of found dependencies
+include(FeatureSummary)
+feature_summary(WHAT ALL)
 
 include(${_cmake_DIR}/settings/Installation.cmake)

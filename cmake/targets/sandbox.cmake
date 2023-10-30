@@ -17,10 +17,10 @@ target_link_libraries(
         ${reinforce_lib}
         project_options
         project_warnings
-        CONAN_PKG::range-v3
-        CONAN_PKG::xtensor
+        range-v3::range-v3
+        xtensor
         xtensor-python
-        CONAN_PKG::fmt
+        fmt
         pybind11::module
         pybind11::embed
         pybind11::lto

@@ -10,8 +10,8 @@ target_link_libraries(
         project_options
         project_warnings
         common_testing_utils
-        CONAN_PKG::gtest
-        CONAN_PKG::fmt
-        CONAN_PKG::range-v3
+        GTest::gtest
+        fmt::fmt-header-only
+        range-v3::range-v3
         pybind11::module
 )

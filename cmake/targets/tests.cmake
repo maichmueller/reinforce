@@ -23,6 +23,7 @@ target_link_libraries(
         PRIVATE
         project_options
         pybind11::module
+        pybind11::embed
         $<$<NOT:$<BOOL:USE_PYBIND11_FINDPYTHON>>:Python3::Module>
 )
 
