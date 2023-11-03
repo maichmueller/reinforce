@@ -64,6 +64,8 @@ class TypedBox: public TypedSpace< T > {
          m_bounded_below(not xt::isinf(low)),
          m_bounded_above(not xt::isinf(high))
    {
+      using namespace fmt::literals;
+
       auto low_shape = low.shape();
       auto high_shape = high.shape();
 
@@ -93,7 +95,13 @@ class TypedBox: public TypedSpace< T > {
             xarray< std::string > bounds = xt::empty< std::string >(shape());
             for(auto [i, bound_string] : ranges::views::enumerate(
                    ranges::views::zip(m_low, m_high) | ranges::views::transform([](auto pair) {
-                      return fmt::format("[{}, {}]", pair.first, pair.second);
+                      return fmt::format(
+                         "{interv_bracket_open}{lower},{upper}{interv_bracket_close}",
+                         "interv_bracket_open"_a = std::isinf(pair.first) ? "(" : "[",
+                         "interv_bracket_close"_a = std::isinf(pair.second) ? ")" : "]",
+                         "lower"_a = pair.first,
+                         "upper"_a = pair.second
+                      );
                    })
                 )) {
                bounds.flat(i) = bound_string;
