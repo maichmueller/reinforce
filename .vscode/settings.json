@@ -1,0 +1,12 @@
+{
+    "cmake.configureSettings": {},
+    "cmake.configureArgs": [
+        "-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=conan_provider.cmake"
+    ],
+    "cmake.preferredGenerators": [
+        "Ninja"
+    ],
+    "cmake.buildDirectory": "${workspaceFolder}/cmake-build_vsc-${variant:buildTarget}-${variant:buildOpt}",
+    "clangd.path": "/usr/lib/llvm-16/bin/clangd",
+    "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
+}
