@@ -96,9 +96,9 @@ class TypedBox: public TypedSpace< T > {
             for(auto [i, bound_string] : ranges::views::enumerate(
                    ranges::views::zip(m_low, m_high) | ranges::views::transform([](auto pair) {
                       return fmt::format(
-                         "{interv_bracket_open}{lower},{upper}{interv_bracket_close}",
-                         "interv_bracket_open"_a = std::isinf(pair.first) ? "(" : "[",
-                         "interv_bracket_close"_a = std::isinf(pair.second) ? ")" : "]",
+                         "{bracket_open}{lower},{upper}{bracket_close}",
+                         "bracket_open"_a = std::isinf(pair.first) ? "(" : "[",
+                         "bracket_close"_a = std::isinf(pair.second) ? ")" : "]",
                          "lower"_a = pair.first,
                          "upper"_a = pair.second
                       );
@@ -111,7 +111,7 @@ class TypedBox: public TypedSpace< T > {
       ));
    }
 
-   bool is_bounded(std::string_view manner = "")
+   bool is_bounded(const std::string_view manner = "")
    {
       constexpr auto below = [&] { return xt::all(m_bounded_below); };
       constexpr auto above = [&] { return xt::all(m_bounded_above); };
@@ -244,22 +244,22 @@ class TypedBox: public TypedSpace< T > {
       return samples;
    }
 
-   bool contains(const T& t) const override
+   bool contains(const T& value) const override
    {
       return ranges::any_of(ranges::views::zip(m_low, m_high), [&](const auto& low_high) {
          auto&& [low, high] = low_high;
-         return low <= t and high >= t;
+         return low <= value and high >= value;
       });
    }
 
    // Checks whether this space can be flattened to a Box
-   bool is_flattenable() const override { return true; }
+   [[nodiscard]] bool is_flattenable() const override { return true; }
 
    std::string repr() { return fmt::format("Box({}, {}, {})", m_low, m_high, shape()); }
 
-   bool operator==(const TypedBox< T >& other)
+   bool operator==(const TypedBox< T >& other) const
    {
-      return xt::equal(shape(), other.shape()) and xt::equal(m_low, other.m_low)
+      return xt::equal(shape(), other.m_shape) and xt::equal(m_low, other.m_low)
              and xt::equal(m_high, other.m_high);
    }
 

@@ -1,6 +1,6 @@
 
-#ifndef REINFORCE_GYMANSIUM_ENV_CONCEPT_HPP
-#define REINFORCE_GYMANSIUM_ENV_CONCEPT_HPP
+#ifndef REINFORCE_GYMNASIUM_ENV_CONCEPT_HPP
+#define REINFORCE_GYMNASIUM_ENV_CONCEPT_HPP
 
 #include <any>
 #include <optional>
@@ -15,7 +15,7 @@ namespace force {
 
 template < typename Tuple, typename ObservationT >
 concept matches_step_return_type = requires(Tuple tuple) {
-   requires is_specialization_v< Tuple, std::tuple >;
+   requires detail::is_specialization_v< Tuple, std::tuple >;
    // the gym api states that the return type should be a tuple of length 5
    requires std::tuple_size_v< Tuple > == 5;
    // whose first 4 entries are Observation
@@ -29,7 +29,7 @@ concept matches_step_return_type = requires(Tuple tuple) {
 
 template < typename Tuple, typename ObservationT >
 concept matches_reset_return_type = requires(Tuple tuple) {
-   requires is_specialization_v< Tuple, std::tuple >;
+   requires detail::is_specialization_v< Tuple, std::tuple >;
    // the gym api states that the return type should be a tuple of length 2
    requires std::tuple_size_v< Tuple > == 2;
    {
@@ -54,4 +54,4 @@ concept gym_env = requires(Env env, ActionT action, ObservationT observation) {
 
 }  // namespace force
 
-#endif  // REINFORCE_GYMANSIUM_ENV_CONCEPT_HPP
+#endif  // REINFORCE_GYMNASIUM_ENV_CONCEPT_HPP

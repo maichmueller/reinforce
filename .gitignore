@@ -15,4 +15,6 @@ build
 
 *.egg
 
-.vscode/
+.cache
+
+compile_commands.json

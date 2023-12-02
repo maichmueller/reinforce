@@ -28,8 +28,8 @@ static_assert(false, "No logging level set. Please define the macro 'SPDLOG_ACTI
 #include <xtensor/xview.hpp>
 
 #include "reinforce/utils/format.hpp"
-#include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/math.hpp"
+#include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
@@ -44,7 +44,8 @@ constexpr frozen::unordered_map< StateType, std::string_view, 6 > state_type_nam
    {StateType::subgoal, "subgoal"},
    {StateType::start, "start"},
    {StateType::restart, "restart"},
-   {StateType::obstacle, "obstacle"}};
+   {StateType::obstacle, "obstacle"}
+};
 
 template <>
 inline std::string to_string(const StateType& state_type)
@@ -53,7 +54,6 @@ inline std::string to_string(const StateType& state_type)
 }
 
 }  // namespace detail
-
 
 template < size_t dim >
 class Gridworld {

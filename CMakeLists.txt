@@ -105,7 +105,8 @@ message(STATUS "SETTINGS PRINT end.\n")
 # set it seems. execute_process(COMMAND which conan OUTPUT_VARIABLE CONAN_PATH)
 
 # Link this 'library' to set the c++ standard / compile-time options requested
-add_library(project_options INTERFACE)
+add_library(project_options INTERFACE
+        src/libreinforce/include/reinforce/env/gym_env_concept.h)
 # Link this 'library' to use the warnings specified in CompilerWarnings.cmake
 add_library(project_warnings INTERFACE)
 
@@ -228,10 +229,10 @@ message(STATUS "Python3_NumPy_INCLUDE_DIRS: ${Python3_NumPy_INCLUDE_DIRS}")
 message(STATUS "Python3_NumPy_VERSION: ${Python3_NumPy_VERSION}")
 
 find_package(xtensor REQUIRED)
+find_package(spdlog REQUIRED)
 find_package(range-v3 REQUIRED)
 find_package(fmt REQUIRED)
 find_package(frozen REQUIRED)
-find_package(spdlog REQUIRED)
 find_package(OpenBLAS REQUIRED)
 add_definitions(-DHAVE_CBLAS=1)
 find_package(LAPACK REQUIRED)

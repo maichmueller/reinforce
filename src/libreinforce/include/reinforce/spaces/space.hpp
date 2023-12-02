@@ -40,7 +40,7 @@ class TypedSpace {
    virtual bool contains(const T& value) const = 0;
 
    // Checks whether this space can be flattened to a Box
-   virtual bool is_flattenable() const { return false; }
+   [[nodiscard]] virtual bool is_flattenable() const { return false; }
 
    // Return the shape of the space
    auto& shape() const { return m_shape; }

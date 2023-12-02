@@ -82,7 +82,7 @@ RUN apt-get update -qq && export DEBIAN_FRONTEND=noninteractive && \
 # Install optional dependecies
 RUN apt-get update -qq && export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y --no-install-recommends \
-        doxygen graphviz ccache cppcheck
+        doxygen graphviz ccache cppcheck ssh
 
 # Install include-what-you-use
 ENV IWYU /home/iwyu
@@ -119,6 +119,8 @@ ENV CXX=${USE_CLANG:+"clang++"}
 ENV CC=${CC:-"gcc"}
 ENV CXX=${CXX:-"g++"}
 
+RUN echo $CC && echo $CXX
+
 # create the default profile for conan to rely on
 RUN conan profile detect
 RUN echo $' \n\
@@ -132,27 +134,5 @@ tools.build:jobs=8 \
     ' >> /home/conan_profile
 
 RUN conan config install /home/conan_profile
-
-ADD conan_provider.cmake /home/project/conan_provider.cmake
-ADD conanfile.py /home/project/conanfile.py
-ADD conandata.yml /home/project/conandata.yml
-
-RUN conan install /home/project/conanfile.py  \
-    -pr:h=/home/conan_profile    \
-    -s build_type=Debug    \
-    -pr:b=/home/conan_profile    \
-    -s build_type=Release  \
-    --build missing
-
-RUN conan install /home/project/conanfile.py  \
-    -pr:h=/home/conan_profile    \
-    -s build_type=Release
-
-RUN conan list "*"
-
-#RUN useradd --user-group --system --create-home --no-log-init ${USERNAME}
-## transfer ownership of the users home directory to the user
-#RUN chown -R ${USERNAME} /home/${USERNAME}
-#USER ${USERNAME}
 
 CMD ["/bin/bash"]
