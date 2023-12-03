@@ -84,10 +84,30 @@ TEST(Space, Box_bounds)
    const xarray< double > low{{-infinity<>, 0, -1}, {-infinity<>, 4, 1}};
    const xarray< double > high{{3, infinity<>, 0}, {7, 5, 11}};
    auto box = TypedBox< double >{low, high};
-   EXPECT_EQ((std::pair{-infinity<>, 3.}), box.bounds(std::array{0, 0}));
-   EXPECT_EQ((std::pair{0., infinity<>}), box.bounds(std::array{0, 1}));
-   EXPECT_EQ((std::pair{-1., 0.}), box.bounds(std::array{0, 2}));
-   EXPECT_EQ((std::pair{-infinity<>, 7.}), box.bounds(std::array{1, 0}));
-   EXPECT_EQ((std::pair{4., 5.}), box.bounds(std::array{1, 1}));
+   EXPECT_EQ((std::pair{-infinity<>, 3.}), box.bounds({0, 0}));
+   EXPECT_EQ((std::pair{0., infinity<>}), box.bounds({0, 1}));
+   EXPECT_EQ((std::pair{-1., 0.}), box.bounds({0, 2}));
+   EXPECT_EQ((std::pair{-infinity<>, 7.}), box.bounds({1, 0}));
+   EXPECT_EQ((std::pair{4., 5.}), box.bounds({1, 1}));
+   EXPECT_EQ((std::pair{1., 11.}), box.bounds({1, 2}));
+
    EXPECT_EQ((std::pair{1., 11.}), box.bounds(std::array{1, 2}));
+   EXPECT_EQ((std::pair{1., 11.}), box.bounds(std::vector{1, 2}));
+}
+
+TEST(Space, Box_copy_construction)
+{
+   const xarray< double > low{-infinity<>, 0, -10};
+   const xarray< double > high{0, infinity<>, 10};
+   TypedBox< double > space{low, high};
+   auto space_copy = space;
+   EXPECT_EQ(space_copy, space);
+   EXPECT_EQ(space.bounds({0}), space_copy.bounds({0}));
+   // RNG state should still be aligned
+   EXPECT_EQ(space_copy.sample(), space.sample());
+   // now the copy has an advanced rng
+   space_copy.sample();
+   // the samples now should no longer be the same
+   EXPECT_NE(space_copy.sample(), space.sample());
+
 }

@@ -26,6 +26,10 @@ class TypedSpace {
        : m_shape(std::move(shape)), m_rng(seeded_rng(seed))
    {
    }
+   TypedSpace(const TypedSpace&) = default;
+   TypedSpace(TypedSpace&&) = default;
+   TypedSpace& operator=(const TypedSpace&) = default;
+   TypedSpace& operator=(TypedSpace&&) = default;
    virtual ~TypedSpace() = default;
 
    // Randomly sample an element of this space

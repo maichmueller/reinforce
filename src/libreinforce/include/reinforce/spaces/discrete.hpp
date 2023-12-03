@@ -26,54 +26,20 @@ class TypedDiscrete: public TypedSpace< T > {
    {
       if constexpr(std::is_signed_v< T >) {
          if(n <= 0) {
-            throw std::invalid_argument("n (counts) have to be positive");
+            throw std::invalid_argument("Counts parameter `n` has to be positive");
          }
       }
    }
 
    xarray< T > sample(const std::optional< xarray< bool > >& mask_opt = std::nullopt) override
    {
-      return sample(size_t(1), mask_opt);
+      return sample(size_t{1}, mask_opt);
    }
 
    xarray< T > sample(
       size_t nr_samples,
       const std::optional< xarray< bool > >& mask_opt = std::nullopt
-   ) override
-   {
-      auto samples = xt::empty< T >(xt::svector{nr_samples});
-      if(mask_opt.has_value()) {
-         const auto& mask = *mask_opt;
-         if(mask.size() != m_nr_values) {
-            throw std::invalid_argument(
-               fmt::format("Mask size must match the number of elements ({})", m_nr_values)
-            );
-         }
-
-         std::vector< int > valid_indices;
-         valid_indices.reserve(mask.size());
-         auto&& flat_mask = xt::flatten(mask);
-         for(auto [i, selected] : ranges::views::enumerate(flat_mask)) {
-            if(selected) {
-               valid_indices.emplace_back(i);
-            }
-         }
-
-         if(not valid_indices.empty()) {
-            const std::uniform_int_distribution< size_t > dist(0UL, valid_indices.size() - 1);
-            for(auto i : ranges::views::iota(0UL, nr_samples)) {
-               samples.unchecked(i) = m_start + dist(rng());
-            }
-            return samples;
-         }
-         return {};
-      }
-      std::uniform_int_distribution< int > dist(0, m_nr_values - 1);
-      for(auto i : ranges::views::iota(0UL, nr_samples)) {
-         samples.unchecked(i) = m_start + dist(rng());
-      }
-      return samples;
-   }
+   ) override;
 
    bool contains(int value) { return m_start <= value && value < m_start + m_nr_values; }
 
@@ -98,6 +64,44 @@ class TypedDiscrete: public TypedSpace< T > {
       return m_nr_values == other_cast.m_nr_values && m_start == other_cast.m_start;
    }
 };
+
+template < std::integral T >
+xarray< T >
+TypedDiscrete< T >::sample(size_t nr_samples, const std::optional< xarray< bool > >& mask_opt)
+{
+   auto samples = xt::empty< T >(xt::svector{nr_samples});
+   if(mask_opt.has_value()) {
+      const auto& mask = *mask_opt;
+      if(mask.size() != m_nr_values) {
+         throw std::invalid_argument(
+            fmt::format("Mask size must match the number of elements ({})", m_nr_values)
+         );
+      }
+
+      std::vector< int > valid_indices;
+      valid_indices.reserve(mask.size());
+      auto&& flat_mask = xt::flatten(mask);
+      for(auto [i, selected] : ranges::views::enumerate(flat_mask)) {
+         if(selected) {
+            valid_indices.emplace_back(i);
+         }
+      }
+
+      if(not valid_indices.empty()) {
+         const std::uniform_int_distribution< size_t > dist(0UL, valid_indices.size() - 1);
+         for(auto i : ranges::views::iota(0UL, nr_samples)) {
+            samples.unchecked(i) = m_start + dist(rng());
+         }
+         return samples;
+      }
+      return {};
+   }
+   std::uniform_int_distribution< int > dist(0, m_nr_values - 1);
+   for(auto i : ranges::views::iota(0UL, nr_samples)) {
+      samples.unchecked(i) = m_start + dist(rng());
+   }
+   return samples;
+}
 
 }  // namespace force
 
