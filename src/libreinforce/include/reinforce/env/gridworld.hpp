@@ -8,9 +8,7 @@ static_assert(false, "No logging level set. Please define the macro 'SPDLOG_ACTI
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <fmt/std.h>
-#include <frozen/map.h>
 #include <frozen/unordered_map.h>
-#include <pybind11/numpy.h>
 #include <spdlog/spdlog.h>
 
 #include <optional>
@@ -96,32 +94,19 @@ class Gridworld {
    /**
     * @brief Construct a GridWorld instance.
     *
-    * @param num_rows The number of rows in the gridworld.
-    * @param num_cols The number of columns in the gridworld.
+    * @param shape The shape of the "box" representation of the gridworld.
     * @param start_states The start states of the gridworld.
     * @param goal_states The goal states for the gridworld (m <= n).
-    * @param step_reward The reward for each step taken by the agent.
     * @param goal_reward The reward for reaching a goal state.
-    * @param subgoal_state_reward The reward for transitioning to a subgoal state.
-    * @param restart_state_reward The reward for transitioning to a restart state.
+    * @param step_reward The reward for each step taken by the agent.
+    * @param subgoal_states_reward The reward for transitioning to a subgoal state.
+    * @param restart_states_reward The reward for transitioning to a restart state.
     * @param transition_matrix The probability or probability matrix of successfully
     * transitioning states.
-    * @param bias The probability of transitioning left or right if not successful.
-    * @param obstacle_states States the agent cannot enter.
-    * @param subgoal_states States where the agent incurs high subgoal.
+    * @param obs_states States the agent cannot enter (obstacles).
+    * @param subgoal_states States where the agent incurs subgoal rewards of any kind.
     * @param restart_states States where the agent transitions to start.
     */
-   template < std::integral I, typename... Args >
-   Gridworld(std::initializer_list< I > shape, Args&&... args)
-       : Gridworld(shape.begin(), shape.end(), std::forward< Args >(args)...)
-   {
-   }
-   template < std::forward_iterator FwdIter, typename... Args >
-      requires std::convertible_to< size_t, std::iter_value_t< FwdIter > >
-   Gridworld(FwdIter shape_begin, FwdIter shape_end, Args&&... args)
-       : Gridworld(detail::RangeAdaptor{shape_begin, shape_end}, std::forward< Args >(args)...)
-   {
-   }
    template < ranges::range Range >
       requires detail::expected_value_type< size_t, Range >
    Gridworld(
@@ -138,6 +123,17 @@ class Gridworld {
       std::optional< idx_pyarray > restart_states = {},
       double restart_states_reward = 0.
    );
+   template < std::integral I, typename... Args >
+   Gridworld(std::initializer_list< I > shape, Args&&... args)
+       : Gridworld(shape.begin(), shape.end(), std::forward< Args >(args)...)
+   {
+   }
+   template < std::forward_iterator FwdIter, typename... Args >
+      requires std::convertible_to< size_t, std::iter_value_t< FwdIter > >
+   Gridworld(FwdIter shape_begin, FwdIter shape_end, Args&&... args)
+       : Gridworld(detail::RangeAdaptor{shape_begin, shape_end}, std::forward< Args >(args)...)
+   {
+   }
 
    [[nodiscard]] auto coord_state(size_t state_index) const;
    template < ranges::sized_range Range >
@@ -178,9 +174,12 @@ class Gridworld {
       if(seed.has_value()) {
          reseed(*seed);
       }
-      auto row_index = m_start_state_distribution(m_rng);
-      idx_xstacktensor< dim > start_coordinates = xt::row(m_start_states, long(row_index));
-      return (m_location = std::pair{index_state(start_coordinates), start_coordinates});
+      const auto row_index = m_start_state_distribution(m_rng);
+      idx_xstacktensor< dim > start_coordinates = xt::row(
+         m_start_states, static_cast< long >(row_index)
+      );
+      m_location = std::pair{index_state(start_coordinates), start_coordinates};
+      return m_location;
    }
 
    [[nodiscard]] std::string render() const;
@@ -230,8 +229,8 @@ class Gridworld {
    std::mt19937_64 m_rng{std::random_device{}()};
 
    [[nodiscard("Discarding this value will cause a memory leak.")]]  //
-   constexpr std::span< double, std::dynamic_extent >
-   c_array(const size_t size, const auto value) const
+   constexpr static std::span< double, std::dynamic_extent >
+   c_array(const size_t size, const auto value)
    {
       auto data = std::span{new double[size], size};
       ranges::fill(data, value);
@@ -296,7 +295,7 @@ class Gridworld {
    ) const;
 
    template < typename Array >
-   void rearrange_layout(Array& arr) const
+   static void rearrange_layout(Array& arr)
    {
       if(arr.layout() != xt::layout_type::row_major) {
          arr.resize(arr.shape(), xt::layout_type::row_major);
@@ -345,7 +344,7 @@ class Gridworld {
       requires(detail::expected_value_type< size_t, R1 > and detail::expected_value_type< size_t, R2 >)
    constexpr bool _equal_coords(const R1& rng1, const R2& rng2) const noexcept
    {
-      // this should be ever so sightly more efficient than ranges::equal, since equal checks
+      // this should be sightly more efficient than ranges::equal, since `equal` checks
       // for same length which we already know is the case, because the coords are adapted and
       // the goal coords are verified upon construction
       return ranges::all_of(ranges::views::zip(rng1, rng2), [](const auto& coord_pair) {

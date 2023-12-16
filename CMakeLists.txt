@@ -105,8 +105,7 @@ message(STATUS "SETTINGS PRINT end.\n")
 # set it seems. execute_process(COMMAND which conan OUTPUT_VARIABLE CONAN_PATH)
 
 # Link this 'library' to set the c++ standard / compile-time options requested
-add_library(project_options INTERFACE
-        src/libreinforce/include/reinforce/env/gym_env_concept.h)
+add_library(project_options INTERFACE)
 # Link this 'library' to use the warnings specified in CompilerWarnings.cmake
 add_library(project_warnings INTERFACE)
 
@@ -197,9 +196,12 @@ if (ENABLE_PCH)
             <vector>
             <string>
             <map>
+            <unordered_map>
             <utility>
             <memory>
-            <array>)
+            <array>
+            <ranges>
+    )
 endif ()
 
 

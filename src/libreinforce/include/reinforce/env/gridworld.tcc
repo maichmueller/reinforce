@@ -62,7 +62,7 @@ Gridworld< dim >::Gridworld(
       m_start_state_distribution(
          start_states_prob_weights.has_value()
             ? std::discrete_distribution<
-               size_t >{(*start_states_prob_weights).begin(), (*start_states_prob_weights).end()}
+                 size_t >{(*start_states_prob_weights).begin(), (*start_states_prob_weights).end()}
             : std::invoke([&] {
                  std::vector< int > weights(m_start_states.shape(0), 1);  // makes it uniform
                  return std::discrete_distribution< size_t >{weights.begin(), weights.end()};
@@ -82,7 +82,8 @@ Gridworld< dim >::Gridworld(
       std::ref(m_goal_states),
       std::ref(m_obs_states),
       std::ref(m_subgoal_states),
-      std::ref(m_restart_states)};
+      std::ref(m_restart_states)
+   };
    for(auto& arr : array_list | ranges::views::deref) {
       auto size = arr.size();
       if(size != 0) {
@@ -193,7 +194,8 @@ xarray< double > Gridworld< dim >::_init_transition_tensor(
          [&](pyarray< double > arr) {
             assert_shape(arr, shape);
             ranges::copy(arr, tensor.begin());
-         }},
+         }
+      },
       transition_matrix
    );
    return tensor;
@@ -236,16 +238,17 @@ void Gridworld< dim >::_enter_rewards(
       // iterate over axis 0 (the state index) to get a slice over state coordinates
       auto coord_begin = xt::axis_slice_begin(states, 1);
       auto coord_end = xt::axis_slice_end(states, 1);
-      for(auto [idx_iter, counter] = std::pair{coord_begin, size_t(0)}; idx_iter != coord_end;
-          idx_iter++, counter++) {
+      for(auto [idx_iter, counter] = std::pair{coord_begin, size_t{0}}; idx_iter != coord_end;
+          ++idx_iter, ++counter) {
          SPDLOG_DEBUG(
             "State index: {}",
             index_state(detail::SizedRangeAdaptor{idx_iter->cbegin(), idx_iter->cend(), dim})
          );
          reward_map.emplace(
             std::piecewise_construct,
-            std::forward_as_tuple(index_state(detail::SizedRangeAdaptor{
-               idx_iter->cbegin(), idx_iter->cend(), dim})),
+            std::forward_as_tuple(
+               index_state(detail::SizedRangeAdaptor{idx_iter->cbegin(), idx_iter->cend(), dim})
+            ),
             std::forward_as_tuple(state_type, access_functor(counter))
          );
       }
@@ -267,7 +270,8 @@ void Gridworld< dim >::_enter_rewards(
          [&](const pyarray< double >& reward_arr) {
             assert_shape(reward_arr);
             reward_setter([&](auto index) { return reward_arr(index); });
-         }},
+         }
+      },
       reward_variant
    );
 }
@@ -277,11 +281,11 @@ auto Gridworld< dim >::coord_state(size_t state_index) const
 {
    idx_xstacktensor< dim > coords;
    // we need the same type in std::div to avoid ambiguity. So we use long for both inputs.
-   long index = long(state_index);
+   long index = static_cast< long >(state_index);
    for(auto [i, shape] : ranges::views::reverse(ranges::views::enumerate(m_grid_shape))) {
-      auto modulus_result = modulo(index, long(shape));
-      coords[i] = size_t(modulus_result.rem);
-      index = modulus_result.quot;
+      auto [quotient, remainder] = modulo(index, static_cast< long >(shape));
+      coords[i] = static_cast< size_t >(remainder);
+      index = quotient;
    }
    return coords;
 }
@@ -309,7 +313,7 @@ template < ranges::sized_range Range >
 size_t Gridworld< dim >::index_state(const Range& coordinates) const
 {
    auto size = ranges::distance(coordinates);
-   long int diff = long(dim) - long(size);
+   long int diff = static_cast< long >(dim) - static_cast< long >(size);
    if(diff < 0) {
       throw std::invalid_argument(
          fmt::format("More arguments ({}) passed than dimensions in the grid ({}).", size, dim)
@@ -329,25 +333,25 @@ size_t Gridworld< dim >::index_state(const Range& coordinates) const
 }
 
 template < size_t dim >
-constexpr std::array< long, dim > Gridworld< dim >::action_as_vector(size_t action) const
+constexpr std::array< long, dim > Gridworld< dim >::action_as_vector(const size_t action) const
 {
    _assert_action_in_bounds(action);
    return _action_as_vector(action);
 }
 
 template < size_t dim >
-constexpr std::array< long, dim > Gridworld< dim >::_action_as_vector(size_t action) noexcept
+constexpr std::array< long, dim > Gridworld< dim >::_action_as_vector(const size_t action) noexcept
 {
    std::array< long, dim > vector;
    ranges::fill(vector, 0);
    auto [quot, rem] = modulo(action, 2);
-   vector[size_t(quot)] = _direction_from_remainder(rem);
+   vector[static_cast< size_t >(quot)] = _direction_from_remainder(rem);
    return vector;
 }
 
 template < size_t dim >
 std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld< dim >::step(
-   size_t action  
+   size_t action
 )
 {
    _assert_action_in_bounds(action);
@@ -355,8 +359,7 @@ std::tuple< typename Gridworld< dim >::obs_type, double, bool, bool > Gridworld<
    // compile time
    constexpr static auto actions_to_vectors{std::invoke(
       []< size_t... As >(std::index_sequence< As... >) {
-         return std::array< std::array< long, dim >, num_actions() >{
-            Gridworld< dim >::_action_as_vector(As)...};
+         return std::array< std::array< long, dim >, num_actions() >{_action_as_vector(As)...};
       },
       std::make_index_sequence< num_actions() >{}
    )};
@@ -410,16 +413,18 @@ template < size_t dim >
    _assert_action_in_bounds(action);
    if constexpr(dim == 2) {
       constexpr std::array< std::string_view, num_actions() > avail_actions{
-         "left", "right", "down", "up"};
+         "left", "right", "down", "up"
+      };
       return std::string{avail_actions[action]};
    }
    if constexpr(dim == 3) {
       constexpr std::array< std::string_view, num_actions() > avail_actions{
-         "left", "right", "down", "up", "out", "in"};
+         "left", "right", "down", "up", "out", "in"
+      };
       return std::string{avail_actions[action]};
    } else {
-      auto mod = modulo(action, dim);
-      return fmt::format("<DIM: {}, DIRECTION: {}>", mod.quot, _direction_from_remainder(mod.rem));
+      auto [quot, rem] = modulo(action, dim);
+      return fmt::format("<DIM: {}, DIRECTION: {}>", quot, _direction_from_remainder(rem));
    }
 }
 

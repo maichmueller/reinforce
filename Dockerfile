@@ -36,7 +36,7 @@ ENV CONAN_HOME /home/${USERNAME}/conan_cache
 # User-settable versions:
 # This Dockerfile should support gcc-[7, 8, 9, 10, 11, 12, 13] and clang-[10, 11, 12, 13, 14, 15, 16, 17]
 # Earlier versions of clang will require significant modifications to the IWYU section
-ARG GCC_VER="11"
+ARG GCC_VER="13"
 # Add gcc-${GCC_VER}
 RUN add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
     apt-get update -qq && export DEBIAN_FRONTEND=noninteractive && \
@@ -47,7 +47,7 @@ RUN add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
 RUN update-alternatives --install /usr/bin/gcc gcc $(which gcc-${GCC_VER}) 100
 RUN update-alternatives --install /usr/bin/g++ g++ $(which g++-${GCC_VER}) 100
 
-ARG LLVM_VER="16"
+ARG LLVM_VER="17"
 # Add clang-${LLVM_VER}
 ARG LLVM_URL="http://apt.llvm.org/${VARIANT}/"
 ARG LLVM_PKG="llvm-toolchain-${VARIANT}-${LLVM_VER}"
@@ -68,11 +68,23 @@ RUN update-alternatives --install /usr/bin/clang++ clang++ $(which clang++-${LLV
 # Add current cmake/ccmake, from Kitware
 ARG CMAKE_URL="https://apt.kitware.com/ubuntu/"
 ARG CMAKE_PKG=${VARIANT}
-RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null \
+ARG CMAKE_VER=3.26.4
+RUN export DEBIAN_FRONTEND=noninteractive; \
+    wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null \
         | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null && \
-    apt-add-repository -y "deb ${CMAKE_URL} ${CMAKE_PKG} main" && \
-    apt-get update -qq && export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install -y --no-install-recommends cmake cmake-curses-gui
+    apt-add-repository -y "deb ${CMAKE_URL} ${CMAKE_PKG} main"
+
+RUN export DEBIAN_FRONTEND=noninteractive; \
+#    apt-get update -qq && \
+    apt list -a cmake | grep "${CMAKE_VER}"
+RUN export DEBIAN_FRONTEND=noninteractive; \
+    export CMAKE_VERSION_STRING=$(apt list -a cmake 2>/dev/null | grep ${CMAKE_VER} | cut -d" " -f2); \
+    apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+    cmake=${CMAKE_VERSION_STRING} \
+    cmake-data=${CMAKE_VERSION_STRING} \
+    cmake-curses-gui=${CMAKE_VERSION_STRING}
+
 
 # Install editors
 RUN apt-get update -qq && export DEBIAN_FRONTEND=noninteractive && \
