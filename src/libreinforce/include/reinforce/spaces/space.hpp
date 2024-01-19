@@ -1,8 +1,6 @@
 #ifndef REINFORCE_SPACE_HPP
 #define REINFORCE_SPACE_HPP
 
-#include <pybind11/numpy.h>
-
 #include <optional>
 #include <random>
 #include <utility>

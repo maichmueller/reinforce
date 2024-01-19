@@ -11,7 +11,7 @@ target_link_libraries(
         project_warnings
         common_testing_utils
         GTest::gtest
-        fmt::fmt-header-only
+        fmt::fmt
         range-v3::range-v3
         pybind11::module
 )

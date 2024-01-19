@@ -19,7 +19,7 @@ target_link_libraries(
         PUBLIC
         project_options
         range-v3::range-v3
-        fmt::fmt-header-only
+        fmt::fmt
         xtensor
         spdlog::spdlog
         frozen::frozen

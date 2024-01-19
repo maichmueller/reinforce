@@ -2,12 +2,15 @@
 #define REINFORCE_DECLARATIONS_TCC
 
 #include "declarations.hpp"
-namespace force {
+
+namespace pyforce {
+
 template < size_t dim >
-void init_env_gridworld(py::module_& m)
+static void init::env_gridworld(py::module_& m)
 {
 
 }
+
 }  // namespace force
 
 #endif  // REINFORCE_DECLARATIONS_TCC
