@@ -79,6 +79,12 @@ struct all_same: ::std::conjunction< ::std::is_same< T, Ts >... > {};
 template < class T, class... Ts >
 inline constexpr bool all_same_v = all_same< T, Ts... >::value;
 
+template < typename T >
+using raw = std::remove_cvref< T >;
+
+template < typename T >
+using raw_t = typename raw< T >::type;
+
 template < typename T, typename U >
 consteval bool same_as(const T&, const U&)
 {
