@@ -1,3 +1,4 @@
+
 #ifndef REINFORCE_GRIDWORLD_TCC
 #define REINFORCE_GRIDWORLD_TCC
 
@@ -70,7 +71,18 @@ Gridworld< dim >::Gridworld(
       ),
       m_transition_tensor(_init_transition_tensor(transition_matrix)),
       m_reward_map(_init_reward_map(goal_reward, subgoal_states_reward, restart_states_reward)),
-      m_step_reward(step_reward)
+      m_step_reward(step_reward),
+      m_action_space{0, m_num_actions - 1},
+      m_obs_space{
+         TypedDiscreteSpace< size_t >{m_size},
+         TypedMultiDiscreteSpace< size_t >{m_grid_shape}
+      },
+      m_reward_range{std::invoke([&] {
+         auto [min, max] = std::ranges::minmax(
+            m_reward_map | std::views::values | std::views::values
+         );
+         return std::pair{min, max};
+      })}
 {
    // we will now count the storage of all our special state definitions to relocate the possibly
    // fragmented memory into one contiguous memory chunk in which segments are owned by the specific

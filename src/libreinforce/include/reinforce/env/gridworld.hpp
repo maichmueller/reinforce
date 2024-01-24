@@ -25,6 +25,9 @@ static_assert(false, "No logging level set. Please define the macro 'SPDLOG_ACTI
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xview.hpp>
 
+#include "reinforce/spaces/discrete.hpp"
+#include "reinforce/spaces/multi_discrete.hpp"
+#include "reinforce/spaces/tuple.hpp"
 #include "reinforce/utils/format.hpp"
 #include "reinforce/utils/math.hpp"
 #include "reinforce/utils/utils.hpp"
@@ -154,8 +157,6 @@ class Gridworld {
       return is_terminal(index_state(coordinates));
    }
 
-   std::tuple< obs_type, double, bool, bool > step(size_t action);
-
    [[nodiscard]] auto& start_states() const { return m_start_states; }
    [[nodiscard]] auto& goal_states() const { return m_goal_states; }
    [[nodiscard]] auto& subgoal_states() const { return m_subgoal_states; }
@@ -169,6 +170,21 @@ class Gridworld {
    [[nodiscard]] auto& location_idx() const { return std::get< 0 >(m_location); };
 
    void reseed(std::mt19937_64::result_type seed) { m_rng = std::mt19937_64{seed}; }
+
+   [[nodiscard]] std::string action_name(size_t action) const;
+
+   [[nodiscard]] constexpr static auto num_actions() { return m_num_actions; }
+
+   [[nodiscard]] constexpr std::array< long, dim > action_as_vector(size_t action) const;
+
+   ///
+   /// OPENAI Gymnasium API needs to be replicated on the c++ side.
+   ///
+   /// The following set of methods only fulfills the API.
+   /// For more details see: https://gymnasium.farama.org/api/env/
+
+   std::tuple< obs_type, double, bool, bool > step(size_t action);
+
    const obs_type& reset(std::optional< std::mt19937_64::result_type > seed = std::nullopt)
    {
       if(seed.has_value()) {
@@ -182,13 +198,18 @@ class Gridworld {
       return m_location;
    }
 
+   /// the render mode of this environment is ANSI
+   /// see https://gymnasium.farama.org/api/env/#gymnasium.Env.render for more info.
    [[nodiscard]] std::string render() const;
 
-   [[nodiscard]] std::string action_name(size_t action) const;
+   /// a gridworld environment currently does not require any external streams to be opened.
+   void close() const {}
 
-   [[nodiscard]] constexpr static auto num_actions() { return m_num_actions; }
+   const auto& action_space() const { return m_action_space; }
 
-   [[nodiscard]] constexpr std::array< long, dim > action_as_vector(size_t action) const;
+   const auto& observation_space() const { return m_obs_space; }
+
+   const auto& reward_range() const { return m_reward_range; }
 
   private:
    /// the number of actions are dependant only on the grid dimensionality. 'Back' and 'Forth'
@@ -225,6 +246,13 @@ class Gridworld {
    double m_step_reward;
    /// the current position of the agent as index array and associated coordinates
    obs_type m_location{};
+   /// the action space underlying this environment
+   TypedDiscreteSpace< size_t > m_action_space;
+   /// the observation space underlying this environment
+   TypedTupleSpace< TypedDiscreteSpace< size_t >, TypedMultiDiscreteSpace< size_t > > m_obs_space;
+   /// the minimum and maximum reward that can be expected from the environment
+   std::pair< double, double > m_reward_range;
+
    /// the random number generator
    std::mt19937_64 m_rng{std::random_device{}()};
 
