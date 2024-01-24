@@ -18,6 +18,7 @@ target_link_libraries(
         ${reinforce_lib}
         PUBLIC
         project_options
+        pcg-cpp::pcg-cpp
         range-v3::range-v3
         fmt::fmt
         xtensor

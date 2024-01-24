@@ -3,7 +3,6 @@
 #define REINFORCE_DISCRETE_HPP
 
 #include <fmt/format.h>
-#include <pybind11/numpy.h>
 
 #include <optional>
 #include <random>
@@ -11,17 +10,19 @@
 #include <vector>
 #include <xtensor/xmath.hpp>
 
-#include "space.hpp"
+#include "mono_space.hpp"
 
 namespace force {
 
 template < std::integral T >
-class TypedDiscrete: public TypedSpace< T > {
+class TypedDiscreteSpace: public TypedMonoSpace< T, TypedDiscreteSpace< T > > {
   public:
-   using base = TypedSpace< T >;
+   using value_type = T;
+   friend class TypedMonoSpace< T, TypedDiscreteSpace >;
+   using base = TypedMonoSpace< T, TypedDiscreteSpace >;
    using base::rng;
 
-   explicit TypedDiscrete(T n, T start = 0, std::optional< size_t > seed = std::nullopt)
+   explicit TypedDiscreteSpace(T n, T start = 0, std::optional< size_t > seed = std::nullopt)
        : base({}, seed), m_nr_values(n), m_start(start)
    {
       if constexpr(std::is_signed_v< T >) {
@@ -31,17 +32,10 @@ class TypedDiscrete: public TypedSpace< T > {
       }
    }
 
-   xarray< T > sample(const std::optional< xarray< bool > >& mask_opt = std::nullopt) override
+   bool operator==(const TypedDiscreteSpace< T >& rhs) const
    {
-      return sample(size_t{1}, mask_opt);
+      return m_nr_values == rhs.m_nr_values && m_start == rhs.m_start;
    }
-
-   xarray< T > sample(
-      size_t nr_samples,
-      const std::optional< xarray< bool > >& mask_opt = std::nullopt
-   ) override;
-
-   bool contains(int value) { return m_start <= value && value < m_start + m_nr_values; }
 
    std::string repr()
    {
@@ -55,52 +49,58 @@ class TypedDiscrete: public TypedSpace< T > {
    T m_nr_values;
    T m_start;
 
-   bool _equals(const TypedSpace< T >& rhs) const override
+   xarray< T > _sample(const std::optional< xarray< bool > >& mask_opt = std::nullopt)
    {
-      // we can safely use static-cast here, because the base checks for type-identity first and
-      // only calls equals if the types of two compared objects are the same (hence
-      // TypedDiscrete<T>)
-      const auto& other_cast = static_cast< const TypedDiscrete< T >& >(rhs);
-      return m_nr_values == other_cast.m_nr_values && m_start == other_cast.m_start;
+      return _sample(size_t{1}, mask_opt);
+   }
+
+   xarray< T >
+   _sample(size_t nr_samples, const std::optional< xarray< bool > >& mask_opt = std::nullopt);
+
+   bool _contains(const T& value) const
+   {
+      return m_start <= value && value < m_start + m_nr_values;
    }
 };
 
 template < std::integral T >
 xarray< T >
-TypedDiscrete< T >::sample(size_t nr_samples, const std::optional< xarray< bool > >& mask_opt)
+TypedDiscreteSpace< T >::_sample(size_t nr_samples, const std::optional< xarray< bool > >& mask_opt)
 {
    auto samples = xt::empty< T >(xt::svector{nr_samples});
-   if(mask_opt.has_value()) {
-      const auto& mask = *mask_opt;
-      if(mask.size() != m_nr_values) {
-         throw std::invalid_argument(
-            fmt::format("Mask size must match the number of elements ({})", m_nr_values)
-         );
-      }
 
-      std::vector< int > valid_indices;
-      valid_indices.reserve(mask.size());
-      auto&& flat_mask = xt::flatten(mask);
-      for(auto [i, selected] : ranges::views::enumerate(flat_mask)) {
-         if(selected) {
-            valid_indices.emplace_back(i);
-         }
+   if(not mask_opt.has_value()) {
+      std::uniform_int_distribution< int > dist(0, m_nr_values - 1);
+      for(auto i : ranges::views::iota(0UL, nr_samples)) {
+         samples.unchecked(i) = m_start + dist(rng());
       }
+      return samples;
+   }
 
-      if(not valid_indices.empty()) {
-         const std::uniform_int_distribution< size_t > dist(0UL, valid_indices.size() - 1);
-         for(auto i : ranges::views::iota(0UL, nr_samples)) {
-            samples.unchecked(i) = m_start + dist(rng());
-         }
-         return samples;
+   const auto& mask = *mask_opt;
+   if(mask.size() != m_nr_values) {
+      throw std::invalid_argument(
+         fmt::format("Mask size must match the number of elements ({})", m_nr_values)
+      );
+   }
+
+   std::vector< int > valid_indices;
+   valid_indices.reserve(mask.size());
+   auto&& flat_mask = xt::flatten(mask);
+   for(auto [i, selected] : ranges::views::enumerate(flat_mask)) {
+      if(selected) {
+         valid_indices.emplace_back(i);
       }
-      return {};
    }
-   std::uniform_int_distribution< int > dist(0, m_nr_values - 1);
-   for(auto i : ranges::views::iota(0UL, nr_samples)) {
-      samples.unchecked(i) = m_start + dist(rng());
+
+   if(not valid_indices.empty()) {
+      const std::uniform_int_distribution< size_t > dist(0UL, valid_indices.size() - 1);
+      for(auto i : ranges::views::iota(0UL, nr_samples)) {
+         samples.unchecked(i) = m_start + valid_indices[dist(rng())];
+      }
+      return samples;
    }
-   return samples;
+   return {};
 }
 
 }  // namespace force

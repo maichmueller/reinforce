@@ -5,14 +5,69 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
+#include <iterator>
+#include <optional>
+#include <pcg_extras.hpp>
+#include <pcg_random.hpp>
+#include <random>
+#include <range/v3/all.hpp>
+#include <span>
 #include <utility>
+#include <xtensor/xadapt.hpp>
+#include <xtensor/xarray.hpp>
 
-#include "range/v3/all.hpp"
+#include "macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
-#include "xtensor/xadapt.hpp"
-#include "xtensor/xarray.hpp"
 
 namespace force::detail {
+
+template < typename T, typename U = T >
+constexpr std::pair< std::unique_ptr< T[] >, size_t > c_array(const size_t size, U&& value)
+{
+   auto data = std::make_unique< T[] >(size);
+   auto data_span = std::span{new T[size], size};
+   std::ranges::fill(data, std::forward< U >(value));
+   return {std::move(data), size};
+}
+
+template < typename T, std::ranges::range Rng >
+constexpr std::pair< std::unique_ptr< T[] >, size_t > c_array(const size_t size, Rng&& range)
+{
+   auto data = std::make_unique< T[] >(size);
+   std::ranges::move(std::forward< Rng >(range), data.get());
+   return {std::move(data), size};
+}
+
+template < typename T, std::ranges::forward_range Rng >
+constexpr std::pair< std::unique_ptr< T[] >, size_t > c_array(Rng&& range)
+{
+   auto len = std::ranges::distance(range);
+   return c_array< T >(static_cast< size_t >(len), FWD(range));
+}
+
+// Seed a PRNG
+inline auto create_rng(std::optional< size_t > seed)
+{
+   if(seed.has_value()) {
+      return pcg64{*seed};
+   }
+   return pcg64{pcg_extras::seed_seq_from< std::random_device >{}};
+}
+
+class rng_mixin {
+  public:
+   explicit rng_mixin(std::optional< size_t > seed = std::nullopt) : m_rng(create_rng(seed)) {}
+   // Seed the PRNG of this space
+   void seed(size_t seed) { m_rng = create_rng(seed); }
+
+   /// const rng reference for external rng state inspection
+   [[nodiscard]] auto& rng() const { return m_rng; }
+   /// mutable rng reference for derived classes to forward random state
+   auto& rng() { return m_rng; }
+
+  private:
+   pcg64 m_rng;
+};
 
 template < typename To >
 constexpr auto static_to = [](const auto& t) { return static_cast< To >(t); };

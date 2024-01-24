@@ -19,7 +19,7 @@
 #include <xtensor/xstrided_view.hpp>
 #include <xtensor/xview.hpp>
 
-#include "reinforce/spaces/space.hpp"
+#include "reinforce/spaces/mono_space.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
@@ -30,9 +30,11 @@ namespace force {
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-class TypedBox: public TypedSpace< T > {
+class TypedBox: public TypedMonoSpace< T, TypedBox< T > > {
   public:
-   using base = TypedSpace< T >;
+   using value_type = T;
+   friend class TypedMonoSpace< T, TypedBox >;
+   using base = TypedMonoSpace< T, TypedBox >;
    using base::shape;
    using base::rng;
 
@@ -67,7 +69,7 @@ class TypedBox: public TypedSpace< T > {
          m_high.element(mdindex.begin(), mdindex.end())
       };
    }
-   std::pair< T, T > bounds(std::initializer_list<T> mdindex) const
+   std::pair< T, T > bounds(std::initializer_list< T > mdindex) const
    {
       return std::pair{
          m_low.element(mdindex.begin(), mdindex.end()),
@@ -75,23 +77,19 @@ class TypedBox: public TypedSpace< T > {
       };
    }
 
-   xarray< T > sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt) override;
-
-   xarray< T > sample(
-      size_t nr_samples,
-      const std::optional< xarray< bool > >& /*unused*/ = std::nullopt
-   ) override;
-
-   bool contains(const T& value) const override
+   bool operator==(const TypedBox& rhs) const
    {
-      return ranges::any_of(ranges::views::zip(m_low, m_high), [&](const auto& low_high) {
-         auto&& [low, high] = low_high;
-         return low <= value and high >= value;
-      });
+      // we can safely use static-cast here, because the base checks for type-identity first and
+      // only calls equals if the types of two compared objects are the same (hence
+      // TypedDiscrete<T>)
+      return xt::all(xt::equal(m_low, rhs.m_low))  //
+             and xt::all(xt::equal(m_high, rhs.m_high))
+             and xt::all(xt::equal(m_bounded_below, rhs.m_bounded_below))
+             and xt::all(xt::equal(m_bounded_above, rhs.m_bounded_above));
    }
 
    // Checks whether this space can be flattened to a Box
-   [[nodiscard]] bool is_flattenable() const override { return true; }
+   [[nodiscard]] bool is_flattenable() const { return true; }
 
    std::string repr() { return fmt::format("Box({}, {}, {})", m_low, m_high, shape()); }
 
@@ -101,16 +99,17 @@ class TypedBox: public TypedSpace< T > {
    xarray< bool > m_bounded_below;
    xarray< bool > m_bounded_above;
 
-   bool _equals(const TypedSpace< T >& rhs) const override
+   xarray< T > _sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt);
+
+   xarray< T >
+   _sample(size_t nr_samples, const std::optional< xarray< bool > >& /*unused*/ = std::nullopt);
+
+   bool contains(const T& value) const
    {
-      // we can safely use static-cast here, because the base checks for type-identity first and
-      // only calls equals if the types of two compared objects are the same (hence
-      // TypedDiscrete<T>)
-      const auto& other_cast = static_cast< const TypedBox< T >& >(rhs);
-      return xt::all(xt::equal(m_low, other_cast.m_low))  //
-             and xt::all(xt::equal(m_high, other_cast.m_high))
-             and xt::all(xt::equal(m_bounded_below, other_cast.m_bounded_below))
-             and xt::all(xt::equal(m_bounded_above, other_cast.m_bounded_above));
+      return ranges::any_of(ranges::views::zip(m_low, m_high), [&](const auto& low_high) {
+         auto&& [low, high] = low_high;
+         return low <= value and high >= value;
+      });
    }
 };
 
@@ -181,7 +180,7 @@ TypedBox< T >::TypedBox(
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-xarray< T > TypedBox< T >::sample(const std::optional< xarray< bool > >&)
+xarray< T > TypedBox< T >::_sample(const std::optional< xarray< bool > >&)
 {
    xarray< T > samples = xt::empty< T >(shape());
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
@@ -231,7 +230,7 @@ xarray< T > TypedBox< T >::sample(const std::optional< xarray< bool > >&)
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-xarray< T > TypedBox< T >::sample(
+xarray< T > TypedBox< T >::_sample(
    size_t nr_samples,
    const std::optional< xarray< bool > >& /*unused*/
 )
@@ -250,9 +249,9 @@ xarray< T > TypedBox< T >::sample(
       xt::xstrided_slice_vector index_stride(coordinates.begin(), coordinates.end());
       // add all the sampling indices so that they can be emplaced all at once
       index_stride.emplace_back(xt::all());
+      auto draw_shape = xt::svector{nr_samples};
       auto entry_view = xt::strided_view(samples, index_stride);
       SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
-      auto draw_shape = xt::svector< size_t >{nr_samples};
       switch(auto choice = (lower_bounded ? 1 : -1) + int(upper_bounded)) {
             // we use the `double` versions of all the sampling functions of xtensor even if `T`
             // were to be integral. xtensor casts the sampled double floating points to `T`
@@ -276,8 +275,8 @@ xarray< T > TypedBox< T >::sample(
             // [A, B]
             using distribution = std::conditional_t<
                std::is_integral_v< T >,
-               decltype(fwd_lambda(xt::random::randint)),
-               decltype(fwd_lambda(xt::random::rand< double >)) >;
+               decltype(AS_LAMBDA(xt::random::randint)),
+               decltype(AS_LAMBDA(xt::random::rand< double >)) >;
 
             entry_view = distribution{
             }(draw_shape, m_low.data_element(i), m_high.data_element(i), rng());
