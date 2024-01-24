@@ -53,10 +53,8 @@ else()
         INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME_LOWERCASE}/cmake/)
 
     # CMake requires all interface dependencies of our library targets, including options and warnings, to be exported.
-    install(TARGETS project_options EXPORT ${PROJECT_NAME_LOWERCASE}Options)
-    install(TARGETS project_warnings EXPORT ${PROJECT_NAME_LOWERCASE}Warnings)
     install(
-        TARGETS ${reinforce_lib}
+        TARGETS ${reinforce_lib} project_options project_warnings
         EXPORT ${PROJECT_NAME_LOWERCASE}Targets
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT Runtime
         BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT Runtime
@@ -79,14 +77,6 @@ else()
             DEPENDS ${reinforce_pymodule})
     endif()
 
-    install(
-        EXPORT ${PROJECT_NAME_LOWERCASE}Options
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME_LOWERCASE}/cmake/
-        NAMESPACE ${PROJECT_NAME_LOWERCASE}::)
-    install(
-        EXPORT ${PROJECT_NAME_LOWERCASE}Warnings
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME_LOWERCASE}/cmake/
-        NAMESPACE ${PROJECT_NAME_LOWERCASE}::)
     install(
         EXPORT ${PROJECT_NAME_LOWERCASE}Targets
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME_LOWERCASE}/cmake/
