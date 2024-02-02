@@ -86,13 +86,25 @@ consteval bool always_false(T)
    return false;
 }
 
+struct not_implemented_error: public std::logic_error {
+   not_implemented_error(std::string_view func_name)
+       : std::logic_error(fmt::format("Function {} not implemented.", func_name)){};
+};
+
 template < typename Iterator, typename Sentinel >
-   requires std::input_iterator< Iterator > and std::sentinel_for< Sentinel, Iterator >
+// requires std::input_iterator< Iterator > and std::sentinel_for< Sentinel, Iterator >
 class RangeAdaptor {
   public:
    using iterator_type = Iterator;
    using sentinel_type = Sentinel;
    RangeAdaptor(Iterator begin, Sentinel sentinel) : m_begin(begin), m_end(sentinel) {}
+
+   // can be used to erase other implementation mismatches of ranges with APIs of the same names,
+   // but no the same meanings
+   template < std::ranges::range Rng >
+   explicit RangeAdaptor(Rng& rng) : m_begin(std::ranges::begin(rng)), m_end(std::ranges::end(rng))
+   {
+   }
 
    [[nodiscard]] auto begin() { return m_begin; }
    [[nodiscard]] auto end() { return m_end; }
@@ -103,6 +115,12 @@ class RangeAdaptor {
    iterator_type m_begin;
    sentinel_type m_end;
 };
+
+// template < typename Iterator, typename Sentinel >
+// requires std::input_iterator< Iterator > and std::sentinel_for< Sentinel, Iterator >
+template < std::ranges::range Rng >
+RangeAdaptor(Rng& rng)
+   -> RangeAdaptor< std::ranges::iterator_t< Rng >, std::ranges::sentinel_t< Rng > >;
 
 template < typename Iterator, typename Sentinel >
 class SizedRangeAdaptor: public RangeAdaptor< Iterator, Sentinel > {
