@@ -28,14 +28,61 @@ class TypedMonoSpace: public detail::rng_mixin {
    }
 
    // Randomly sample an element of this space
-   xarray< value_type > sample(const std::optional< xarray< bool > >& mask = std::nullopt)
+   xarray< value_type > sample()
    {
-      return self()._sample(mask);
+      if constexpr(requires(Derived self) { self._sample(); }) {
+         return self()._sample();
+      } else {
+         throw detail::not_implemented_error("sample()");
+      }
    }
-   xarray< value_type >
-   sample(size_t nr_samples, const std::optional< xarray< bool > >& mask = std::nullopt)
+
+   xarray< value_type > sample(const xarray< bool >& mask)
    {
-      return self()._sample(nr_samples, mask);
+      if constexpr(requires(Derived self) { self._sample(mask); }) {
+         return self()._sample(mask);
+      } else {
+         throw detail::not_implemented_error("sample(const xarray< bool >&)");
+      }
+   }
+
+   xarray< value_type > sample(const std::vector< std::optional< xarray< bool > > >& mask_vec)
+   {
+      if constexpr(requires(Derived self) { self._sample(mask_vec); }) {
+         return self()._sample(mask_vec);
+      } else {
+         throw detail::not_implemented_error("sample(const std::optional< xarray< bool > >&)");
+      }
+   }
+
+   xarray< value_type > sample(size_t nr_samples)
+   {
+      if constexpr(requires(Derived self) { self._sample(nr_samples); }) {
+         return self()._sample(nr_samples);
+      } else {
+         throw detail::not_implemented_error("sample(size_t)");
+      }
+   }
+
+   xarray< value_type > sample(size_t nr_samples, const xarray< bool >& mask)
+   {
+      if constexpr(requires(Derived self) { self._sample(nr_samples, mask); }) {
+         return self()._sample(nr_samples, mask);
+      } else {
+         throw detail::not_implemented_error("sample(size_t, const xarray< bool >&)");
+      }
+   }
+
+   xarray< value_type >
+   sample(size_t nr_samples, const std::vector< std::optional< xarray< bool > > >& mask_vec)
+   {
+      if constexpr(requires(Derived self) { self._sample(nr_samples, mask_vec); }) {
+         return self()._sample(nr_samples, mask_vec);
+      } else {
+         throw detail::not_implemented_error(
+            "sample(size_t, const std::vector< std::optional< xarray< bool > > >&)"
+         );
+      }
    }
 
    // Check if the value is a valid member of this space

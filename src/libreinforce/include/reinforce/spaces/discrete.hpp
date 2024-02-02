@@ -49,13 +49,13 @@ class TypedDiscreteSpace: public TypedMonoSpace< T, TypedDiscreteSpace< T > > {
    T m_nr_values;
    T m_start;
 
-   xarray< T > _sample(const std::optional< xarray< bool > >& mask_opt = std::nullopt)
-   {
-      return _sample(size_t{1}, mask_opt);
-   }
+   xarray< T > _sample() { return _sample(size_t{1}); }
 
-   xarray< T >
-   _sample(size_t nr_samples, const std::optional< xarray< bool > >& mask_opt = std::nullopt);
+   xarray< T > _sample(const xarray< bool >& mask) { return _sample(size_t{1}, mask); }
+
+   xarray< T > _sample(size_t nr_samples);
+
+   xarray< T > _sample(size_t nr_samples, const xarray< bool >& mask);
 
    bool _contains(const T& value) const
    {
@@ -64,21 +64,23 @@ class TypedDiscreteSpace: public TypedMonoSpace< T, TypedDiscreteSpace< T > > {
 };
 
 template < std::integral T >
-xarray< T >
-TypedDiscreteSpace< T >::_sample(size_t nr_samples, const std::optional< xarray< bool > >& mask_opt)
+xarray< T > TypedDiscreteSpace< T >::_sample(size_t nr_samples)
 {
    auto samples = xt::empty< T >(xt::svector{nr_samples});
 
-   if(not mask_opt.has_value()) {
-      std::uniform_int_distribution< int > dist(0, m_nr_values - 1);
-      for(auto i : ranges::views::iota(0UL, nr_samples)) {
-         samples.unchecked(i) = m_start + dist(rng());
-      }
-      return samples;
+   std::uniform_int_distribution< int > dist(0, m_nr_values - 1);
+   for(auto i : ranges::views::iota(0UL, nr_samples)) {
+      samples.unchecked(i) = m_start + dist(rng());
    }
+   return samples;
+}
 
-   const auto& mask = *mask_opt;
-   if(mask.size() != m_nr_values) {
+template < std::integral T >
+xarray< T > TypedDiscreteSpace< T >::_sample(size_t nr_samples, const xarray< bool >& mask)
+{
+   auto samples = xt::empty< T >(xt::svector{nr_samples});
+
+   if(mask.size() != static_cast< size_t >(m_nr_values)) {
       throw std::invalid_argument(
          fmt::format("Mask size must match the number of elements ({})", m_nr_values)
       );
@@ -94,7 +96,7 @@ TypedDiscreteSpace< T >::_sample(size_t nr_samples, const std::optional< xarray<
    }
 
    if(not valid_indices.empty()) {
-      const std::uniform_int_distribution< size_t > dist(0UL, valid_indices.size() - 1);
+      std::uniform_int_distribution< size_t > dist(0UL, valid_indices.size() - 1);
       for(auto i : ranges::views::iota(0UL, nr_samples)) {
          samples.unchecked(i) = m_start + valid_indices[dist(rng())];
       }

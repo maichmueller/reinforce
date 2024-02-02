@@ -3,11 +3,16 @@
 #define REINFORCE_MULTI_DISCRETE_HPP
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
+#include <spdlog/spdlog.h>
 
 #include <iterator>
 #include <optional>
 #include <random>
+#include <range/v3/all.hpp>
+#include <ranges>
 #include <stdexcept>
+#include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -22,6 +27,7 @@
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
+#include "reinforce/utils/xtensor_typedefs.hpp"
 
 namespace force {
 
@@ -31,7 +37,8 @@ template < class Array, typename T >
 concept is_xarray = detail::is_any_v< Array, pyarray< T >, xarray< T > >;
 
 template < class Array, typename T >
-concept is_xarray_ref = detail::is_any_v< Array, pyarray< T >&, xarray< T >& >;
+concept is_xarray_ref = is_xarray< detail::raw_t< Array >, T >
+                        and std::is_lvalue_reference_v< Array >;
 
 }  // namespace concepts
 
@@ -39,7 +46,7 @@ namespace detail {
 
 /// If it is an l-value array then we want to pass it on as such and do nothing else.
 template < typename T, class Array >
-   requires concepts::is_xarray_ref< std::remove_cv_t< Array >, T >
+   requires concepts::is_xarray_ref< Array, T >
 auto build_xarray(Array&& arr) -> decltype(auto)
 {
    return FWD(arr);
@@ -49,15 +56,14 @@ auto build_xarray(Array&& arr) -> decltype(auto)
 /// this is so that pr-values (those values attained from construction of the object as a temporary)
 /// will be copy-elided all the way to the destination, instead of moved and moved and moved...
 template < typename T, class Array >
-   requires concepts::is_xarray< std::remove_cv_t< Array >, T >
+   requires concepts::is_xarray< raw_t< Array >, T >
 auto build_xarray(Array&& arr)
 {
    return FWD(arr);
 }
 
 template < typename T, typename Array >
-   requires std::ranges::range< std::remove_cvref_t< Array > >
-            and (not concepts::is_xarray< std::remove_cv_t< Array >, T >)
+   requires std::ranges::range< raw_t< Array > > and (not concepts::is_xarray< raw_t< Array >, T >)
 auto build_xarray(Array&& arr)
 {
    auto [data_storage, size] = detail::c_array< T >(FWD(arr));
@@ -81,7 +87,8 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
 
    template < class Array1, class Array2, typename... Args >
       requires(
-         not (concepts::is_xarray< detail::raw_t< Array1 >, T > and concepts::is_xarray< detail::raw_t< Array2 >, T >)
+         std::ranges::range< Array1 > and std::ranges::range< Array2 >
+         and (not concepts::is_xarray< detail::raw_t< Array1 >, T > or not concepts::is_xarray< detail::raw_t< Array2 >, T >)
       )
    TypedMultiDiscreteSpace(Array1&& start, Array2&& end, Args&&... args)
        : TypedMultiDiscreteSpace(
@@ -92,19 +99,54 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
    {
    }
 
-   template < class Array, typename... Args >
-   TypedMultiDiscreteSpace(const Array& end, Args&&... args)
+   // template < class Array1, class Array2 >
+   //    requires(
+   //       not (concepts::is_xarray< detail::raw_t< Array1 >, T > and concepts::is_xarray<
+   //       detail::raw_t< Array2 >, T >)
+   //    )
+   // TypedMultiDiscreteSpace(Array1&& start, Array2&& end)
+   //     : TypedMultiDiscreteSpace(
+   //          detail::build_xarray< T >(FWD(start)),
+   //          detail::build_xarray< T >(FWD(end))
+   //       )
+   // {
+   // }
+
+   template < class Array, typename FirstArg, typename... TailArgs >
+   TypedMultiDiscreteSpace(const Array& end, FirstArg&& any, TailArgs&&... args)
        : TypedMultiDiscreteSpace(
             xt::zeros_like(detail::build_xarray< T >(end)),
-            end,
-            std::forward< Args >(args)...
+            detail::build_xarray< T >(end),
+            FWD(any),
+            FWD(args)...
          )
    {
    }
 
-   template < class Array, typename... Args >
-      requires concepts::is_xarray< std::remove_cvref_t< Array >, T >
-   TypedMultiDiscreteSpace(Array&& start, Array&& end, Args&&... args);
+   template < class Array >
+   TypedMultiDiscreteSpace(const Array& end)
+       : TypedMultiDiscreteSpace(
+            xt::zeros_like(detail::build_xarray< T >(end)),
+            detail::build_xarray< T >(end)
+         )
+   {
+   }
+
+   template < std::integral Int >
+   TypedMultiDiscreteSpace(xarray< T > start, xarray< T > end, Int seed)
+       : TypedMultiDiscreteSpace(
+            std::move(start),
+            std::move(end),
+            std::optional{static_cast< size_t >(seed)}
+         )
+   {
+   }
+
+   TypedMultiDiscreteSpace(
+      xarray< T > start,
+      xarray< T > end,
+      std::optional< size_t > seed = std::nullopt
+   );
 
    bool operator==(const TypedMultiDiscreteSpace< T >& rhs) const
    {
@@ -141,38 +183,29 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
 };
 
 template < std::integral T >
-template < class Array, typename... Args >
-   requires concepts::is_xarray< detail::raw_t< Array >, T >
-TypedMultiDiscreteSpace< T >::TypedMultiDiscreteSpace(Array&& start, Array&& end, Args&&... args)
-    : base(FWD(args)...),
-      m_start(detail::build_xarray< T >(FWD(start))),
-      m_end(detail::build_xarray< T >(FWD(end)))
+TypedMultiDiscreteSpace< T >::TypedMultiDiscreteSpace(
+   xarray< T > start,
+   xarray< T > end,
+   std::optional< size_t > seed
+)
+    : base(xt::svector< int >(start.shape().begin(), start.shape().end()), std::move(seed)),
+      m_start(std::move(start)),
+      m_end(std::move(end))
 {
    using namespace fmt::literals;
 
-   auto low_shape = m_start.shape();
-   auto high_shape = m_end.shape();
+   auto start_shape = m_start.shape();
+   auto end_shape = m_end.shape();
 
    SPDLOG_DEBUG(fmt::format(
-      "Low shape {}, high shape: {}, specified shape: {}", low_shape, high_shape, shape()
+      "Low shape {}, high shape: {}, specified shape: {}", start_shape, end_shape, shape()
    ));
-   if(not ranges::equal(high_shape, low_shape)) {
+   if(not ranges::equal(end_shape, start_shape)) {
       throw std::invalid_argument(fmt::format(
          "'Low' and 'High' bound arrays need to have the same shape. Given:\n{}\nand\n{}",
-         low_shape,
-         high_shape
+         start_shape,
+         end_shape
       ));
-   }
-   if(shape().size() > 0) {
-      if(not ranges::equal(shape(), low_shape)) {
-         throw std::invalid_argument(fmt::format(
-            "Given shape and shape of 'Low' and 'High' bound arrays have to be the. "
-            "Given:\n{}\nand\n{}\nand\n{}",
-            shape(),
-            low_shape,
-            high_shape
-         ));
-      }
    }
    SPDLOG_DEBUG(fmt::format("Bounds:\n{}", std::invoke([&] {
                                xarray< std::string > bounds = xt::empty< std::string >(shape());
@@ -241,7 +274,7 @@ xarray< T > TypedMultiDiscreteSpace< T >::_sample(
    sampling_executor([&](auto&&, auto&& index_stride, auto&&, auto&& start, auto&& end) {
       auto mask_view = xt::strided_view(mask, index_stride);
       return xt::random::choice(
-         xt::masked_view(xt::arange(start, end), mask_view), nr_samples, true, rng()
+         xt::eval(xt::filter(xt::arange(start, end), mask)), nr_samples, true, rng()
       );
    });
 

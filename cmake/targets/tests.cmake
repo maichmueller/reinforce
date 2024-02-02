@@ -7,6 +7,8 @@ register_reinforce_target(
 register_reinforce_target(
         ${reinforce_test}_spaces
         test_space_box.cpp
+        test_space_discrete.cpp
+        test_space_multidiscrete.cpp
 )
 
 
