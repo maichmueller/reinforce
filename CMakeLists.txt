@@ -116,53 +116,15 @@ endif ()
 # string APPEND is needed for options in order to concatenate these strings AS IS, i.e. avoid the semicolon between
 # every code line
 
-string(
-        APPEND
-        _options
-        "$<$<CXX_COMPILER_ID:MSVC>:"
-        "/permissive-;"
-        "$<$<CONFIG:RELEASE>:/O2>"
-        ">"
-        "$<$<CXX_COMPILER_ID:Clang>:"
-        "$<$<CONFIG:RELEASE>:-O3>"
-        "$<$<AND:$<CONFIG:RELEASE>,$<BOOL:${ENABLE_FAST_MATH}>>:-ffast-math>"
-        "$<$<PLATFORM_ID:Darwin>:-stdlib=libc++>"
-        ">"
-        "$<$<CXX_COMPILER_ID:GNU>:"
-        "$<$<CONFIG:RELEASE>:-O3>"
-        "$<$<AND:$<CONFIG:RELEASE>,$<BOOL:${ENABLE_FAST_MATH}>>:-ffast-math>"
-        ">"
-)
-set(_extra_options "-ftemplate-backtrace-limit=0" "$<$<CXX_COMPILER_ID:GNU>:-fconcepts-diagnostics-depth=10>")
-target_compile_options(project_options INTERFACE $<$<CXX_COMPILER_ID:Clang>:-stdlib=libstdc++> "${_options}"
-        "${_extra_options}")
+include(${_cmake_DIR}/settings/Utilities.cmake)
 
-# Set up some extra Conan dependencies based on our needs before loading Conan
-set(CONAN_EXTRA_REQUIRES "")
-set(CONAN_EXTRA_OPTIONS "")
-
-include("${_cmake_DIR}/settings/Utilities.cmake")
+include(${_cmake_DIR}/settings/CompilerOptions.cmake)
+set_project_compiler_options(project_options)
 # add dependencies
 # the deps to be downloaded by cpm
 include(${_cmake_DIR}/settings/CPM.cmake)
 # let cpm try to find other deps locally first (find_package) to allow interplay with conan
 set(CPM_USE_LOCAL_PACKAGES TRUE)
-# the deps to be downloaded by conan
-if (DEFINED CONAN_PATH)
-    message("Explicit Conan path specified by user: ${CONAN_PATH}. Using `find_program` searching ony in this path.")
-    find_program(CONAN_CMD conan REQUIRED PATHS ${CONAN_PATH} NO_DEFAULT_PATH)
-else ()
-    message("NO explicit Conan path specified by user. Using `find_program` with default settings.")
-    find_program(CONAN_CMD conan REQUIRED)
-endif ()
-execute_process(COMMAND ${CONAN_CMD} "--version" OUTPUT_VARIABLE _CONAN_VERSION_OUTPUT)
-message(STATUS "Found conan: ${CONAN_CMD} - ${_CONAN_VERSION_OUTPUT}")
-string(REGEX MATCH ".*Conan version ([0-9]+\\.[0-9]+\\.[0-9]+)" FOO "${_CONAN_VERSION_OUTPUT}")
-if (${CMAKE_MATCH_1} VERSION_LESS "2.0.0")
-    #if (${_CONAN_VERSION} STRLESS "2")
-    include(${_cmake_DIR}/settings/Conan.cmake)
-    run_conan()
-endif ()
 
 # set the standard project settings
 include(${_cmake_DIR}/settings/StandardProjectSettings.cmake)
@@ -194,12 +156,12 @@ if (ENABLE_PCH)
             project_options
             INTERFACE
             <vector>
+            <array>
             <string>
-            <map>
-            <unordered_map>
             <utility>
             <memory>
-            <array>
+            <map>
+            <unordered_map>
             <ranges>
     )
 endif ()
