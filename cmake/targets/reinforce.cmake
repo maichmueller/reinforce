@@ -36,6 +36,7 @@ set_target_properties(${reinforce_lib} PROPERTIES CXX_VISIBILITY_PRESET hidden)
 target_compile_definitions(
         ${reinforce_lib}
         PUBLIC
+        XTENSOR_USE_XSIMD
         # turn off logging in release build, allow debug-level logging in debug build
         SPDLOG_ACTIVE_LEVEL=$<$<CONFIG:RELEASE>:SPDLOG_LEVEL_INFO>$<$<CONFIG:DEBUG>:SPDLOG_LEVEL_DEBUG>
 )

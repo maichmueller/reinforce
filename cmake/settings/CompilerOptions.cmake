@@ -29,7 +29,7 @@ function(set_project_compiler_options project_name)
             "-ftemplate-backtrace-limit=0"
             # various optimizations
             # (link time optimization, unrolling loops, omitting frame pointers(=increasing stack register mem for data))
-            "-flto=auto"
+            "-flto"
             "-funroll-loops"
             ">"
     )
@@ -52,6 +52,12 @@ function(set_project_compiler_options project_name)
             ">"
     )
 
+    set(CLANG_LINK_OPTIONS
+            "$<$<CXX_COMPILER_ID:Clang>:"  # if Compiler == Clang, add all of the following...
+            "$<$<IN_LIST:-flto,${CLANG_COMPILER_OPTIONS}>:-fuse-ld=lld>"
+            ">"
+    )
+
     target_compile_options(
             ${project_name}
             INTERFACE
@@ -59,4 +65,11 @@ function(set_project_compiler_options project_name)
             ${CLANG_COMPILER_OPTIONS}
             ${GCC_COMPILER_OPTIONS}
     )
+
+    target_link_options(
+            ${project_name}
+            INTERFACE
+            ${CLANG_LINK_OPTIONS}
+    )
+
 endfunction()

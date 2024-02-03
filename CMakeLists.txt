@@ -41,15 +41,7 @@ option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 # Use C++20
 set(PROJ_CXX_STD_FEATURE cxx_std_20)
 set(PROJ_CXX_STANDARD C++20)
-if (MSVC
-        AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.29.30129
-        AND CMAKE_VERSION VERSION_GREATER 3.20.3)
-    # this change happened in CMake 3.20.4
-    set(PROJ_CXX_STD_FEATURE cxx_std_23) # /std:c++latest - unlocks the non stable cpp20 features. For new 16.11
-    # versions
-else ()
-    set(PROJ_CXX_STD_FEATURE cxx_std_20) # /std:c++latest for msvc and -std=c++20 for everyone else.
-endif ()
+
 
 set(reinforce-lib-type STATIC)
 set(reinforce_lib reinforce++)
@@ -83,8 +75,8 @@ message(STATUS "SETTINGS PRINT start:")
 message("CMake Generator: ${CMAKE_GENERATOR}")
 message("C Compiler: ${CMAKE_C_COMPILER}")
 message("C++ Compiler: ${CMAKE_CXX_COMPILER}")
-message("C Compiler Info: ${CMAKE_C_COMPILER_ID}, version ${CMAKE_C_COMPILER_VERSION}")
-message("C++ Compiler Info: ${CMAKE_CXX_COMPILER_ID}, version ${CMAKE_CXX_COMPILER_VERSION}")
+message("C Compiler Info: ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}")
+message("C++ Compiler Info: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 message("CURRENT CMAKE BINARY DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 
 message("REINFORCE project files directory: ${PROJECT_SRC_DIR}")
@@ -113,8 +105,6 @@ target_compile_features(project_options INTERFACE ${PROJ_CXX_STD_FEATURE})
 if (CMAKE_CXX_COMPILER_ID MATCHES ".*Clang" AND ENABLE_BUILD_WITH_TIME_TRACE)
     add_compile_definitions(project_options INTERFACE -ftime-trace)
 endif ()
-# string APPEND is needed for options in order to concatenate these strings AS IS, i.e. avoid the semicolon between
-# every code line
 
 include(${_cmake_DIR}/settings/Utilities.cmake)
 
