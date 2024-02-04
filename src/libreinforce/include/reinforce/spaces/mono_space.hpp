@@ -51,7 +51,9 @@ class TypedMonoSpace: public detail::rng_mixin {
       if constexpr(requires(Derived self) { self._sample(mask_vec); }) {
          return self()._sample(mask_vec);
       } else {
-         throw detail::not_implemented_error("sample(const std::optional< xarray< bool > >&)");
+         throw detail::not_implemented_error(
+            "sample(const std::vector< std::optional< xarray< bool > > >&)"
+         );
       }
    }
 

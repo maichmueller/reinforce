@@ -15,10 +15,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
-#include <vector>
 #include <xtensor/xarray.hpp>
-#include <xtensor/xmasked_view.hpp>
-#include <xtensor/xmath.hpp>
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xstorage.hpp>
 
@@ -165,13 +162,13 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
    xarray< T > m_start;
    xarray< T > m_end;
 
-   xarray< T > _sample(const std::optional< xarray< bool > >& mask_opt = std::nullopt)
+   xarray< T > _sample(const std::vector< std::optional< xarray< bool > > >& mask_vec = {})
    {
-      return _sample(size_t{1}, mask_opt);
+      return _sample(1, mask_vec);
    }
 
    xarray< T >
-   _sample(size_t nr_samples, const std::optional< xarray< bool > >& mask_opt = std::nullopt);
+   _sample(size_t nr_samples, const std::vector< std::optional< xarray< bool > > >& mask_vec = {});
 
    bool _contains(const T& value) const
    {
@@ -198,7 +195,7 @@ TypedMultiDiscreteSpace< T >::TypedMultiDiscreteSpace(
    auto end_shape = m_end.shape();
 
    SPDLOG_DEBUG(fmt::format(
-      "Low shape {}, high shape: {}, specified shape: {}", start_shape, end_shape, shape()
+      "Start shape {}, End shape: {}, specified shape: {}", start_shape, end_shape, shape()
    ));
    if(not ranges::equal(end_shape, start_shape)) {
       throw std::invalid_argument(fmt::format(
@@ -230,53 +227,37 @@ TypedMultiDiscreteSpace< T >::TypedMultiDiscreteSpace(
 template < std::integral T >
 xarray< T > TypedMultiDiscreteSpace< T >::_sample(
    size_t nr_samples,
-   const std::optional< xarray< bool > >& mask_opt
+   const std::vector< std::optional< xarray< bool > > >& mask_vec
 )
 {
+   if(nr_samples == 0) {
+      throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
+   }
    xt::svector< int > samples_shape = shape();
    samples_shape.push_back(static_cast< int >(nr_samples));
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples_shape));
    xarray< T > samples = xt::empty< T >(std::move(samples_shape));
 
-   auto sampling_executor = [&](auto F) {
-      for(auto&& [i, bounds] : ranges::views::enumerate(ranges::views::zip(m_start, m_end))) {
-         auto&& [start, end] = bounds;
-         // convert the flat index i to an indexing list for the given shape
-         auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
-         // add all entries of the variate's access in the shape
-         xt::xstrided_slice_vector index_stride(coordinates.begin(), coordinates.end());
-         // add all the sampling indices so that they can be emplaced all at once
-         index_stride.emplace_back(xt::all());
-         SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
-         auto draw_shape = xt::svector{nr_samples};
-         xt::strided_view(samples, index_stride) = F(
-            coordinates, index_stride, draw_shape, start, end
+   for(auto&& [i, bounds] : ranges::views::enumerate(ranges::views::zip(m_start, m_end))) {
+      auto&& [start, end] = bounds;
+      // convert the flat index i to an indexing list for the given shape
+      auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
+      // add all entries of the variate's access in the shape
+      xt::xstrided_slice_vector index_stride(coordinates.begin(), coordinates.end());
+      // add all the sampling indices so that they can be emplaced all at once
+      index_stride.emplace_back(xt::all());
+      SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
+      auto draw_shape = xt::svector{nr_samples};
+      if(mask_vec.size() > i and mask_vec[i].has_value()) {
+         xt::strided_view(samples, index_stride) = xt::random::choice(
+            xt::eval(xt::filter(xt::arange(start, end), *mask_vec[i])), nr_samples, true, rng()
+         );
+      } else {
+         xt::strided_view(samples, index_stride) = xt::random::randint(
+            draw_shape, start, end, rng()
          );
       }
-   };
-
-   if(not mask_opt.has_value()) {
-      sampling_executor([&](auto&&, auto&&, auto&& draw_shape, auto&& start, auto&& end) {
-         return xt::random::randint(FWD(draw_shape), FWD(start), FWD(end), rng());
-      });
-      return samples;
    }
-
-   const auto& mask = *mask_opt;
-   if(mask.dimension() != shape().size() + 1) {
-      throw std::invalid_argument(fmt::format(
-         "Mask shape must be of exactly one dimension greater than the given shape of elements "
-         "([coordinates], [optional_index_mask]). Expected shape: ({}, [opt_index_mask])",
-         shape()
-      ));
-   }
-
-   sampling_executor([&](auto&&, auto&& index_stride, auto&&, auto&& start, auto&& end) {
-      auto mask_view = xt::strided_view(mask, index_stride);
-      return xt::random::choice(
-         xt::eval(xt::filter(xt::arange(start, end), mask)), nr_samples, true, rng()
-      );
-   });
 
    return samples;
 }
