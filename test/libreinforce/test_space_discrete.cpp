@@ -1,3 +1,5 @@
+#include <spdlog/spdlog.h>
+
 #include <stdexcept>
 #include <xtensor/xset_operation.hpp>
 
@@ -24,7 +26,7 @@ TEST(Space, Discrete_sample)
    constexpr int start = 0;
    auto space = TypedDiscreteSpace{n, start};
    auto samples = space.sample(10000);
-   fmt::print("Samples:\n{}", samples);
+   SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
    EXPECT_TRUE(xt::all(samples >= start));
    EXPECT_TRUE(xt::all(samples < start + n));
 
@@ -42,7 +44,7 @@ TEST(Space, Discrete_sample_masked)
    auto space = TypedDiscreteSpace{n, start};
    xarray< bool > mask = {false, false, true, true, false, true, true, false, false, false};
    auto samples = space.sample(10000, mask);
-   fmt::print("Samples:\n{}", samples);
+   SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
    EXPECT_TRUE(xt::all(xt::isin(samples, xt::xarray< int >{2, 3, 5, 6})));
 
    for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {

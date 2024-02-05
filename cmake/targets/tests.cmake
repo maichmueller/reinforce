@@ -9,6 +9,7 @@ register_reinforce_target(
         test_space_box.cpp
         test_space_discrete.cpp
         test_space_multidiscrete.cpp
+        test_space_tuple.cpp
 )
 
 

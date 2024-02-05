@@ -1,5 +1,6 @@
-#include <cstddef>
 #include <array>
+#include <cstddef>
+
 #include "gtest/gtest.h"
 #include "pybind11/embed.h"
 #include "reinforce/reinforce.hpp"
@@ -112,7 +113,8 @@ class ParamterizedTerminalParamsF:
       shape,
       idx_pyarray{{0, 0, 2}},
       /*goal_states=*/idx_pyarray{{1, 2, 3}, {2, 2, 2}},
-      1.};
+      1.
+   };
 };
 
 TEST_P(ParamterizedTerminalParamsF, is_terminal)
@@ -158,10 +160,7 @@ class Gridworld2DimStepF: public Gridworld2DimF, public ::testing::Test {};
 
 TEST_F(Gridworld2DimStepF, step)
 {
-   std::pair< size_t, idx_xstacktensor< 3 > > observation;
-   double reward;
-   bool truncated, terminated;
-   fmt::print(
+   SPDLOG_DEBUG(fmt::format(
       "Gridworld for `step` function test:\n"
       "Shape: {}\n"
       "Start states: {}\n"
@@ -171,7 +170,7 @@ TEST_F(Gridworld2DimStepF, step)
       gridworld.start_states(),
       gridworld.goal_states(),
       gridworld.transition_tensor()
-   );
+   ));
    for(auto action : std::vector< size_t >{
           0,  // left  {0,2} (out of bounds)
           1,  // right {1,2}
@@ -191,16 +190,16 @@ TEST_F(Gridworld2DimStepF, step)
           0,  // left  {3,0}
           3,  // up    {3,1}
        }) {
-      fmt::print(
+      SPDLOG_DEBUG(fmt::format(
          "Location before: {}, Action index: {}, action name: {}\n",
          gridworld.location(),
          action,
          gridworld.action_name(action)
-      );
-      std::tie(observation, reward, terminated, truncated) = gridworld.step(action);
-      fmt::print("Location after:  {}\n", gridworld.location());
+      ));
+      auto [observation, reward, terminated, truncated] = gridworld.step(action);
+      SPDLOG_DEBUG(fmt::format("Location after:  {}\n", gridworld.location()));
       if(terminated) {
-         fmt::print("Goal state reached. Terminated.");
+         SPDLOG_DEBUG(fmt::format("Goal state reached. Terminated."));
          break;
       }
    }

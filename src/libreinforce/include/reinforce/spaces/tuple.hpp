@@ -24,26 +24,32 @@ class TypedTupleSpace {
    spaces_tuple m_spaces;
 
   public:
-   explicit TypedTupleSpace(Spaces... spaces, std::optional< size_t > seed_ = std::nullopt)
-       : m_spaces{spaces...}
+   template < std::integral T >
+   explicit TypedTupleSpace(T seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
-      if(seed_.has_value()) {
-         seed(*seed_);
-      }
+      SPDLOG_DEBUG("Called tuple space constructor with seed");
+      seed(seed_);
    }
+   explicit TypedTupleSpace(Spaces... spaces) : m_spaces{std::move(spaces)...} {}
 
-   template < typename MaskOptionalTuple >
-      requires detail::is_specialization_v< MaskOptionalTuple, std::tuple >
-   auto sample(size_t nr_samples, const MaskOptionalTuple& mask_opt)
+   template < typename MaskTuple >
+      requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
+   auto sample(size_t nr_samples, MaskTuple&& mask_tuple)
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
             return std::tuple{
-               std::get< Is >(m_spaces).sample(nr_samples, std::get< Is >(mask_opt))...
+               std::get< Is >(m_spaces).sample(nr_samples, std::get< Is >(mask_tuple))...
             };
          },
          spaces_idx_seq{}
       );
+   }
+   
+   template < typename... MaskTs >
+   auto sample(size_t nr_samples, MaskTs&&... masks)
+   {
+      return sample(nr_samples, std::tuple{FWD(masks)...});
    }
 
    auto sample(size_t nr_samples)
@@ -55,6 +61,22 @@ class TypedTupleSpace {
          spaces_idx_seq{}
       );
    }
+   template < typename MaskTuple >
+      requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
+   auto sample(MaskTuple&& masks)
+   {
+      return sample(1, FWD(masks));
+   }
+
+   // Uncommenting these lines will cause a clang-16 compiler segfault crash
+   template < typename FirstMaskT, typename... MaskTs >
+      requires(not std::is_integral_v< detail::raw_t< FirstMaskT > >)
+   auto sample(FirstMaskT&& mask1, MaskTs&&... tail_masks)
+   {
+      return sample(1, FWD(mask1), FWD(tail_masks)...);
+   }
+
+   auto sample() { return sample(1); }
 
    template < typename ValueTuple >
    bool contains(const ValueTuple& value) const

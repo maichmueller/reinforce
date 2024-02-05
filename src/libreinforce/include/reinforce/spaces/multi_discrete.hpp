@@ -152,7 +152,7 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
 
    std::string repr()
    {
-      if(m_start != 0) {
+      if(xt::any(xt::not_equal(m_start, 0))) {
          return fmt::format("MultiDiscrete({}, start={})", m_end, m_start);
       }
       return fmt::format("MultiDiscrete({})", m_end);
