@@ -63,7 +63,7 @@ template < typename T, typename Array >
    requires std::ranges::range< raw_t< Array > > and (not concepts::is_xarray< raw_t< Array >, T >)
 auto build_xarray(Array&& arr)
 {
-   auto [data_storage, size] = detail::c_array< T >(FWD(arr));
+   auto [data_storage, size] = detail::make_carray< T >(FWD(arr));
    xarray< T > new_xarray = xt::adapt(
       data_storage.get(), size, xt::acquire_ownership(), xt::svector{size}
    );

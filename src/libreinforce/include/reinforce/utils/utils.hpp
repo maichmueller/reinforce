@@ -2,7 +2,7 @@
 #ifndef REINFORCE_UTILS_HPP
 #define REINFORCE_UTILS_HPP
 
-#include <fmt/format.h>
+#include <fmt/core.h>
 #include <fmt/ranges.h>
 
 #include <iterator>
@@ -13,6 +13,7 @@
 #include <range/v3/all.hpp>
 #include <span>
 #include <utility>
+#include <vector>
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xarray.hpp>
 
@@ -22,7 +23,7 @@
 namespace force::detail {
 
 template < typename T, typename U = T >
-constexpr std::pair< std::unique_ptr< T[] >, size_t > c_array(const size_t size, U&& value)
+constexpr std::pair< std::unique_ptr< T[] >, size_t > make_carray(const size_t size, U&& value)
 {
    auto data = std::make_unique< T[] >(size);
    auto data_span = std::span{new T[size], size};
@@ -31,7 +32,7 @@ constexpr std::pair< std::unique_ptr< T[] >, size_t > c_array(const size_t size,
 }
 
 template < typename T, std::ranges::range Rng >
-constexpr std::pair< std::unique_ptr< T[] >, size_t > c_array(const size_t size, Rng&& range)
+constexpr std::pair< std::unique_ptr< T[] >, size_t > make_carray(const size_t size, Rng&& range)
 {
    auto data = std::make_unique< T[] >(size);
    std::ranges::move(std::forward< Rng >(range), data.get());
@@ -39,10 +40,10 @@ constexpr std::pair< std::unique_ptr< T[] >, size_t > c_array(const size_t size,
 }
 
 template < typename T, std::ranges::forward_range Rng >
-constexpr std::pair< std::unique_ptr< T[] >, size_t > c_array(Rng&& range)
+constexpr std::pair< std::unique_ptr< T[] >, size_t > make_carray(Rng&& range)
 {
    auto len = std::ranges::distance(range);
-   return c_array< T >(static_cast< size_t >(len), FWD(range));
+   return make_carray< T >(static_cast< size_t >(len), FWD(range));
 }
 
 // Seed a PRNG

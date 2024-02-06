@@ -1,6 +1,5 @@
 #include <array>
 #include <cstddef>
-
 #include "gtest/gtest.h"
 #include "pybind11/embed.h"
 #include "reinforce/reinforce.hpp"
@@ -171,6 +170,8 @@ TEST_F(Gridworld2DimStepF, step)
       gridworld.goal_states(),
       gridworld.transition_tensor()
    ));
+   // start at {0,2}
+   // comments format: ACTION NEXT_LOCATION
    for(auto action : std::vector< size_t >{
           0,  // left  {0,2} (out of bounds)
           1,  // right {1,2}

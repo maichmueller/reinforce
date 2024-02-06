@@ -256,15 +256,6 @@ class Gridworld {
    /// the random number generator
    std::mt19937_64 m_rng{std::random_device{}()};
 
-   [[nodiscard("Discarding this value will cause a memory leak.")]]  //
-   constexpr static std::span< double, std::dynamic_extent >
-   c_array(const size_t size, const auto value)
-   {
-      auto data = std::span{new double[size], size};
-      ranges::fill(data, value);
-      return data;
-   }
-
    template < typename T, size_t dimensions = dim >
    void assert_dimensions(const xarray< T >& arr) const
    {
