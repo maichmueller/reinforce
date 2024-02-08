@@ -4,7 +4,8 @@ use_conan=true
 cmake_build_folder=build
 cmake_source_folder=.
 build_type=Release
-downstream_args=()
+cmake_cmd=cmake
+cmake_extra_args=()
 # Define valid CMake build types
 valid_build_types=("Debug" "Release" "RelWithDebInfo" "MinSizeRel")
 
@@ -19,6 +20,13 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   "--noconan")
     use_conan=false
+    ;;
+    "--cmake_cmd="*)
+    cmake_cmd="${1#*=}"
+    ;;
+  "--cmake_cmd")
+    cmake_cmd="$2"
+    shift # Move to the next argument
     ;;
   "--output="*)
     cmake_build_folder="${1#*=}"
@@ -50,8 +58,8 @@ while [[ $# -gt 0 ]]; do
     ;;
 
   *)
-    # If the argument doesn't match any known options, add it to downstream_args
-    downstream_args+=("$1")
+    # If the argument doesn't match any known options, add it to cmake_extra_args
+    cmake_extra_args+=("$1")
     ;;
   esac
   shift # Move to the next argument
@@ -107,26 +115,25 @@ echo "cmake_build_folder: $cmake_build_folder"
 echo "cmake_source_folder: $cmake_source_folder"
 echo "build_type: $build_type"
 echo "toolchain_file: $toolchain_file"
-echo "downstream_args: ${downstream_args[*]}"
+echo "cmake_extra_args: ${cmake_extra_args[*]}"
 echo "Executing cmake configuration."
 
 if [ "$use_conan" = true ]; then
+  # install all dependencies defined for conan first
   conan install . -of="$cmake_build_folder/conan" --profile:host=default --profile:build=default --build=missing -g CMakeDeps
-  cmake \
-    -S "$cmake_source_folder" \
-    -B "$cmake_build_folder" \
-    -G Ninja \
-    -DUSE_CONAN=$use_conan \
-    -DCMAKE_TOOLCHAIN_FILE="$cmake_build_folder/conan/conan_toolchain.cmake" \
-    -DCMAKE_POLICY_DEFAULT_CMP0091=NEW \
-    -DCMAKE_BUILD_TYPE="$build_type" \
-    "${downstream_args[*]}"
-else
-  cmake \
-  -S "$cmake_source_folder" \
-  -B "$cmake_build_folder" \
-  -G Ninja \
-  -DCMAKE_BUILD_TYPE="$build_type" \
-  "${downstream_args[*]}"
-
+  # append the necessary cmake configuration to the cmake call
+  cmake_extra_args="${cmake_extra_args[*]} \
+  -DCMAKE_TOOLCHAIN_FILE=$cmake_build_folder/conan/conan_toolchain.cmake \
+  -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=conan_provider.cmake \
+  -DCMAKE_POLICY_DEFAULT_CMP0091=NEW"
 fi
+
+cmake_run="${cmake_cmd} \
+  -S $cmake_source_folder \
+  -B $cmake_build_folder \
+  -G Ninja \
+  -DCMAKE_BUILD_TYPE=$build_type \
+  ${cmake_extra_args[*]}"
+
+echo "Executing command: $cmake_run"
+$cmake_run
