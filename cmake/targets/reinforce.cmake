@@ -1,7 +1,7 @@
 
 set(
         LIBREINFORCE_SOURCES
-        gridworld.cpp
+        multi_binary.cpp
 )
 list(TRANSFORM LIBREINFORCE_SOURCES PREPEND "${PROJECT_REINFORCE_SRC_DIR}/")
 

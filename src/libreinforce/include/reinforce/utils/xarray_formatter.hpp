@@ -217,9 +217,15 @@ struct fmt::formatter< xt::xstrided_slice< T > > {
 
 XARRY_FORMATTER(double);
 XARRY_FORMATTER(float);
+XARRY_FORMATTER(long);
+XARRY_FORMATTER(unsigned long);
+XARRY_FORMATTER(long long);
+XARRY_FORMATTER(unsigned long long);
 XARRY_FORMATTER(int);
 XARRY_FORMATTER(unsigned int);
-XARRY_FORMATTER(size_t);
+XARRY_FORMATTER(char);
+XARRY_FORMATTER(signed char);
+XARRY_FORMATTER(unsigned char);
 XARRY_FORMATTER(std::string);
 
 XSTACKTENSOR_FORMATTER(size_t, 1);

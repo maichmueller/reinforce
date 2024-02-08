@@ -37,23 +37,27 @@ class TypedMonoSpace: public detail::rng_mixin {
       }
    }
 
-   xarray< value_type > sample(const xarray< bool >& mask)
+   template < typename U >
+   xarray< value_type > sample(const xarray< U >& mask)
    {
       if constexpr(requires(Derived self) { self._sample(mask); }) {
          return self()._sample(mask);
       } else {
-         throw detail::not_implemented_error("sample(const xarray< bool >&)");
+         throw detail::not_implemented_error(
+            fmt::format("sample(const xarray< {} >&)", detail::type_name< U >())
+         );
       }
    }
 
-   xarray< value_type > sample(const std::vector< std::optional< xarray< bool > > >& mask_vec)
+   template < typename U >
+   xarray< value_type > sample(const std::vector< std::optional< xarray< U > > >& mask_vec)
    {
       if constexpr(requires(Derived self) { self._sample(mask_vec); }) {
          return self()._sample(mask_vec);
       } else {
-         throw detail::not_implemented_error(
-            "sample(const std::vector< std::optional< xarray< bool > > >&)"
-         );
+         throw detail::not_implemented_error(fmt::format(
+            "sample(const std::vector< std::optional< xarray< {} > > >&)", detail::type_name< U >()
+         ));
       }
    }
 
@@ -66,24 +70,29 @@ class TypedMonoSpace: public detail::rng_mixin {
       }
    }
 
-   xarray< value_type > sample(size_t nr_samples, const xarray< bool >& mask)
+   template < typename U >
+   xarray< value_type > sample(size_t nr_samples, const xarray< U >& mask)
    {
       if constexpr(requires(Derived self) { self._sample(nr_samples, mask); }) {
          return self()._sample(nr_samples, mask);
       } else {
-         throw detail::not_implemented_error("sample(size_t, const xarray< bool >&)");
+         throw detail::not_implemented_error(
+            fmt::format("sample(size_t, const xarray< {} >&)", detail::type_name< U >())
+         );
       }
    }
 
+   template < typename U >
    xarray< value_type >
-   sample(size_t nr_samples, const std::vector< std::optional< xarray< bool > > >& mask_vec)
+   sample(size_t nr_samples, const std::vector< std::optional< xarray< U > > >& mask_vec)
    {
       if constexpr(requires(Derived self) { self._sample(nr_samples, mask_vec); }) {
          return self()._sample(nr_samples, mask_vec);
       } else {
-         throw detail::not_implemented_error(
-            "sample(size_t, const std::vector< std::optional< xarray< bool > > >&)"
-         );
+         throw detail::not_implemented_error(fmt::format(
+            "sample(size_t, const std::vector< std::optional< xarray< U > > >&)",
+            detail::type_name< U >()
+         ));
       }
    }
 
