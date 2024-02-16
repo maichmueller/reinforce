@@ -2,6 +2,7 @@
 #ifndef REINFORCE_SPACE_TUPLE_HPP
 #define REINFORCE_SPACE_TUPLE_HPP
 
+#include <concepts>
 #include <cstddef>
 #include <optional>
 #include <stdexcept>
@@ -15,13 +16,29 @@
 namespace force {
 
 template < typename... Spaces >
-class TypedTupleSpace {
+class TypedTupleSpace:
+    public TypedMonoSpace<
+       std::tuple< typename Spaces::value_type... >,
+       TypedTupleSpace< Spaces... >,
+       std::tuple< typename Spaces::multi_value_type... > > {
   public:
-   using spaces_tuple = std::tuple< Spaces... >;
+   friend class TypedMonoSpace<
+      std::tuple< typename Spaces::value_type... >,
+      TypedTupleSpace,
+      std::tuple< typename Spaces::multi_value_type... > >;
+   using base = TypedMonoSpace<
+      std::tuple< typename Spaces::value_type... >,
+      TypedTupleSpace,
+      std::tuple< typename Spaces::multi_value_type... > >;
+   using typename base::value_type;
+   using typename base::multi_value_type;
+   using base::shape;
+   using base::rng;
+
    using spaces_idx_seq = std::index_sequence_for< Spaces... >;
 
   private:
-   spaces_tuple m_spaces;
+   std::tuple< Spaces... > m_spaces;
 
   public:
    template < std::integral T >
@@ -34,25 +51,25 @@ class TypedTupleSpace {
 
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
-   auto sample(size_t nr_samples, MaskTuple&& mask_tuple)
+   multi_value_type sample(size_t nr_samples, MaskTuple&& mask_tuple)
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
             return std::tuple{
-               std::get< Is >(m_spaces).sample(nr_samples, std::get< Is >(mask_tuple))...
+               std::get< Is >(m_spaces).sample(nr_samples, std::get< Is >(FWD(mask_tuple)))...
             };
          },
          spaces_idx_seq{}
       );
    }
-   
+
    template < typename... MaskTs >
-   auto sample(size_t nr_samples, MaskTs&&... masks)
+   multi_value_type sample(size_t nr_samples, MaskTs&&... masks)
    {
       return sample(nr_samples, std::tuple{FWD(masks)...});
    }
 
-   auto sample(size_t nr_samples)
+   multi_value_type sample(size_t nr_samples)
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
@@ -63,23 +80,44 @@ class TypedTupleSpace {
    }
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
-   auto sample(MaskTuple&& masks)
+   value_type sample(MaskTuple&& mask_tuple)
    {
-      return sample(1, FWD(masks));
+      return std::invoke(
+         [&]< size_t... Is >(std::index_sequence< Is... >) {
+            return std::tuple{std::get< Is >(m_spaces).sample(std::get< Is >(FWD(mask_tuple)))...};
+         },
+         spaces_idx_seq{}
+      );
    }
 
-   // Uncommenting these lines will cause a clang-16 compiler segfault crash
    template < typename FirstMaskT, typename... MaskTs >
       requires(not std::is_integral_v< detail::raw_t< FirstMaskT > >)
-   auto sample(FirstMaskT&& mask1, MaskTs&&... tail_masks)
+   value_type sample(FirstMaskT&& mask1, MaskTs&&... tail_masks)
    {
-      return sample(1, FWD(mask1), FWD(tail_masks)...);
+      return std::invoke(
+         [&]<
+            size_t... IsSpaces,
+            size_t... IsMasks >(std::index_sequence< IsSpaces... >, std::index_sequence< IsMasks... >) {
+            return std::tuple{std::get< IsSpaces >(m_spaces).sample(
+               FWD(mask1), std::get< IsMasks >(FWD(tail_masks))
+            )...};
+         },
+         std::index_sequence_for< Spaces... >{},
+         std::index_sequence_for< MaskTs... >{}
+      );
    }
 
-   auto sample() { return sample(1); }
+   value_type sample()
+   {
+      return std::invoke(
+         [&]< size_t... Is >(std::index_sequence< Is... >) {
+            return std::tuple{std::get< Is >(m_spaces).sample()...};
+         },
+         spaces_idx_seq{}
+      );
+   }
 
-   template < typename ValueTuple >
-   bool contains(const ValueTuple& value) const
+   [[nodiscard]] bool contains(const value_type& value) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
@@ -91,11 +129,12 @@ class TypedTupleSpace {
 
    void seed(size_t value)
    {
-      // std::invoke(
-      [&]< size_t... Is >(std::index_sequence< Is... >) {
-         (std::get< Is >(m_spaces).seed(value), ...);
-      }(spaces_idx_seq{});
-      // );
+      std::invoke(
+         [&]< size_t... Is >(std::index_sequence< Is... >) {
+            (std::get< Is >(m_spaces).seed(value), ...);
+         },
+         spaces_idx_seq{}
+      );
    }
 
    bool operator==(const TypedTupleSpace& other) const
@@ -123,6 +162,19 @@ class TypedTupleSpace {
          )
       );
    }
+
+   template < size_t N >
+   auto& get_space() const
+   {
+      return std::get< N >(m_spaces);
+   }
+   template < size_t N >
+   auto& get_space()
+   {
+      return std::get< N >(m_spaces);
+   }
+
+   [[nodiscard]] constexpr size_t size() const { return std::tuple_size_v< value_type >; }
 };
 
 }  // namespace force

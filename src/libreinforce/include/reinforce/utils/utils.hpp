@@ -5,13 +5,20 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <pcg_extras.hpp>
 #include <pcg_random.hpp>
 #include <random>
 #include <range/v3/all.hpp>
+#include <ranges>
 #include <span>
+#include <stdexcept>
+#include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 #include <xtensor/xadapt.hpp>

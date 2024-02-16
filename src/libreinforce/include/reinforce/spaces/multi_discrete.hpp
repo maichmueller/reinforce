@@ -74,11 +74,11 @@ auto build_xarray(Array&& arr)
 }  // namespace detail
 
 template < std::integral T >
-class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace< T > > {
+class TypedMultiDiscreteSpace: public TypedMonoSpace< xarray< T >, TypedMultiDiscreteSpace< T > > {
   public:
-   using value_type = T;
-   friend class TypedMonoSpace< T, TypedMultiDiscreteSpace >;
-   using base = TypedMonoSpace< T, TypedMultiDiscreteSpace >;
+   friend class TypedMonoSpace< xarray< T >, TypedMultiDiscreteSpace >;
+   using base = TypedMonoSpace< xarray< T >, TypedMultiDiscreteSpace >;
+   using typename base::value_type;
    using base::shape;
    using base::rng;
 
@@ -89,31 +89,18 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
       )
    TypedMultiDiscreteSpace(Array1&& start, Array2&& end, Args&&... args)
        : TypedMultiDiscreteSpace(
-            detail::build_xarray< value_type >(FWD(start)),
-            detail::build_xarray< value_type >(FWD(end)),
+            detail::build_xarray< T >(FWD(start)),
+            detail::build_xarray< T >(FWD(end)),
             FWD(args)...
          )
    {
    }
 
-   // template < class Array1, class Array2 >
-   //    requires(
-   //       not (concepts::is_xarray< detail::raw_t< Array1 >,value_type> and concepts::is_xarray<
-   //       detail::raw_t< Array2 >,value_type>)
-   //    )
-   // TypedMultiDiscreteSpace(Array1&& start, Array2&& end)
-   //     : TypedMultiDiscreteSpace(
-   //          detail::build_xarray<value_type>(FWD(start)),
-   //          detail::build_xarray<value_type>(FWD(end))
-   //       )
-   // {
-   // }
-
    template < class Array, typename FirstArg, typename... TailArgs >
    TypedMultiDiscreteSpace(const Array& end, FirstArg&& any, TailArgs&&... args)
        : TypedMultiDiscreteSpace(
-            xt::zeros_like(detail::build_xarray< value_type >(end)),
-            detail::build_xarray< value_type >(end),
+            xt::zeros_like(detail::build_xarray< T >(end)),
+            detail::build_xarray< T >(end),
             FWD(any),
             FWD(args)...
          )
@@ -123,14 +110,14 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
    template < class Array >
    TypedMultiDiscreteSpace(const Array& end)
        : TypedMultiDiscreteSpace(
-            xt::zeros_like(detail::build_xarray< value_type >(end)),
-            detail::build_xarray< value_type >(end)
+            xt::zeros_like(detail::build_xarray< T >(end)),
+            detail::build_xarray< T >(end)
          )
    {
    }
 
    template < std::integral Int >
-   TypedMultiDiscreteSpace(xarray< value_type > start, xarray< value_type > end, Int seed)
+   TypedMultiDiscreteSpace(value_type start, value_type end, Int seed)
        : TypedMultiDiscreteSpace(
             std::move(start),
             std::move(end),
@@ -140,12 +127,12 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
    }
 
    TypedMultiDiscreteSpace(
-      xarray< value_type > start,
-      xarray< value_type > end,
+      value_type start,
+      value_type end,
       std::optional< size_t > seed = std::nullopt
    );
 
-   bool operator==(const TypedMultiDiscreteSpace< value_type >& rhs) const
+   bool operator==(const TypedMultiDiscreteSpace& rhs) const
    {
       return xt::all(xt::equal(m_start, rhs.m_start)) and xt::all(xt::equal(m_end, rhs.m_end));
    }
@@ -159,15 +146,15 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
    }
 
   private:
-   xarray< value_type > m_start;
-   xarray< value_type > m_end;
+   value_type m_start;
+   value_type m_end;
 
-   xarray< value_type > _sample(const std::vector< std::optional< xarray< bool > > >& mask_vec = {})
+   value_type _sample(const std::vector< std::optional< xarray< bool > > >& mask_vec = {})
    {
       return _sample(1, mask_vec);
    }
 
-   xarray< value_type >
+   value_type
    _sample(size_t nr_samples, const std::vector< std::optional< xarray< bool > > >& mask_vec = {});
 
    bool _contains(const T& value) const
@@ -179,10 +166,26 @@ class TypedMultiDiscreteSpace: public TypedMonoSpace< T, TypedMultiDiscreteSpace
    }
 };
 
+/// Deduction guides
+
+template < class Array1, class Array2, typename... Args >
+TypedMultiDiscreteSpace(Array1&& start, Array2&& end, Args&&... args)
+   -> TypedMultiDiscreteSpace< std::ranges::range_value_t< Array1 > >;
+
+template < class Array, typename FirstArg, typename... TailArgs >
+TypedMultiDiscreteSpace(const Array& end, FirstArg&& any, TailArgs&&... args)
+   -> TypedMultiDiscreteSpace< std::ranges::range_value_t< Array > >;
+
+template < class Array >
+TypedMultiDiscreteSpace(const Array& end)
+   -> TypedMultiDiscreteSpace< std::ranges::range_value_t< Array > >;
+
+/// Implementations
+
 template < std::integral T >
 TypedMultiDiscreteSpace< T >::TypedMultiDiscreteSpace(
-   xarray< value_type > start,
-   xarray< value_type > end,
+   value_type start,
+   value_type end,
    std::optional< size_t > seed
 )
     : base(xt::svector< int >(start.shape().begin(), start.shape().end()), std::move(seed)),
@@ -225,10 +228,10 @@ TypedMultiDiscreteSpace< T >::TypedMultiDiscreteSpace(
 }
 
 template < std::integral T >
-xarray< T > TypedMultiDiscreteSpace< T >::_sample(
+auto TypedMultiDiscreteSpace< T >::_sample(
    size_t nr_samples,
    const std::vector< std::optional< xarray< bool > > >& mask_vec
-)
+) -> value_type
 {
    if(nr_samples == 0) {
       throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
@@ -236,7 +239,7 @@ xarray< T > TypedMultiDiscreteSpace< T >::_sample(
    xt::svector< int > samples_shape = shape();
    samples_shape.push_back(static_cast< int >(nr_samples));
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples_shape));
-   xarray< value_type > samples = xt::empty< value_type >(std::move(samples_shape));
+   xarray< T > samples = xt::empty< T >(std::move(samples_shape));
 
    for(auto&& [i, bounds] : ranges::views::enumerate(ranges::views::zip(m_start, m_end))) {
       auto&& [start, end] = bounds;
@@ -244,7 +247,8 @@ xarray< T > TypedMultiDiscreteSpace< T >::_sample(
       auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
       // add all entries of the variate's access in the shape
       xt::xstrided_slice_vector index_stride(coordinates.begin(), coordinates.end());
-      // add all the sampling indices so that they can be emplaced all at once
+      // add all the sampling indices as if samples[...,:] on a numpy array so that they can be
+      // emplaced all at once
       index_stride.emplace_back(xt::all());
       SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
       auto draw_shape = xt::svector{nr_samples};

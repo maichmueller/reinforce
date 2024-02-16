@@ -1,3 +1,4 @@
+#include <spdlog/spdlog.h>
 #include <xtensor/xset_operation.hpp>
 
 #include "gtest/gtest.h"
@@ -11,15 +12,15 @@ using namespace force;
 
 TEST(Space, MultiBinary_constructor)
 {
-   EXPECT_NO_THROW((TypedMultiBinarySpace{std::vector{3, 2, 1}}));
-   EXPECT_NO_THROW((TypedMultiBinarySpace{xt::svector{2, 3}}));
-   EXPECT_NO_THROW((TypedMultiBinarySpace{xt::xarray< size_t >{1, 2, 3}}));
-   EXPECT_NO_THROW((TypedMultiBinarySpace{{1, 2, 3, 4, 5, 6, 7, 8}}));
+   EXPECT_NO_THROW((MultiBinarySpace{std::vector{3, 2, 1}}));
+   EXPECT_NO_THROW((MultiBinarySpace{xt::svector{2, 3}}));
+   EXPECT_NO_THROW((MultiBinarySpace{xt::xarray< size_t >{1, 2, 3}}));
+   EXPECT_NO_THROW((MultiBinarySpace{{1, 2, 3, 4, 5, 6, 7, 8}}));
 }
 
 TEST(Space, MultiBinary_sample)
 {
-   auto space = TypedMultiBinarySpace{xt::svector{2, 3}};
+   auto space = MultiBinarySpace{xt::svector{2, 3}};
    auto samples = space.sample(10000);
    SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
    EXPECT_TRUE(xt::all(xt::isin(samples, {0, 1})));
@@ -35,7 +36,7 @@ TEST(Space, MultiBinary_sample)
 
 TEST(Space, MultiBinary_sample_masked)
 {
-   auto space = TypedMultiBinarySpace{xt::svector{2, 3}};
+   auto space = MultiBinarySpace{xt::svector{2, 3}};
    // wrong mask specified
    EXPECT_THROW(space.sample(xt::xarray< int8_t >{{0, 0, 3}, {-1, 2, 2}}), std::invalid_argument);
    // valid mask
@@ -63,7 +64,7 @@ TEST(Space, MultiBinary_sample_masked)
 
 TEST(Space, MultiBinary_copy_construction)
 {
-   auto space = TypedMultiBinarySpace{xt::svector{2, 3}};
+   auto space = MultiBinarySpace{xt::svector{2, 3}};
    auto space_copy = space;
    EXPECT_EQ(space_copy, space);
    // RNG state should still be aligned

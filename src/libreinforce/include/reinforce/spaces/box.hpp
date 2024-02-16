@@ -13,6 +13,7 @@
 #include <random>
 #include <range/v3/all.hpp>
 #include <stdexcept>
+#include <type_traits>
 #include <variant>
 #include <vector>
 #include <xtensor/xrandom.hpp>
@@ -30,11 +31,11 @@ namespace force {
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-class TypedBox: public TypedMonoSpace< T, TypedBox< T > > {
+class TypedBox: public TypedMonoSpace< xarray< T >, TypedBox< T > > {
   public:
-   using value_type = T;
-   friend class TypedMonoSpace< T, TypedBox >;
-   using base = TypedMonoSpace< T, TypedBox >;
+   friend class TypedMonoSpace< xarray< T >, TypedBox >;
+   using base = TypedMonoSpace< xarray< T >, TypedBox >;
+   using typename base::value_type;
    using base::shape;
    using base::rng;
 
@@ -99,17 +100,49 @@ class TypedBox: public TypedMonoSpace< T, TypedBox< T > > {
    xarray< bool > m_bounded_below;
    xarray< bool > m_bounded_above;
 
-   xarray< T > _sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt);
+   value_type _sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt);
 
-   xarray< T >
+   value_type
    _sample(size_t nr_samples, const std::optional< xarray< bool > >& /*unused*/ = std::nullopt);
 
-   bool contains(const T& value) const
+   bool contains(const value_type& value) const
    {
-      return ranges::any_of(ranges::views::zip(m_low, m_high), [&](const auto& low_high) {
-         auto&& [low, high] = low_high;
-         return low <= value and high >= value;
-      });
+      const auto& incoming_shape = value.shape();
+
+      if(incoming_shape.dimension() < shape().dimension()) {
+         return false;
+      }
+      if(not ranges::any_of(ranges::views::zip(shape(), incoming_shape), [](auto&& v1, auto&& v2) {
+            return v1 != v2;
+         })) {
+         return false;
+      }
+
+      auto enum_bounds_view = ranges::views::enumerate(ranges::views::zip(m_low, m_high));
+      if(incoming_shape.dimension() == shape().dimension()) {
+         return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {
+            const auto& [i, low_high] = idx_low_high;
+            const auto& [low, high] = low_high;
+            auto coordinates = xt::unravel_index(i, shape());
+            const auto& val = value.element(coordinates.begin(), coordinates.end());
+            return low <= val and high >= val;
+         });
+      }
+      if(incoming_shape.dimension() == shape().dimension() + 1) {
+         return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {
+            const auto& [i, low_high] = idx_low_high;
+            const auto& [low, high] = low_high;
+            auto coordinates = xt::unravel_index(i, shape());
+            const auto& vals = xt::view(
+               value,
+               ranges::to< xt::xstrided_slice_vector >(
+                  ranges::views::concat(coordinates, std::ranges::single_view(xt::all()))
+               )
+            );
+            return xt::all(xt::greater_equal(vals, low) and xt::less_equal(vals, high));
+         });
+      }
+      return false;
    }
 };
 
@@ -180,7 +213,7 @@ TypedBox< T >::TypedBox(
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-xarray< T > TypedBox< T >::_sample(const std::optional< xarray< bool > >&)
+auto TypedBox< T >::_sample(const std::optional< xarray< bool > >&) -> value_type
 {
    xarray< T > samples = xt::empty< T >(shape());
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
@@ -230,10 +263,10 @@ xarray< T > TypedBox< T >::_sample(const std::optional< xarray< bool > >&)
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-xarray< T > TypedBox< T >::_sample(
+auto TypedBox< T >::_sample(
    size_t nr_samples,
    const std::optional< xarray< bool > >& /*unused*/
-)
+) -> value_type
 {
    xt::svector< int > samples_shape = shape();
    samples_shape.push_back(static_cast< int >(nr_samples));
@@ -245,13 +278,12 @@ xarray< T > TypedBox< T >::_sample(
       auto&& [lower_bounded, upper_bounded] = bounds;
       // convert the flat index i to an indexing list for the given shape
       auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
-      // add all entries of the variate's access in the shape
-      xt::xstrided_slice_vector index_stride(coordinates.begin(), coordinates.end());
-      // add all the sampling indices so that they can be emplaced all at once
-      index_stride.emplace_back(xt::all());
+      // select the sampling indices (as if e.g. samples[x,y,:] on a numpy array) to emplace
+      xt::xstrided_slice_vector slice_vec(coordinates.begin(), coordinates.end());
+      slice_vec.emplace_back(xt::all());
+      SPDLOG_DEBUG(fmt::format("Slice: {}", slice_vec));
+      auto entry_view = xt::strided_view(samples, slice_vec);
       auto draw_shape = xt::svector{nr_samples};
-      auto entry_view = xt::strided_view(samples, index_stride);
-      SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
       switch(auto choice = (lower_bounded ? 1 : -1) + int(upper_bounded)) {
             // we use the `double` versions of all the sampling functions of xtensor even if `T`
             // were to be integral. xtensor casts the sampled double floating points to `T`

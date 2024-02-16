@@ -1,8 +1,12 @@
 #ifndef REINFORCE_MONO_SPACE_HPP
 #define REINFORCE_MONO_SPACE_HPP
 
+#include <fmt/core.h>
+
+#include <cstddef>
 #include <optional>
 #include <random>
+#include <tuple>
 #include <utility>
 #include <vector>
 #include <xtensor/xarray.hpp>
@@ -12,14 +16,27 @@
 
 namespace force {
 
+namespace detail {
+template < typename T >
+concept has_getitem_operator = requires(T t, size_t idx) { t[idx]; };
+}  // namespace detail
+
 /// \brief The generic Space base class
 ///
 /// The specifics are made to work as closely as possible to the corresponding internals of the
 /// openai/gymnasium python class.
-template < typename T, typename Derived >
+template < typename T, typename Derived, typename MultiT = T >
+   requires std::is_same_v< T, MultiT > or detail::has_getitem_operator< MultiT >
 class TypedMonoSpace: public detail::rng_mixin {
   public:
+   // the type of values returned by sampling or containment queries
    using value_type = T;
+   // the type of values returned by multiple-sampling (i.e. sample-size > 1) queries and
+   // containment queries for multiple elements at once
+   using multi_value_type = MultiT;
+
+   constexpr static bool mvt_is_container = not std::is_same_v< multi_value_type, value_type >
+                                            and detail::has_getitem_operator< MultiT >;
 
    explicit
    TypedMonoSpace(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
@@ -28,71 +45,83 @@ class TypedMonoSpace: public detail::rng_mixin {
    }
 
    // Randomly sample an element of this space
-   xarray< value_type > sample()
+   value_type sample()
    {
       if constexpr(requires(Derived self) { self._sample(); }) {
          return self()._sample();
+      } else if constexpr(mvt_is_container) {
+         return sample(1)[0];
       } else {
-         throw detail::not_implemented_error("sample()");
+         return sample(1);
       }
    }
 
    template < typename U >
-   xarray< value_type > sample(const xarray< U >& mask)
+   value_type sample(const xarray< U >& mask)
    {
       if constexpr(requires(Derived self) { self._sample(mask); }) {
          return self()._sample(mask);
+      } else if constexpr(mvt_is_container) {
+         return sample(1, mask)[0];
       } else {
-         throw detail::not_implemented_error(
-            fmt::format("sample(const xarray< {} >&)", detail::type_name< U >())
-         );
+         return sample(1, mask);
       }
    }
 
    template < typename U >
-   xarray< value_type > sample(const std::vector< std::optional< xarray< U > > >& mask_vec)
+   value_type sample(const std::vector< std::optional< xarray< U > > >& mask_vec)
    {
       if constexpr(requires(Derived self) { self._sample(mask_vec); }) {
          return self()._sample(mask_vec);
+      } else if constexpr(mvt_is_container) {
+         return sample(1, mask_vec)[0];
       } else {
-         throw detail::not_implemented_error(fmt::format(
-            "sample(const std::vector< std::optional< xarray< {} > > >&)", detail::type_name< U >()
-         ));
+         return sample(1, mask_vec);
       }
    }
 
-   xarray< value_type > sample(size_t nr_samples)
+   value_type sample(size_t nr_samples)
    {
       if constexpr(requires(Derived self) { self._sample(nr_samples); }) {
          return self()._sample(nr_samples);
       } else {
-         throw detail::not_implemented_error("sample(size_t)");
+         throw detail::not_implemented_error(fmt::format("sample(size_t{{{}}})", nr_samples));
       }
    }
 
    template < typename U >
-   xarray< value_type > sample(size_t nr_samples, const xarray< U >& mask)
+   value_type sample(size_t nr_samples, const xarray< U >& mask)
    {
       if constexpr(requires(Derived self) { self._sample(nr_samples, mask); }) {
          return self()._sample(nr_samples, mask);
       } else {
-         throw detail::not_implemented_error(
-            fmt::format("sample(size_t, const xarray< {} >&)", detail::type_name< U >())
-         );
+         throw detail::not_implemented_error(fmt::format(
+            "sample(size_t{{{}}}, const xarray< {} >&)", nr_samples, detail::type_name< U >()
+         ));
       }
    }
 
    template < typename U >
-   xarray< value_type >
-   sample(size_t nr_samples, const std::vector< std::optional< xarray< U > > >& mask_vec)
+   value_type sample(size_t nr_samples, const std::vector< std::optional< xarray< U > > >& mask_vec)
    {
       if constexpr(requires(Derived self) { self._sample(nr_samples, mask_vec); }) {
          return self()._sample(nr_samples, mask_vec);
       } else {
          throw detail::not_implemented_error(fmt::format(
-            "sample(size_t, const std::vector< std::optional< xarray< U > > >&)",
+            "sample(size_t{{{}}}, const std::vector< std::optional< xarray< {} > > >&)",
+            nr_samples,
             detail::type_name< U >()
          ));
+      }
+   }
+
+   template < typename... Args >
+   value_type sample(const std::tuple< Args... >& mask_tuple)
+   {
+      if constexpr(requires(Derived self) { self._sample(mask_tuple); }) {
+         return self()._sample(mask_tuple);
+      } else {
+         return sample(1, mask_tuple);
       }
    }
 

@@ -4,6 +4,7 @@
 
 #include <fmt/format.h>
 
+#include <cstddef>
 #include <optional>
 #include <random>
 #include <stdexcept>
@@ -11,15 +12,16 @@
 #include <xtensor/xmath.hpp>
 
 #include "mono_space.hpp"
+#include "reinforce/utils/xtensor_typedefs.hpp"
 
 namespace force {
 
 template < std::integral T >
-class TypedDiscreteSpace: public TypedMonoSpace< T, TypedDiscreteSpace< T > > {
+class TypedDiscreteSpace: public TypedMonoSpace< xarray< T >, TypedDiscreteSpace< T > > {
   public:
-   using value_type = T;
-   friend class TypedMonoSpace< T, TypedDiscreteSpace >;
-   using base = TypedMonoSpace< T, TypedDiscreteSpace >;
+   friend class TypedMonoSpace< xarray< T >, TypedDiscreteSpace >;
+   using base = TypedMonoSpace< xarray< T >, TypedDiscreteSpace >;
+   using typename base::value_type;
    using base::rng;
 
    explicit TypedDiscreteSpace(T n, T start = 0, std::optional< size_t > seed = std::nullopt)
@@ -49,22 +51,22 @@ class TypedDiscreteSpace: public TypedMonoSpace< T, TypedDiscreteSpace< T > > {
    T m_nr_values;
    T m_start;
 
-   xarray< T > _sample() { return _sample(size_t{1}); }
+   value_type _sample() { return _sample(size_t{1}); }
 
-   xarray< T > _sample(const xarray< bool >& mask) { return _sample(size_t{1}, mask); }
+   value_type _sample(const xarray< bool >& mask) { return _sample(size_t{1}, mask); }
 
-   xarray< T > _sample(size_t nr_samples);
+   value_type _sample(size_t nr_samples);
 
-   xarray< T > _sample(size_t nr_samples, const xarray< bool >& mask);
+   value_type _sample(size_t nr_samples, const xarray< bool >& mask);
 
-   bool _contains(const T& value) const
+   bool _contains(const value_type& value) const
    {
       return m_start <= value && value < m_start + m_nr_values;
    }
 };
 
 template < std::integral T >
-xarray< T > TypedDiscreteSpace< T >::_sample(size_t nr_samples)
+auto TypedDiscreteSpace< T >::_sample(size_t nr_samples) -> value_type
 {
    auto samples = xt::empty< T >(xt::svector{nr_samples});
 
@@ -76,7 +78,7 @@ xarray< T > TypedDiscreteSpace< T >::_sample(size_t nr_samples)
 }
 
 template < std::integral T >
-xarray< T > TypedDiscreteSpace< T >::_sample(size_t nr_samples, const xarray< bool >& mask)
+auto TypedDiscreteSpace< T >::_sample(size_t nr_samples, const xarray< bool >& mask) -> value_type
 {
    auto samples = xt::empty< T >(xt::svector{nr_samples});
 
