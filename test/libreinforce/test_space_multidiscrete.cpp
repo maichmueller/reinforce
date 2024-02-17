@@ -10,7 +10,7 @@
 
 using namespace force;
 
-TEST(Space, MultiDiscrete_constructor)
+TEST(Spaces, MultiDiscrete_constructor)
 {
    auto start = xarray< int >{0, 0, -2};
    auto end = xarray< int >{10, 5, 3};
@@ -21,7 +21,7 @@ TEST(Space, MultiDiscrete_constructor)
    EXPECT_NO_THROW((TypedMultiDiscreteSpace{end, 42}));
 }
 
-TEST(Space, MultiDiscrete_sample)
+TEST(Spaces, MultiDiscrete_sample)
 {
    auto start = xarray< int >{{-5, -4, -1}, {0, 0, 2}};
    auto end = xarray< int >{{-2, 4, 1}, {10, 5, 3}};
@@ -41,7 +41,7 @@ TEST(Space, MultiDiscrete_sample)
    }
 }
 
-TEST(Space, MultiDiscrete_sample_masked)
+TEST(Spaces, MultiDiscrete_sample_masked)
 {
    constexpr auto n_samples = 10000;
    auto start = xarray< int >{0, 0, -2};
@@ -76,7 +76,7 @@ TEST(Space, MultiDiscrete_sample_masked)
    }
 }
 
-TEST(Space, MultiDiscrete_copy_construction)
+TEST(Spaces, MultiDiscrete_copy_construction)
 {
    auto start = xarray< int >{0, 0, -2};
    auto end = xarray< int >{10, 5, 3};

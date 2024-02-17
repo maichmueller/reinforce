@@ -12,7 +12,7 @@
 
 using namespace force;
 
-TEST(Space, Tuple_Discrete_Box)
+TEST(Spaces, Tuple_Discrete_Box)
 {
    const xarray< double > box_low{-infinity<>, 0, -10};
    const xarray< double > box_high{0, infinity<>, 10};
@@ -26,7 +26,7 @@ TEST(Space, Tuple_Discrete_Box)
    }));
 }
 
-TEST(Space, Tuple_Discrete_Box_sample)
+TEST(Spaces, Tuple_Discrete_Box_sample)
 {
    const xarray< double > box_low{-infinity<>, 0, -10};
    const xarray< double > box_high{0, infinity<>, 10};
@@ -60,7 +60,7 @@ TEST(Space, Tuple_Discrete_Box_sample)
    }
 }
 
-TEST(Space, Tuple_Discrete_MultiDiscrete_sample_masked)
+TEST(Spaces, Tuple_Discrete_MultiDiscrete_sample_masked)
 {
    auto start = xarray< int >({0, 0, -3});
    auto end = xarray< int >({10, 5, 3});
@@ -119,7 +119,7 @@ TEST(Space, Tuple_Discrete_MultiDiscrete_sample_masked)
    }
 }
 
-TEST(Space, Tuple_Discrete_Box_copy_construction)
+TEST(Spaces, Tuple_Discrete_Box_copy_construction)
 {
    auto start = xarray< int >({0, 0, -3});
    auto end = xarray< int >({10, 5, 3});

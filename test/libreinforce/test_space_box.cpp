@@ -7,7 +7,7 @@
 
 using namespace force;
 
-TEST(Space, Box_single_variates_constructor)
+TEST(Spaces, Box_single_variates_constructor)
 {
    const xarray< double > low{-infinity<>, 0, -10};
    const xarray< double > high{0, infinity<>, 10};
@@ -21,7 +21,7 @@ TEST(Space, Box_single_variates_constructor)
    EXPECT_THROW((TypedBox< double >{low, high, xt::svector{1, 3}}), std::invalid_argument);
 }
 
-TEST(Space, Box_single_variates_sample)
+TEST(Spaces, Box_single_variates_sample)
 {
    const xarray< double > low{-infinity<>, 0, -10};
    const xarray< double > high{0, infinity<>, 10};
@@ -41,7 +41,7 @@ TEST(Space, Box_single_variates_sample)
    }
 }
 
-TEST(Space, Box_multi_variates_constructor)
+TEST(Spaces, Box_multi_variates_constructor)
 {
    const xarray< double > low{{-infinity<>, 0, -10}, {-infinity<>, 100, 10}};
    const xarray< double > high{{5, infinity<>, 10}, {0, 101, 11}};
@@ -55,7 +55,7 @@ TEST(Space, Box_multi_variates_constructor)
    EXPECT_THROW((TypedBox< double >{low, high, xt::svector{1, 3}}), std::invalid_argument);
 }
 
-TEST(Space, Box_multi_variates_sample)
+TEST(Spaces, Box_multi_variates_sample)
 {
    const xarray< double > low{{-infinity<>, 0, -1}, {-infinity<>, 4, 1}};
    const xarray< double > high{{3, infinity<>, 0}, {7, 5, 11}};
@@ -77,7 +77,7 @@ TEST(Space, Box_multi_variates_sample)
    }
 }
 
-TEST(Space, Box_bounds)
+TEST(Spaces, Box_bounds)
 {
    const xarray< double > low{{-infinity<>, 0, -1}, {-infinity<>, 4, 1}};
    const xarray< double > high{{3, infinity<>, 0}, {7, 5, 11}};
@@ -93,7 +93,7 @@ TEST(Space, Box_bounds)
    EXPECT_EQ((std::pair{1., 11.}), box.bounds(std::vector{1, 2}));
 }
 
-TEST(Space, Box_copy_construction)
+TEST(Spaces, Box_copy_construction)
 {
    const xarray< double > low{-infinity<>, 0, -10};
    const xarray< double > high{0, infinity<>, 10};

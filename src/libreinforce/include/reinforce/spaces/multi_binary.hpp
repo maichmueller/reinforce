@@ -38,6 +38,7 @@ class MultiBinarySpace: public TypedMonoSpace< xarray< int8_t >, MultiBinarySpac
    friend class TypedMonoSpace;
    using base = TypedMonoSpace;
    using typename base::value_type;
+   using typename base::multi_value_type;
    using base::shape;
    using base::rng;
 
@@ -82,13 +83,9 @@ class MultiBinarySpace: public TypedMonoSpace< xarray< int8_t >, MultiBinarySpac
    std::string repr() { return fmt::format("MultiBinary({})", shape()); }
 
   private:
-   value_type
-   _sample(size_t nr_samples = 1, const std::optional< value_type >& mask = {});
+   multi_value_type _sample(size_t nr_samples, const std::optional< value_type >& mask = {});
 
-   value_type _sample(const std::optional< value_type >& mask = {})
-   {
-      return _sample(1, mask);
-   }
+   value_type _sample(const std::optional< value_type >& mask = {}) { return _sample(1, mask); }
 
    [[nodiscard]] static bool _contains(const value_type& value)
    {

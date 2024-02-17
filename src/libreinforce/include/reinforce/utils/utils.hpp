@@ -54,7 +54,7 @@ constexpr std::pair< std::unique_ptr< T[] >, size_t > make_carray(const size_t s
 {
    auto data = std::make_unique< T[] >(size);
    auto data_span = std::span{new T[size], size};
-   std::ranges::fill(data, std::forward< U >(value));
+   std::ranges::fill(data_span, std::forward< U >(value));
    return {std::move(data), size};
 }
 

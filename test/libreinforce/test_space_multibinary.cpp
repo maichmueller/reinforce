@@ -10,7 +10,7 @@
 
 using namespace force;
 
-TEST(Space, MultiBinary_constructor)
+TEST(Spaces, MultiBinary_constructor)
 {
    EXPECT_NO_THROW((MultiBinarySpace{std::vector{3, 2, 1}}));
    EXPECT_NO_THROW((MultiBinarySpace{xt::svector{2, 3}}));
@@ -18,7 +18,7 @@ TEST(Space, MultiBinary_constructor)
    EXPECT_NO_THROW((MultiBinarySpace{{1, 2, 3, 4, 5, 6, 7, 8}}));
 }
 
-TEST(Space, MultiBinary_sample)
+TEST(Spaces, MultiBinary_sample)
 {
    auto space = MultiBinarySpace{xt::svector{2, 3}};
    auto samples = space.sample(10000);
@@ -34,7 +34,7 @@ TEST(Space, MultiBinary_sample)
    }
 }
 
-TEST(Space, MultiBinary_sample_masked)
+TEST(Spaces, MultiBinary_sample_masked)
 {
    auto space = MultiBinarySpace{xt::svector{2, 3}};
    // wrong mask specified
@@ -62,7 +62,7 @@ TEST(Space, MultiBinary_sample_masked)
    }
 }
 
-TEST(Space, MultiBinary_copy_construction)
+TEST(Spaces, MultiBinary_copy_construction)
 {
    auto space = MultiBinarySpace{xt::svector{2, 3}};
    auto space_copy = space;

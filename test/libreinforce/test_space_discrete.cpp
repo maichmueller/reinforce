@@ -12,7 +12,7 @@
 
 using namespace force;
 
-TEST(Space, Discrete_constructor)
+TEST(Spaces, Discrete_constructor)
 {
    constexpr int n = 10;
    constexpr int start = 0;
@@ -20,7 +20,7 @@ TEST(Space, Discrete_constructor)
    EXPECT_THROW((TypedDiscreteSpace{0, start}), std::invalid_argument);
 }
 
-TEST(Space, Discrete_sample)
+TEST(Spaces, Discrete_sample)
 {
    constexpr int n = 10;
    constexpr int start = 0;
@@ -37,7 +37,7 @@ TEST(Space, Discrete_sample)
    }
 }
 
-TEST(Space, Discrete_sample_masked)
+TEST(Spaces, Discrete_sample_masked)
 {
    constexpr int n = 10;
    constexpr int start = 0;
@@ -53,7 +53,7 @@ TEST(Space, Discrete_sample_masked)
    }
 }
 
-TEST(Space, Discrete_copy_construction)
+TEST(Spaces, Discrete_copy_construction)
 {
    constexpr int n = 10;
    constexpr int start = 0;

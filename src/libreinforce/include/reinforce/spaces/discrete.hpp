@@ -4,12 +4,14 @@
 
 #include <fmt/format.h>
 
+#include <concepts>
 #include <cstddef>
 #include <optional>
 #include <random>
 #include <stdexcept>
 #include <vector>
 #include <xtensor/xmath.hpp>
+#include <xtensor/xrandom.hpp>
 
 #include "mono_space.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
@@ -68,13 +70,7 @@ class TypedDiscreteSpace: public TypedMonoSpace< xarray< T >, TypedDiscreteSpace
 template < std::integral T >
 auto TypedDiscreteSpace< T >::_sample(size_t nr_samples) -> value_type
 {
-   auto samples = xt::empty< T >(xt::svector{nr_samples});
-
-   std::uniform_int_distribution< int > dist(0, m_nr_values - 1);
-   for(auto i : ranges::views::iota(0UL, nr_samples)) {
-      samples.unchecked(i) = m_start + dist(rng());
-   }
-   return samples;
+   return xt::random::randint({nr_samples}, m_start, m_start + m_nr_values, rng());
 }
 
 template < std::integral T >
