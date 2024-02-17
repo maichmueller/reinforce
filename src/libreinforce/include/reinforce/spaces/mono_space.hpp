@@ -52,7 +52,7 @@ class TypedMonoSpace: public detail::rng_mixin {
       } else if constexpr(mvt_is_container) {
          return sample(1)[0];
       } else {
-         return sample(1);
+         throw detail::not_implemented_error(fmt::format("_sample()"));
       }
    }
 
@@ -64,7 +64,9 @@ class TypedMonoSpace: public detail::rng_mixin {
       } else if constexpr(mvt_is_container) {
          return sample(1, mask)[0];
       } else {
-         return sample(1, mask);
+         throw detail::not_implemented_error(
+            fmt::format("_sample({})", detail::type_name< decltype(mask) >())
+         );
       }
    }
 
@@ -76,42 +78,9 @@ class TypedMonoSpace: public detail::rng_mixin {
       } else if constexpr(mvt_is_container) {
          return sample(1, mask_vec)[0];
       } else {
-         return sample(1, mask_vec);
-      }
-   }
-
-   value_type sample(size_t nr_samples)
-   {
-      if constexpr(requires(Derived self) { self._sample(nr_samples); }) {
-         return self()._sample(nr_samples);
-      } else {
-         throw detail::not_implemented_error(fmt::format("sample(size_t{{{}}})", nr_samples));
-      }
-   }
-
-   template < typename U >
-   value_type sample(size_t nr_samples, const xarray< U >& mask)
-   {
-      if constexpr(requires(Derived self) { self._sample(nr_samples, mask); }) {
-         return self()._sample(nr_samples, mask);
-      } else {
-         throw detail::not_implemented_error(fmt::format(
-            "sample(size_t{{{}}}, const xarray< {} >&)", nr_samples, detail::type_name< U >()
-         ));
-      }
-   }
-
-   template < typename U >
-   value_type sample(size_t nr_samples, const std::vector< std::optional< xarray< U > > >& mask_vec)
-   {
-      if constexpr(requires(Derived self) { self._sample(nr_samples, mask_vec); }) {
-         return self()._sample(nr_samples, mask_vec);
-      } else {
-         throw detail::not_implemented_error(fmt::format(
-            "sample(size_t{{{}}}, const std::vector< std::optional< xarray< {} > > >&)",
-            nr_samples,
-            detail::type_name< U >()
-         ));
+         throw detail::not_implemented_error(
+            fmt::format("_sample({})", detail::type_name< decltype(mask_vec) >())
+         );
       }
    }
 
@@ -120,8 +89,58 @@ class TypedMonoSpace: public detail::rng_mixin {
    {
       if constexpr(requires(Derived self) { self._sample(mask_tuple); }) {
          return self()._sample(mask_tuple);
+      } else if constexpr(mvt_is_container) {
+         return sample(1, mask_tuple)[0];
       } else {
-         return sample(1, mask_tuple);
+         throw detail::not_implemented_error(
+            fmt::format("_sample({})", detail::type_name< decltype(mask_tuple) >())
+         );
+      }
+   }
+
+   multi_value_type sample(size_t nr_samples)
+   {
+      if constexpr(requires(Derived self) { self._sample(nr_samples); }) {
+         return self()._sample(nr_samples);
+      } else {
+         throw detail::not_implemented_error(fmt::format("_sample(size_t{{{}}})", nr_samples));
+      }
+   }
+
+   template < typename U >
+   multi_value_type sample(size_t nr_samples, const xarray< U >& mask)
+   {
+      if constexpr(requires(Derived self) { self._sample(nr_samples, mask); }) {
+         return self()._sample(nr_samples, mask);
+      } else {
+         throw detail::not_implemented_error(fmt::format(
+            "_sample(size_t{{{}}}, {})", nr_samples, detail::type_name< decltype(mask) >()
+         ));
+      }
+   }
+
+   template < typename U >
+   multi_value_type
+   sample(size_t nr_samples, const std::vector< std::optional< xarray< U > > >& mask_vec)
+   {
+      if constexpr(requires(Derived self) { self._sample(nr_samples, mask_vec); }) {
+         return self()._sample(nr_samples, mask_vec);
+      } else {
+         throw detail::not_implemented_error(fmt::format(
+            "_sample(size_t{{{}}}, {})", nr_samples, detail::type_name< decltype(mask_vec) >()
+         ));
+      }
+   }
+
+   template < typename... Args >
+   multi_value_type sample(size_t nr_samples, const std::tuple< Args... >& mask_tuple)
+   {
+      if constexpr(requires(Derived self) { self._sample(nr_samples, mask_tuple); }) {
+         return self()._sample(nr_samples, mask_tuple);
+      } else {
+         throw detail::not_implemented_error(fmt::format(
+            "_sample(size_t{{{}}}, {})", nr_samples, detail::type_name< decltype(mask_tuple) >()
+         ));
       }
    }
 

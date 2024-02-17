@@ -2,6 +2,7 @@
 set(
         LIBREINFORCE_SOURCES
         multi_binary.cpp
+        text.cpp
 )
 list(TRANSFORM LIBREINFORCE_SOURCES PREPEND "${PROJECT_REINFORCE_SRC_DIR}/")
 

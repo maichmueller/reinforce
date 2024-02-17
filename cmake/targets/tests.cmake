@@ -11,6 +11,7 @@ register_reinforce_target(
         test_space_multidiscrete.cpp
         test_space_tuple.cpp
         test_space_multibinary.cpp
+        test_space_text.cpp
 )
 
 
