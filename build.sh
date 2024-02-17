@@ -6,4 +6,11 @@ else
   cmake_build_folder=build
 fi
 
-cmake --build "$cmake_build_folder" --target all
+
+if [[ -n ${*:2} ]]; then
+  build_targets=${*:2}
+else
+  build_targets="all"
+fi
+
+cmake --build "$cmake_build_folder" --target $build_targets
