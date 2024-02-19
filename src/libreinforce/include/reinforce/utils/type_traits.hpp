@@ -4,6 +4,8 @@
 
 #include <type_traits>
 
+#include "xtensor_typedefs.hpp"
+
 namespace force::detail {
 
 /// is_specialization checks whether T is a specialized template class of 'Template'
@@ -85,11 +87,24 @@ using raw = std::remove_cvref< T >;
 template < typename T >
 using raw_t = typename raw< T >::type;
 
+template < typename T >
+using value_t = typename T::value_type;
+
 template < typename T, typename U >
 consteval bool same_as(const T&, const U&)
 {
    return std::same_as< T, U >;
 }
+
+template < class Array, typename T >
+concept is_xarray = detail::is_any_v< Array, pyarray< T >, xarray< T > >;
+
+template < class Array, typename T >
+concept is_xarray_ref = is_xarray< detail::raw_t< Array >, T >
+                        and std::is_lvalue_reference_v< Array >;
+
+template < typename T >
+concept has_value_type = requires(T t) { typename T::value_type; };
 
 }  // namespace force::detail
 

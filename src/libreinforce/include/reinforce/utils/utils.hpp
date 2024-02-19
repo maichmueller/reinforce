@@ -29,6 +29,12 @@
 
 namespace force::detail {
 
+template < size_t N >
+struct StringLiteral {
+   constexpr StringLiteral(const char (&str)[N]) { std::copy_n(str, N, value); }
+   char value[N];
+};
+
 template < class T >
 constexpr std::string_view type_name()
 {
@@ -213,7 +219,7 @@ inline constexpr bool
 template < typename T >
 decltype(auto) deref(T&& t)
 {
-   return std::forward< T >(t);
+   return FWD(t);
 }
 
 template < typename T >
@@ -222,9 +228,9 @@ template < typename T >
 decltype(auto) deref(T&& t)
 {
    if constexpr(is_specialization_v< std::remove_cvref_t< T >, std::reference_wrapper >) {
-      return std::forward< T >(t).get();
+      return FWD(t).get();
    } else {
-      return *std::forward< T >(t);
+      return *FWD(t);
    }
 }
 
@@ -237,8 +243,14 @@ template < typename T >
 decltype(auto)  // clang-format on
 deref(T&& t)
 {
-   return *std::forward< T >(t);
+   return *FWD(t);
 }
+
+template < typename T >
+using dereffed_t = decltype(deref(std::declval< T >()));
+
+template < typename T >
+using raw_dereffed_t = raw_t< decltype(deref(std::declval< T >())) >;
 
 template < ranges::range Range >
 class deref_view: public ranges::view_base {

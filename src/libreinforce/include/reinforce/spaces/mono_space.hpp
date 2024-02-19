@@ -14,6 +14,13 @@
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
+#define MASKED_SAMPLE_FUNC(type1, arg1, type2, arg2)                \
+   multi_value_type sample(type1 arg1, type2 arg2)                  \
+      requires requires(Derived self) { self._sample(arg1, arg2); } \
+   {                                                                \
+      return self()._sample(arg1, arg2);                            \
+   }
+
 namespace force {
 
 namespace detail {
@@ -98,51 +105,20 @@ class TypedMonoSpace: public detail::rng_mixin {
       }
    }
 
-   multi_value_type sample(size_t nr_samples)
+   multi_value_type sample(size_t nr)
+      requires requires(Derived self) { self._sample(nr); }
    {
-      if constexpr(requires(Derived self) { self._sample(nr_samples); }) {
-         return self()._sample(nr_samples);
-      } else {
-         throw detail::not_implemented_error(fmt::format("_sample(size_t{{{}}})", nr_samples));
-      }
+      return self()._sample(nr);
    }
 
    template < typename U >
-   multi_value_type sample(size_t nr_samples, const xarray< U >& mask)
-   {
-      if constexpr(requires(Derived self) { self._sample(nr_samples, mask); }) {
-         return self()._sample(nr_samples, mask);
-      } else {
-         throw detail::not_implemented_error(fmt::format(
-            "_sample(size_t{{{}}}, {})", nr_samples, detail::type_name< decltype(mask) >()
-         ));
-      }
-   }
-
-   template < typename U >
-   multi_value_type
-   sample(size_t nr_samples, const std::vector< std::optional< xarray< U > > >& mask_vec)
-   {
-      if constexpr(requires(Derived self) { self._sample(nr_samples, mask_vec); }) {
-         return self()._sample(nr_samples, mask_vec);
-      } else {
-         throw detail::not_implemented_error(fmt::format(
-            "_sample(size_t{{{}}}, {})", nr_samples, detail::type_name< decltype(mask_vec) >()
-         ));
-      }
-   }
+   MASKED_SAMPLE_FUNC(size_t, nr, const xarray< U >&, mask);
 
    template < typename... Args >
-   multi_value_type sample(size_t nr_samples, const std::tuple< Args... >& mask_tuple)
-   {
-      if constexpr(requires(Derived self) { self._sample(nr_samples, mask_tuple); }) {
-         return self()._sample(nr_samples, mask_tuple);
-      } else {
-         throw detail::not_implemented_error(fmt::format(
-            "_sample(size_t{{{}}}, {})", nr_samples, detail::type_name< decltype(mask_tuple) >()
-         ));
-      }
-   }
+   MASKED_SAMPLE_FUNC(size_t, nr, const std::tuple< Args... >&, mask_tuple);
+
+   template < typename U >
+   MASKED_SAMPLE_FUNC(size_t, nr, const std::vector< std::optional< xarray< U > > >&, mask_vec);
 
    // Check if the value is a valid member of this space
    bool contains(const value_type& value) const { return self()._contains(value); }
@@ -165,5 +141,7 @@ class TypedMonoSpace: public detail::rng_mixin {
 };
 
 }  // namespace force
+
+#undef MASKED_SAMPLE_FUNC
 
 #endif  // REINFORCE_MONO_SPACE_HPP

@@ -8,12 +8,17 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <optional>
 #include <range/v3/all.hpp>
+#include <range/v3/detail/prologue.hpp>
+#include <range/v3/iterator/traits.hpp>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <variant>
 #include <vector>
 #include <xtensor/xadapt.hpp>
@@ -48,7 +53,7 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
    friend class TypedMonoSpace;
    using base = TypedMonoSpace;
    using typename base::value_type;
-   using base::multi_value_type;
+   using typename base::multi_value_type;
    using base::shape;
    using base::rng;
 
@@ -90,16 +95,49 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
    size_t m_min_length = 1;
    xarray< char > m_chars = _default_chars();
 
-   template < std::convertible_to< int > Integer = int >
+   struct internal_token {};
+
+   /// \brief
+   /// \tparam SizeOrVectorT
+   /// \tparam Integer
+   /// \param nr_samples
+   /// \param mask_tuple
+   /// \return
+   template < typename SizeOrVectorT  =size_t, typename Xarray = xarray<int> >
+          requires (std::convertible_to< SizeOrVectorT , size_t > //
+               or (detail::is_specialization_v<  SizeOrVectorT , std::vector > //
+                  and std::convertible_to< ranges::value_type_t<  SizeOrVectorT >, size_t >))
+   and (detail::has_value_type<Xarray>
+      and (detail::is_xarray<Xarray, detail::value_t<Xarray>>
+         or detail::is_xarray_ref<Xarray, detail::value_t<Xarray>>)
+         )
    multi_value_type _sample(
       size_t nr_samples,
       const std::tuple<
-         std::optional< std::variant< size_t, std::vector< size_t > > >,
-         std::optional< xarray< Integer > >  //
-         >& mask_tuple
+         const SizeOrVectorT * ,
+         const Xarray *   //
+         >& mask_tuple, //
+      internal_token
    );
 
-   multi_value_type _sample(size_t nr_samples) { return _sample(nr_samples, {}); }
+   /// \brief Helper function to enable the passing of std::nullopt for mask elements
+   ///
+   /// This function is used to pass on sampling calls such as
+   ///      `space.sample(10, std::tuple{/*length*/ = 4, std::nullopt})`
+   /// or
+   ///      `space.sample(10, std::tuple{std::nullopt, xarray<int>{0, 0, 1, 1, 0, 0}})`.
+   /// Such function calls would not be accepted by the main sample() function, since both mask
+   /// elements in the tuple hold a template type that needs to be deduced and they don't match nullopt_t.
+   ///
+   /// \tparam MaskT1 type of the 1st masking element
+   /// \tparam MaskT2 type of the 2nd masking element
+   /// \param nr_samples the total number of samples to generate (forwarded)
+   /// \param mask_tuple the mask tuple with generics contained in them. The only restriction is
+   /// that not both generic types are std::optionals at the same time. \return
+   template < typename MaskT1, typename MaskT2 >
+   multi_value_type _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple);
+
+   multi_value_type _sample(size_t nr_samples) { return _sample(nr_samples, {}, internal_token{}); }
 
    [[nodiscard]] bool _contains(const value_type& value) const
    {
@@ -107,35 +145,41 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
              and ranges::all_of(value, [&](char chr) { return ranges::contains(m_chars, chr); });
    }
 
-   [[nodiscard]] xarray< size_t > _compute_lengths(
-      size_t nr_samples,
-      const std::optional< std::variant< size_t, std::vector< size_t > > >& opt_len
-   );
+   template < typename SizeOrVectorT >
+   [[nodiscard]] xarray< size_t >
+   _compute_lengths(size_t nr_samples, const SizeOrVectorT* lengths_ptr);
 
    static const xt::xarray< char >& _default_chars();
 };
 
 // template implementations
 
-template < std::convertible_to< int > Integer >
+template < typename SizeOrVectorT, typename Xarray >
+       requires (std::convertible_to< SizeOrVectorT , size_t > //
+            or (detail::is_specialization_v<  SizeOrVectorT , std::vector > //
+               and std::convertible_to< ranges::value_type_t<  SizeOrVectorT >, size_t >))
+and (detail::has_value_type<Xarray>
+   and (detail::is_xarray<Xarray, detail::value_t<Xarray>>
+      or detail::is_xarray_ref<Xarray, detail::value_t<Xarray>>)
+      )
 auto TextSpace::_sample(
    size_t nr_samples,
    const std::tuple<
-      std::optional< std::variant< size_t, std::vector< size_t > > >,
-      std::optional< xarray< Integer > >  //
-      >& mask_tuple
+      const SizeOrVectorT * ,
+      const Xarray *   //
+      >& mask_tuple, //
+   internal_token
 ) -> multi_value_type
 {
    if(nr_samples == 0) {
       throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
    }
-   const auto& [opt_len, opt_charlist_mask] = mask_tuple;
-
+   const auto& [length_ptr, charlist_mask_ptr] = mask_tuple;
    auto valid_indices = std::invoke([&] {
-      if(not opt_charlist_mask.has_value()) {
+      if(not charlist_mask_ptr) {
          return xt::xarray< size_t >{};  // valid_indices will be ignored in this case
       }
-      const auto& charlist_mask = *opt_charlist_mask;
+      const auto& charlist_mask = *charlist_mask_ptr;
       if(charlist_mask.shape() != xt::svector{m_chars.size()}) {
          throw std::invalid_argument(fmt::format(
             "Character mask shape does not match. Expected {}, found {}",
@@ -148,7 +192,7 @@ auto TextSpace::_sample(
 
    // Compute the lenghts each sample should have. This is an array of potentially
    // differing integers which at index i indicates the sampled string size for sample i.
-   auto lengths_per_sample = _compute_lengths(nr_samples, opt_len);
+   auto lengths_per_sample = _compute_lengths(nr_samples, length_ptr);
    SPDLOG_DEBUG(fmt::format("Random lengths of each sample:\n{}", lengths_per_sample));
    size_t total_nr_char_sample = xt::sum(lengths_per_sample, xt::evaluation_strategy::immediate)
                                     .unchecked(0);
@@ -163,7 +207,7 @@ auto TextSpace::_sample(
             m_min_length
          ));
       };
-      if(not opt_charlist_mask.has_value()) {
+      if(not charlist_mask_ptr) {
          if(xt::any(xt::equal(lengths_per_sample, 0)) and m_min_length > 0) {
             throw_lambda();
          }
@@ -195,6 +239,59 @@ auto TextSpace::_sample(
              }
           )
           | ranges::to_vector;
+}
+
+template < typename SizeOrVectorT >
+xarray< size_t > TextSpace::_compute_lengths(size_t nr_samples, const SizeOrVectorT* lengths_ptr)
+{
+   if(lengths_ptr) {
+      const SizeOrVectorT& lengths = *lengths_ptr;
+      return std::invoke([&] {
+         if constexpr(std::convertible_to< SizeOrVectorT, size_t >) {
+            return xarray< size_t >{xt::adapt(
+               detail::make_carray< size_t >(nr_samples, static_cast< size_t >(lengths))
+                  .first.release(),
+               nr_samples,
+               xt::acquire_ownership()
+            )};
+         } else {
+            // lengths is now confirmed to be a std::vector type
+            if(lengths.size() != nr_samples) {
+               throw std::invalid_argument(fmt::format(
+                  "Given mask mandates fixed lengths for only {} out of {} samples. Expected "
+                  "parity.",
+                  lengths.size(),
+                  nr_samples
+               ));
+            }
+            xarray< size_t > arr = xt::empty< size_t >({lengths.size()});
+            for(auto index : std::views::iota(0u, lengths.size())) {
+               arr.unchecked(index) = static_cast< size_t >(lengths[index]);
+            }
+            return arr;
+         }
+      });
+   }
+   return xt::random::randint(xt::svector{nr_samples}, m_min_length, m_max_length + 1, rng());
+}
+
+template < typename T1, typename T2 >
+auto TextSpace::_sample(size_t nr_samples, const std::tuple< T1, T2 >& mask_tuple)
+   -> multi_value_type
+{
+   constexpr auto int_0 = std::integral_constant< int, 0 >{};
+   constexpr auto int_1 = std::integral_constant< int, 1 >{};
+   constexpr auto to_ptr =
+      []< int Pos, typename T >(const T& t, std::integral_constant< int, Pos >) {
+         if constexpr(std::is_same_v< T, std::nullopt_t >) {
+            using underlying_type = std::conditional_t< Pos == 0, const size_t, const xarray< int > >*;
+            return underlying_type(nullptr);
+         } else {
+            return &detail::deref(t);
+         }
+      };
+   const auto& [m1, m2] = mask_tuple;
+   return _sample(nr_samples, std::tuple{to_ptr(m1, int_0), to_ptr(m2, int_1)}, internal_token{});
 }
 
 }  // namespace force
