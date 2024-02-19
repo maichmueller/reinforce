@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <ranges>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <xtensor/xset_operation.hpp>
@@ -19,15 +20,15 @@ TEST(Spaces, Text_constructor)
 {
    EXPECT_NO_THROW((TextSpace{5, 4583048}));
    EXPECT_NO_THROW((TextSpace{{.max_length = 5}, 56356739}));
-   EXPECT_NO_THROW((TextSpace{{.max_length = 5, .char_set = "AEIOUaeiou"}, 56356739}));
+   EXPECT_NO_THROW((TextSpace{{.max_length = 5, .characters = "AEIOUaeiou"}, 56356739}));
    EXPECT_NO_THROW(
-      (TextSpace{{.max_length = 10, .min_length = 3, .char_set = "AEIOUaeiou"}, 56356739})
+      (TextSpace{{.max_length = 10, .min_length = 3, .characters = "AEIOUaeiou"}, 56356739})
    );
 }
 
 TEST(Spaces, Text_sample)
 {
-   auto space = TextSpace{{.max_length = 5, .char_set = "+=|/{}[]()<>"}, 56356739};
+   auto space = TextSpace{{.max_length = 5, .characters = "+=|/{}[]()<>"}, 56356739};
    constexpr int n = 50;
    auto samples = space.sample(n);
    SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
@@ -49,7 +50,7 @@ TEST(Spaces, Text_sample)
 
 TEST(Spaces, Text_sample_masked_lengths)
 {
-   auto space = TextSpace{{.max_length = 5, .char_set = "AEIOU"}, 56356739};
+   auto space = TextSpace{{.max_length = 5, .characters = "AEIOU"}, 56356739};
    size_t n = 5;
 
    // first create 5 samples with 5, then 4, then 3, ..., then 1 characters and no restriction on
@@ -112,7 +113,7 @@ TEST(Spaces, Text_sample_masked_lengths)
 
 TEST(Spaces, Text_copy_construction)
 {
-   auto space = TextSpace{{.max_length = 5, .char_set = "AEIOU"}, 56356739};
+   auto space = TextSpace{{.max_length = 5, .characters = "AEIOU"}, 56356739};
    auto space_copy = space;
    EXPECT_EQ(space_copy, space);
    // RNG state should still be aligned

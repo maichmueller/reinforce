@@ -24,6 +24,7 @@
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xexpression.hpp>
 #include <xtensor/xrandom.hpp>
+#include <xtensor/xset_operation.hpp>
 #include <xtensor/xstorage.hpp>
 
 #include "mono_space.hpp"
@@ -46,7 +47,7 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
    struct Options {
       size_t max_length;
       size_t min_length = 1;
-      std::string char_set;
+      std::string characters;
    };
 
   public:
@@ -62,8 +63,9 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
          m_max_length(opts.max_length),
          m_min_length(opts.min_length)
    {
-      if(not opts.char_set.empty()) {
-         m_chars = xt::adapt(opts.char_set, xt::svector{opts.char_set.size()});
+      if(not opts.characters.empty()) {
+         m_chars = xt::adapt(opts.characters, xt::svector{opts.characters.size()});
+         m_charmap = make_charmap(m_chars);
       }
    }
    template < std::convertible_to< size_t > T >
@@ -72,7 +74,11 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
    {
    }
 
-   bool operator==(const TextSpace& rhs) const { return ranges::equal(shape(), rhs.shape()); }
+   bool operator==(const TextSpace& rhs) const
+   {
+      return m_min_length == rhs.m_min_length and m_max_length == rhs.m_max_length
+             and m_chars.size() == rhs.m_chars.size() and xt::all(xt::in1d(m_chars, rhs.m_chars));
+   }
 
    std::string repr()
    {
@@ -82,20 +88,24 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
    [[nodiscard]] std::string_view characters() const { return {m_chars.begin(), m_chars.end()}; }
    [[nodiscard]] long character_index(char chr) const
    {
-      auto dist = std::distance(m_chars.begin(), std::ranges::find(m_chars, chr));
-      return -1 * std::cmp_equal(dist, m_chars.size())
-             + dist * (std::cmp_less(dist, m_chars.size()));
+      auto handle = m_charmap.find(chr);
+      bool is_contained = handle != m_charmap.end();
+      return -1 * not is_contained + static_cast< long >(handle->second) * is_contained;
    }
 
    auto max_length() const { return m_max_length; }
    auto min_length() const { return m_min_length; }
 
   private:
+   constexpr static char
+      default_characters[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
    size_t m_max_length;
    size_t m_min_length = 1;
    xarray< char > m_chars = _default_chars();
+   std::unordered_map< char, size_t > m_charmap = _default_charmap();
 
-   struct internal_token {};
+   struct internal_tag {};
 
    /// \brief
    /// \tparam SizeOrVectorT
@@ -117,7 +127,7 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
          const SizeOrVectorT * ,
          const Xarray *   //
          >& mask_tuple, //
-      internal_token
+      internal_tag
    );
 
    /// \brief Helper function to enable the passing of std::nullopt for mask elements
@@ -127,7 +137,8 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
    /// or
    ///      `space.sample(10, std::tuple{std::nullopt, xarray<int>{0, 0, 1, 1, 0, 0}})`.
    /// Such function calls would not be accepted by the main sample() function, since both mask
-   /// elements in the tuple hold a template type that needs to be deduced and they don't match nullopt_t.
+   /// elements in the tuple hold a template type that needs to be deduced and they don't match
+   /// nullopt_t.
    ///
    /// \tparam MaskT1 type of the 1st masking element
    /// \tparam MaskT2 type of the 2nd masking element
@@ -137,7 +148,7 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
    template < typename MaskT1, typename MaskT2 >
    multi_value_type _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple);
 
-   multi_value_type _sample(size_t nr_samples) { return _sample(nr_samples, {}, internal_token{}); }
+   multi_value_type _sample(size_t nr_samples) { return _sample(nr_samples, {}, internal_tag{}); }
 
    [[nodiscard]] bool _contains(const value_type& value) const
    {
@@ -149,7 +160,10 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
    [[nodiscard]] xarray< size_t >
    _compute_lengths(size_t nr_samples, const SizeOrVectorT* lengths_ptr);
 
+   static std::unordered_map< char, size_t > make_charmap(const xarray< char >& chars);
+
    static const xt::xarray< char >& _default_chars();
+   static const std::unordered_map< char, size_t >& _default_charmap();
 };
 
 // template implementations
@@ -168,7 +182,7 @@ auto TextSpace::_sample(
       const SizeOrVectorT * ,
       const Xarray *   //
       >& mask_tuple, //
-   internal_token
+   internal_tag
 ) -> multi_value_type
 {
    if(nr_samples == 0) {
@@ -281,17 +295,17 @@ auto TextSpace::_sample(size_t nr_samples, const std::tuple< T1, T2 >& mask_tupl
 {
    constexpr auto int_0 = std::integral_constant< int, 0 >{};
    constexpr auto int_1 = std::integral_constant< int, 1 >{};
-   constexpr auto to_ptr =
-      []< int Pos, typename T >(const T& t, std::integral_constant< int, Pos >) {
-         if constexpr(std::is_same_v< T, std::nullopt_t >) {
-            using underlying_type = std::conditional_t< Pos == 0, const size_t, const xarray< int > >*;
-            return underlying_type(nullptr);
-         } else {
-            return &detail::deref(t);
-         }
-      };
+   constexpr auto to_ptr = []< int Pos,
+                               typename T >(const T& t, std::integral_constant< int, Pos >) {
+      if constexpr(std::is_same_v< T, std::nullopt_t >) {
+         using underlying_type = std::conditional_t< Pos == 0, const size_t, const xarray< int > >*;
+         return underlying_type(nullptr);
+      } else {
+         return &detail::deref(t);
+      }
+   };
    const auto& [m1, m2] = mask_tuple;
-   return _sample(nr_samples, std::tuple{to_ptr(m1, int_0), to_ptr(m2, int_1)}, internal_token{});
+   return _sample(nr_samples, std::tuple{to_ptr(m1, int_0), to_ptr(m2, int_1)}, internal_tag{});
 }
 
 }  // namespace force
