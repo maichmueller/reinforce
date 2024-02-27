@@ -19,10 +19,10 @@
 namespace force {
 
 template < std::integral T >
-class TypedDiscreteSpace: public TypedMonoSpace< xarray< T >, TypedDiscreteSpace< T > > {
+class TypedDiscreteSpace: public TypedSpace< xarray< T >, TypedDiscreteSpace< T > > {
   public:
-   friend class TypedMonoSpace< xarray< T >, TypedDiscreteSpace >;
-   using base = TypedMonoSpace< xarray< T >, TypedDiscreteSpace >;
+   friend class TypedSpace< xarray< T >, TypedDiscreteSpace >;
+   using base = TypedSpace< xarray< T >, TypedDiscreteSpace >;
    using typename base::value_type;
    using base::rng;
 

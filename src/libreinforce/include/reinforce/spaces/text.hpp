@@ -37,7 +37,7 @@
 
 namespace force {
 
-class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std::string > > {
+class TextSpace: public TypedSpace< std::string, TextSpace, std::vector< std::string > > {
    /// Hidden Options class to allow for designated initializers simplifying the init of TextSpace.
    /// Without options there would be overlaps e.g. between seed and max/min-length parameters.
    /// With this struct the usage should be as easy as:
@@ -52,8 +52,8 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
    };
 
   public:
-   friend class TypedMonoSpace;
-   using base = TypedMonoSpace;
+   friend class TypedSpace;
+   using base = TypedSpace;
    using typename base::value_type;
    using typename base::multi_value_type;
    using base::shape;

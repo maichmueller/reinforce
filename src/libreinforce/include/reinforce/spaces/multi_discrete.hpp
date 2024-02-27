@@ -63,10 +63,10 @@ auto build_xarray(Array&& arr)
 }  // namespace detail
 
 template < std::integral T >
-class TypedMultiDiscreteSpace: public TypedMonoSpace< xarray< T >, TypedMultiDiscreteSpace< T > > {
+class TypedMultiDiscreteSpace: public TypedSpace< xarray< T >, TypedMultiDiscreteSpace< T > > {
   public:
-   friend class TypedMonoSpace< xarray< T >, TypedMultiDiscreteSpace >;
-   using base = TypedMonoSpace< xarray< T >, TypedMultiDiscreteSpace >;
+   friend class TypedSpace< xarray< T >, TypedMultiDiscreteSpace >;
+   using base = TypedSpace< xarray< T >, TypedMultiDiscreteSpace >;
    using typename base::value_type;
    using base::shape;
    using base::rng;

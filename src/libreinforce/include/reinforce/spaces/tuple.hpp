@@ -17,16 +17,16 @@ namespace force {
 
 template < typename... Spaces >
 class TypedTupleSpace:
-    public TypedMonoSpace<
+    public TypedSpace<
        std::tuple< typename Spaces::value_type... >,
        TypedTupleSpace< Spaces... >,
        std::tuple< typename Spaces::multi_value_type... > > {
   public:
-   friend class TypedMonoSpace<
+   friend class TypedSpace<
       std::tuple< typename Spaces::value_type... >,
       TypedTupleSpace,
       std::tuple< typename Spaces::multi_value_type... > >;
-   using base = TypedMonoSpace<
+   using base = TypedSpace<
       std::tuple< typename Spaces::value_type... >,
       TypedTupleSpace,
       std::tuple< typename Spaces::multi_value_type... > >;

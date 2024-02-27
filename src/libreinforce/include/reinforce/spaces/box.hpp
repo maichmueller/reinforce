@@ -31,10 +31,10 @@ namespace force {
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-class TypedBox: public TypedMonoSpace< xarray< T >, TypedBox< T > > {
+class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
   public:
-   friend class TypedMonoSpace< xarray< T >, TypedBox >;
-   using base = TypedMonoSpace< xarray< T >, TypedBox >;
+   friend class TypedSpace< xarray< T >, TypedBox >;
+   using base = TypedSpace< xarray< T >, TypedBox >;
    using typename base::value_type;
    using base::shape;
    using base::rng;
