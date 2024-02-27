@@ -1,4 +1,5 @@
 #include <spdlog/spdlog.h>
+
 #include <xtensor/xset_operation.hpp>
 
 #include "gtest/gtest.h"

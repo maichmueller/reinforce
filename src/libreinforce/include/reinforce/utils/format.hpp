@@ -21,8 +21,8 @@ inline std::string to_string(const ::std::nullopt_t&)
 template < typename To >
 To from_string(std::string_view str);
 
-//template < typename T >
-//struct printable;
+// template < typename T >
+// struct printable;
 
 template < typename T >
 struct printable: std::false_type {};
@@ -53,7 +53,7 @@ inline auto& operator<<(std::stringstream& os, const T& value)
 {
    return os << ::force::detail::to_string(value);
 }
-}
+}  // namespace force
 template < typename T >
    requires(::force::detail::printable_v< T >)
 struct fmt::formatter< T >: fmt::ostream_formatter {};

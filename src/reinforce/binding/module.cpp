@@ -10,7 +10,8 @@ namespace py = pybind11;
 
 using namespace force;
 
-PYBIND11_MODULE(_reinforce, m) {
+PYBIND11_MODULE(_reinforce, m)
+{
    pyforce::init::env_gridworld(m);
 }
 

@@ -107,5 +107,4 @@ TEST(Spaces, Box_copy_construction)
    space_copy.sample();
    // the samples now should no longer be the same
    EXPECT_NE(space_copy.sample(), space.sample());
-
 }

@@ -17,12 +17,14 @@ import select
 def find_executable(exe_name):
     executable = shutil.which(exe_name)
     if not os.path.isfile(executable):
-        sys.exit(f'Could not find {exe_name}!')
+        sys.exit(f"Could not find {exe_name}!")
     else:
-        call_result = subprocess.run([executable, '--version'], capture_output=True, text=True)
+        call_result = subprocess.run(
+            [executable, "--version"], capture_output=True, text=True
+        )
         if call_result.returncode != 0:
             raise RuntimeError(call_result.stderr)
-        print_res = str(call_result.stdout).replace('\n', ' ')
+        print_res = str(call_result.stdout).replace("\n", " ")
         print(f"{exe_name} found at: {executable}, version: {print_res}")
     return executable
 
@@ -36,6 +38,7 @@ compile_config = "Release"
 
 
 # ---------------------- Building Extension section -------------------------
+
 
 class CMakeExtension(setuptools.Extension):
     def __init__(self, name, sourcedir=""):
@@ -119,13 +122,7 @@ class Build(build_ext):
         )
         # cmake install
         subprocess.check_call(
-            [
-                CMAKE,
-                "--install",
-                build_folder,
-                "--prefix",
-                extension_dir
-            ],
+            [CMAKE, "--install", build_folder, "--prefix", extension_dir],
             cwd=cwd,
             env=env,
         )
