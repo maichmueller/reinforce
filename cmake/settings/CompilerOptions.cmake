@@ -29,8 +29,9 @@ function(set_project_compiler_options project_name)
             "-ftemplate-backtrace-limit=0"
             # various optimizations
             # (link time optimization, unrolling loops, omitting frame pointers(=increasing stack register mem for data))
+            "$<$<CONFIG:RELEASE>:"
             "-flto"
-            "-funroll-loops"
+            "-funroll-loops>"
             ">"
     )
     set(GCC_COMPILER_OPTIONS
@@ -46,9 +47,10 @@ function(set_project_compiler_options project_name)
             "-ftemplate-backtrace-limit=0"
             # various optimizations
             # (link time optimization, unrolling loops, omitting frame pointers(=increasing stack register mem for data))
+            "$<$<CONFIG:RELEASE>:"
             "-flto=auto"
-            "-ffat-lto-objects"
             "-funroll-loops"
+            "-ffat-lto-objects>"
             ">"
     )
 

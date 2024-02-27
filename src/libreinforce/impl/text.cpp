@@ -2,7 +2,7 @@
 
 namespace force {
 
-const xt::xarray< char >& TextSpace::_default_chars()
+const xarray< char >& TextSpace::_default_chars()
 {
    static auto arr = [] {
       // we should be able to do this next commented out line

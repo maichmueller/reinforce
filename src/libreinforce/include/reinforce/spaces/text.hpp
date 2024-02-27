@@ -19,6 +19,7 @@
 #include <string_view>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 #include <xtensor/xadapt.hpp>
@@ -107,26 +108,17 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
 
    struct internal_tag {};
 
-   /// \brief
-   /// \tparam SizeOrVectorT
-   /// \tparam Integer
-   /// \param nr_samples
-   /// \param mask_tuple
-   /// \return
-   template < typename SizeOrVectorT  =size_t, typename Xarray = xarray<int> >
-          requires (std::convertible_to< SizeOrVectorT , size_t > //
-               or (detail::is_specialization_v<  SizeOrVectorT , std::vector > //
-                  and std::convertible_to< ranges::value_type_t<  SizeOrVectorT >, size_t >))
-   and (detail::has_value_type<Xarray>
-      and (detail::is_xarray<Xarray, detail::value_t<Xarray>>
-         or detail::is_xarray_ref<Xarray, detail::value_t<Xarray>>)
-         )
+   template < typename SizeOrVectorT = size_t, typename Xarray = xarray< int > >
+      requires(std::convertible_to< SizeOrVectorT, size_t >
+               or (detail::is_specialization_v< SizeOrVectorT, std::vector > and std::convertible_to< ranges::value_type_t< SizeOrVectorT >, size_t >)
+              )
+              and (detail::has_value_type< Xarray > and (detail::is_xarray< Xarray, detail::value_t< Xarray > > or detail::is_xarray_ref< Xarray, detail::value_t< Xarray > >))
    multi_value_type _sample(
       size_t nr_samples,
       const std::tuple<
-         const SizeOrVectorT * ,
-         const Xarray *   //
-         >& mask_tuple, //
+         const SizeOrVectorT*,
+         const Xarray*  //
+         >& mask_tuple,  //
       internal_tag
    );
 
@@ -162,33 +154,29 @@ class TextSpace: public TypedMonoSpace< std::string, TextSpace, std::vector< std
 
    static std::unordered_map< char, size_t > make_charmap(const xarray< char >& chars);
 
-   static const xt::xarray< char >& _default_chars();
+   static const xarray< char >& _default_chars();
    static const std::unordered_map< char, size_t >& _default_charmap();
 };
 
 // template implementations
 
 template < typename SizeOrVectorT, typename Xarray >
-       requires (std::convertible_to< SizeOrVectorT , size_t > //
-            or (detail::is_specialization_v<  SizeOrVectorT , std::vector > //
-               and std::convertible_to< ranges::value_type_t<  SizeOrVectorT >, size_t >))
-and (detail::has_value_type<Xarray>
-   and (detail::is_xarray<Xarray, detail::value_t<Xarray>>
-      or detail::is_xarray_ref<Xarray, detail::value_t<Xarray>>)
-      )
+   requires(std::convertible_to< SizeOrVectorT, size_t >
+            or (detail::is_specialization_v< SizeOrVectorT, std::vector > and std::convertible_to< ranges::value_type_t< SizeOrVectorT >, size_t >)
+           )
+           and (detail::has_value_type< Xarray > and (detail::is_xarray< Xarray, detail::value_t< Xarray > > or detail::is_xarray_ref< Xarray, detail::value_t< Xarray > >))
 auto TextSpace::_sample(
    size_t nr_samples,
    const std::tuple<
-      const SizeOrVectorT * ,
-      const Xarray *   //
-      >& mask_tuple, //
+      const SizeOrVectorT*,
+      const Xarray* >& mask_tuple,  //
    internal_tag
 ) -> multi_value_type
 {
    if(nr_samples == 0) {
       throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
    }
-   const auto& [length_ptr, charlist_mask_ptr] = mask_tuple;
+   const auto [length_ptr, charlist_mask_ptr] = mask_tuple;
    auto valid_indices = std::invoke([&] {
       if(not charlist_mask_ptr) {
          return xt::xarray< size_t >{};  // valid_indices will be ignored in this case
@@ -201,7 +189,7 @@ auto TextSpace::_sample(
             charlist_mask.shape()
          ));
       }
-      return xt::xarray< size_t >{xt::from_indices(xt::argwhere(charlist_mask))};
+      return xarray< size_t >{xt::from_indices(xt::argwhere(charlist_mask))};
    });
 
    // Compute the lenghts each sample should have. This is an array of potentially
