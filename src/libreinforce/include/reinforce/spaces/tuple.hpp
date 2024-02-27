@@ -51,7 +51,7 @@ class TypedTupleSpace:
 
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
-   multi_value_type sample(size_t nr_samples, MaskTuple&& mask_tuple)
+   multi_value_type sample(size_t nr_samples, MaskTuple&& mask_tuple) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
@@ -64,12 +64,12 @@ class TypedTupleSpace:
    }
 
    template < typename... MaskTs >
-   multi_value_type sample(size_t nr_samples, MaskTs&&... masks)
+   multi_value_type sample(size_t nr_samples, MaskTs&&... masks) const
    {
       return sample(nr_samples, std::tuple{FWD(masks)...});
    }
 
-   multi_value_type sample(size_t nr_samples)
+   multi_value_type sample(size_t nr_samples) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
@@ -80,7 +80,7 @@ class TypedTupleSpace:
    }
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
-   value_type sample(MaskTuple&& mask_tuple)
+   value_type sample(MaskTuple&& mask_tuple) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
@@ -92,7 +92,7 @@ class TypedTupleSpace:
 
    template < typename FirstMaskT, typename... MaskTs >
       requires(not std::is_integral_v< detail::raw_t< FirstMaskT > >)
-   value_type sample(FirstMaskT&& mask1, MaskTs&&... tail_masks)
+   value_type sample(FirstMaskT&& mask1, MaskTs&&... tail_masks) const
    {
       return std::invoke(
          [&]<
@@ -107,7 +107,7 @@ class TypedTupleSpace:
       );
    }
 
-   value_type sample()
+   value_type sample() const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {

@@ -100,7 +100,7 @@ class rng_mixin {
    auto& rng() { return m_rng; }
 
   private:
-   pcg64 m_rng;
+   mutable pcg64 m_rng;
 };
 
 template < typename To >

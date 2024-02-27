@@ -120,7 +120,7 @@ class TextSpace: public TypedSpace< std::string, TextSpace, std::vector< std::st
          const Xarray*  //
          >& mask_tuple,  //
       internal_tag
-   );
+   ) const;
 
    /// \brief Helper function to enable the passing of std::nullopt for mask elements
    ///
@@ -138,9 +138,13 @@ class TextSpace: public TypedSpace< std::string, TextSpace, std::vector< std::st
    /// \param mask_tuple the mask tuple with generics contained in them. The only restriction is
    /// that not both generic types are std::optionals at the same time. \return
    template < typename MaskT1, typename MaskT2 >
-   multi_value_type _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple);
+   multi_value_type _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple)
+      const;
 
-   multi_value_type _sample(size_t nr_samples) { return _sample(nr_samples, {}, internal_tag{}); }
+   multi_value_type _sample(size_t nr_samples) const
+   {
+      return _sample(nr_samples, {}, internal_tag{});
+   }
 
    [[nodiscard]] bool _contains(const value_type& value) const
    {
@@ -150,7 +154,7 @@ class TextSpace: public TypedSpace< std::string, TextSpace, std::vector< std::st
 
    template < typename SizeOrVectorT >
    [[nodiscard]] xarray< size_t >
-   _compute_lengths(size_t nr_samples, const SizeOrVectorT* lengths_ptr);
+   _compute_lengths(size_t nr_samples, const SizeOrVectorT* lengths_ptr) const;
 
    static std::unordered_map< char, size_t > make_charmap(const xarray< char >& chars);
 
@@ -171,7 +175,7 @@ auto TextSpace::_sample(
       const SizeOrVectorT*,
       const Xarray* >& mask_tuple,  //
    internal_tag
-) -> multi_value_type
+) const -> multi_value_type
 {
    if(nr_samples == 0) {
       throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
@@ -245,6 +249,7 @@ auto TextSpace::_sample(
 
 template < typename SizeOrVectorT >
 xarray< size_t > TextSpace::_compute_lengths(size_t nr_samples, const SizeOrVectorT* lengths_ptr)
+   const
 {
    if(lengths_ptr) {
       const SizeOrVectorT& lengths = *lengths_ptr;
@@ -278,7 +283,7 @@ xarray< size_t > TextSpace::_compute_lengths(size_t nr_samples, const SizeOrVect
 }
 
 template < typename T1, typename T2 >
-auto TextSpace::_sample(size_t nr_samples, const std::tuple< T1, T2 >& mask_tuple)
+auto TextSpace::_sample(size_t nr_samples, const std::tuple< T1, T2 >& mask_tuple) const
    -> multi_value_type
 {
    constexpr auto int_0 = std::integral_constant< int, 0 >{};

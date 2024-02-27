@@ -100,10 +100,12 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
    xarray< bool > m_bounded_below;
    xarray< bool > m_bounded_above;
 
-   value_type _sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt);
+   value_type _sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt) const;
 
-   value_type
-   _sample(size_t nr_samples, const std::optional< xarray< bool > >& /*unused*/ = std::nullopt);
+   value_type _sample(
+      size_t nr_samples,
+      const std::optional< xarray< bool > >& /*unused*/ = std::nullopt
+   ) const;
 
    bool contains(const value_type& value) const
    {
@@ -156,9 +158,9 @@ TypedBox< T >::TypedBox(
    Args&&... args
 )
     : base(
-         shape_.empty() ? xt::svector< int >(low.shape().begin(), low.shape().end()) : shape_,
-         std::forward< Args >(args)...
-      ),
+       shape_.empty() ? xt::svector< int >(low.shape().begin(), low.shape().end()) : shape_,
+       std::forward< Args >(args)...
+    ),
       m_low(low),
       m_high(high),
       m_bounded_below(not xt::isinf(low)),
@@ -213,7 +215,7 @@ TypedBox< T >::TypedBox(
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-auto TypedBox< T >::_sample(const std::optional< xarray< bool > >&) -> value_type
+auto TypedBox< T >::_sample(const std::optional< xarray< bool > >&) const -> value_type
 {
    xarray< T > samples = xt::empty< T >(shape());
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
@@ -266,7 +268,7 @@ template < typename T >
 auto TypedBox< T >::_sample(
    size_t nr_samples,
    const std::optional< xarray< bool > >& /*unused*/
-) -> value_type
+) const -> value_type
 {
    xt::svector< int > samples_shape = shape();
    samples_shape.push_back(static_cast< int >(nr_samples));

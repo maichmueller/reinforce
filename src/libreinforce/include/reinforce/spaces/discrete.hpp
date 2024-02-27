@@ -53,13 +53,13 @@ class TypedDiscreteSpace: public TypedSpace< xarray< T >, TypedDiscreteSpace< T 
    T m_nr_values;
    T m_start;
 
-   value_type _sample() { return _sample(size_t{1}); }
+   value_type _sample() const { return _sample(size_t{1}); }
 
-   value_type _sample(const xarray< bool >& mask) { return _sample(size_t{1}, mask); }
+   value_type _sample(const xarray< bool >& mask) const { return _sample(size_t{1}, mask); }
 
-   value_type _sample(size_t nr_samples);
+   value_type _sample(size_t nr_samples) const;
 
-   value_type _sample(size_t nr_samples, const xarray< bool >& mask);
+   value_type _sample(size_t nr_samples, const xarray< bool >& mask) const;
 
    bool _contains(const value_type& value) const
    {
@@ -68,13 +68,14 @@ class TypedDiscreteSpace: public TypedSpace< xarray< T >, TypedDiscreteSpace< T 
 };
 
 template < std::integral T >
-auto TypedDiscreteSpace< T >::_sample(size_t nr_samples) -> value_type
+auto TypedDiscreteSpace< T >::_sample(size_t nr_samples) const -> value_type
 {
    return xt::random::randint({nr_samples}, m_start, m_start + m_nr_values, rng());
 }
 
 template < std::integral T >
-auto TypedDiscreteSpace< T >::_sample(size_t nr_samples, const xarray< bool >& mask) -> value_type
+auto TypedDiscreteSpace< T >::_sample(size_t nr_samples, const xarray< bool >& mask) const
+   -> value_type
 {
    auto samples = xt::empty< T >(xt::svector{nr_samples});
 

@@ -78,40 +78,40 @@ class TypedMultiDiscreteSpace: public TypedSpace< xarray< T >, TypedMultiDiscret
       )
    TypedMultiDiscreteSpace(Array1&& start, Array2&& end, Args&&... args)
        : TypedMultiDiscreteSpace(
-            detail::build_xarray< T >(FWD(start)),
-            detail::build_xarray< T >(FWD(end)),
-            FWD(args)...
-         )
+          detail::build_xarray< T >(FWD(start)),
+          detail::build_xarray< T >(FWD(end)),
+          FWD(args)...
+       )
    {
    }
 
    template < class Array, typename FirstArg, typename... TailArgs >
    TypedMultiDiscreteSpace(const Array& end, FirstArg&& any, TailArgs&&... args)
        : TypedMultiDiscreteSpace(
-            xt::zeros_like(detail::build_xarray< T >(end)),
-            detail::build_xarray< T >(end),
-            FWD(any),
-            FWD(args)...
-         )
+          xt::zeros_like(detail::build_xarray< T >(end)),
+          detail::build_xarray< T >(end),
+          FWD(any),
+          FWD(args)...
+       )
    {
    }
 
    template < class Array >
    TypedMultiDiscreteSpace(const Array& end)
        : TypedMultiDiscreteSpace(
-            xt::zeros_like(detail::build_xarray< T >(end)),
-            detail::build_xarray< T >(end)
-         )
+          xt::zeros_like(detail::build_xarray< T >(end)),
+          detail::build_xarray< T >(end)
+       )
    {
    }
 
    template < std::integral Int >
    TypedMultiDiscreteSpace(value_type start, value_type end, Int seed)
        : TypedMultiDiscreteSpace(
-            std::move(start),
-            std::move(end),
-            std::optional{static_cast< size_t >(seed)}
-         )
+          std::move(start),
+          std::move(end),
+          std::optional{static_cast< size_t >(seed)}
+       )
    {
    }
 
@@ -138,13 +138,15 @@ class TypedMultiDiscreteSpace: public TypedSpace< xarray< T >, TypedMultiDiscret
    value_type m_start;
    value_type m_end;
 
-   value_type _sample(const std::vector< std::optional< xarray< bool > > >& mask_vec = {})
+   value_type _sample(const std::vector< std::optional< xarray< bool > > >& mask_vec = {}) const
    {
       return _sample(1, mask_vec);
    }
 
-   value_type
-   _sample(size_t nr_samples, const std::vector< std::optional< xarray< bool > > >& mask_vec = {});
+   value_type _sample(
+      size_t nr_samples,
+      const std::vector< std::optional< xarray< bool > > >& mask_vec = {}
+   ) const;
 
    bool _contains(const T& value) const
    {
@@ -220,7 +222,7 @@ template < std::integral T >
 auto TypedMultiDiscreteSpace< T >::_sample(
    size_t nr_samples,
    const std::vector< std::optional< xarray< bool > > >& mask_vec
-) -> value_type
+) const -> value_type
 {
    if(nr_samples == 0) {
       throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");

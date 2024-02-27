@@ -2,7 +2,7 @@
 
 namespace force {
 
-auto MultiBinarySpace::_sample(size_t nr_samples, const std::optional< value_type >& mask_opt)
+auto MultiBinarySpace::_sample(size_t nr_samples, const std::optional< value_type >& mask_opt) const
    -> value_type
 {
    if(nr_samples == 0) {

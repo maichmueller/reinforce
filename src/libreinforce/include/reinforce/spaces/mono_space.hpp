@@ -15,7 +15,7 @@
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
 #define MASKED_SAMPLE_FUNC(type1, arg1, type2, arg2)                \
-   multi_value_type sample(type1 arg1, type2 arg2)                  \
+   multi_value_type sample(type1 arg1, type2 arg2) const            \
       requires requires(Derived self) { self._sample(arg1, arg2); } \
    {                                                                \
       return self()._sample(arg1, arg2);                            \
@@ -45,14 +45,13 @@ class TypedSpace: public detail::rng_mixin {
    constexpr static bool mvt_is_container = not std::is_same_v< multi_value_type, value_type >
                                             and detail::has_getitem_operator< MultiT >;
 
-   explicit
-   TypedSpace(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
+   explicit TypedSpace(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
        : rng_mixin(seed), m_shape(std::move(shape))
    {
    }
 
    // Randomly sample an element of this space
-   value_type sample()
+   value_type sample() const
    {
       if constexpr(requires(Derived self) { self._sample(); }) {
          return self()._sample();
@@ -64,7 +63,7 @@ class TypedSpace: public detail::rng_mixin {
    }
 
    template < typename U >
-   value_type sample(const xarray< U >& mask)
+   value_type sample(const xarray< U >& mask) const
    {
       if constexpr(requires(Derived self) { self._sample(mask); }) {
          return self()._sample(mask);
@@ -78,7 +77,7 @@ class TypedSpace: public detail::rng_mixin {
    }
 
    template < typename U >
-   value_type sample(const std::vector< std::optional< xarray< U > > >& mask_vec)
+   value_type sample(const std::vector< std::optional< xarray< U > > >& mask_vec) const
    {
       if constexpr(requires(Derived self) { self._sample(mask_vec); }) {
          return self()._sample(mask_vec);
@@ -92,7 +91,7 @@ class TypedSpace: public detail::rng_mixin {
    }
 
    template < typename... Args >
-   value_type sample(const std::tuple< Args... >& mask_tuple)
+   value_type sample(const std::tuple< Args... >& mask_tuple) const
    {
       if constexpr(requires(Derived self) { self._sample(mask_tuple); }) {
          return self()._sample(mask_tuple);
@@ -105,7 +104,7 @@ class TypedSpace: public detail::rng_mixin {
       }
    }
 
-   multi_value_type sample(size_t nr)
+   multi_value_type sample(size_t nr) const
       requires requires(Derived self) { self._sample(nr); }
    {
       return self()._sample(nr);
