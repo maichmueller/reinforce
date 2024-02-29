@@ -1,6 +1,6 @@
 
-#ifndef REINFORCE_MULTI_BINARY_HPP
-#define REINFORCE_MULTI_BINARY_HPP
+#ifndef REINFORCE_SPACES_MULTI_BINARY_HPP
+#define REINFORCE_SPACES_MULTI_BINARY_HPP
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -24,12 +24,12 @@
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xstorage.hpp>
 
-#include "mono_space.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
+#include "space.hpp"
 
 namespace force {
 
@@ -98,4 +98,4 @@ class MultiBinarySpace: public TypedSpace< xarray< int8_t >, MultiBinarySpace > 
 
 }  // namespace force
 
-#endif  // REINFORCE_MULTI_DISCRETE_HPP
+#endif  // REINFORCE_SPACES_MULTI_BINARY_HPP

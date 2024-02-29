@@ -13,8 +13,8 @@
 #include <xtensor/xmath.hpp>
 #include <xtensor/xrandom.hpp>
 
-#include "mono_space.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
+#include "space.hpp"
 
 namespace force {
 

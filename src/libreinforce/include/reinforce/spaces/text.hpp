@@ -12,7 +12,6 @@
 #include <iterator>
 #include <optional>
 #include <range/v3/all.hpp>
-#include <range/v3/detail/prologue.hpp>
 #include <range/v3/iterator/traits.hpp>
 #include <stdexcept>
 #include <string>
@@ -28,12 +27,12 @@
 #include <xtensor/xset_operation.hpp>
 #include <xtensor/xstorage.hpp>
 
-#include "mono_space.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
+#include "space.hpp"
 
 namespace force {
 

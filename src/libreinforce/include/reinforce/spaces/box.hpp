@@ -20,7 +20,7 @@
 #include <xtensor/xstrided_view.hpp>
 #include <xtensor/xview.hpp>
 
-#include "reinforce/spaces/mono_space.hpp"
+#include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
