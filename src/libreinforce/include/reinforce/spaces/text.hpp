@@ -111,13 +111,10 @@ class TextSpace: public TypedSpace< std::string, TextSpace, std::vector< std::st
       requires(std::convertible_to< SizeOrVectorT, size_t >
                or (detail::is_specialization_v< SizeOrVectorT, std::vector > and std::convertible_to< ranges::value_type_t< SizeOrVectorT >, size_t >)
               )
-              and (detail::has_value_type< Xarray > and (detail::is_xarray< Xarray, detail::value_t< Xarray > > or detail::is_xarray_ref< Xarray, detail::value_t< Xarray > >))
+              and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
    multi_value_type _sample(
       size_t nr_samples,
-      const std::tuple<
-         const SizeOrVectorT*,
-         const Xarray*  //
-         >& mask_tuple,  //
+      const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple,
       internal_tag
    ) const;
 
@@ -167,12 +164,10 @@ template < typename SizeOrVectorT, typename Xarray >
    requires(std::convertible_to< SizeOrVectorT, size_t >
             or (detail::is_specialization_v< SizeOrVectorT, std::vector > and std::convertible_to< ranges::value_type_t< SizeOrVectorT >, size_t >)
            )
-           and (detail::has_value_type< Xarray > and (detail::is_xarray< Xarray, detail::value_t< Xarray > > or detail::is_xarray_ref< Xarray, detail::value_t< Xarray > >))
+           and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
 auto TextSpace::_sample(
    size_t nr_samples,
-   const std::tuple<
-      const SizeOrVectorT*,
-      const Xarray* >& mask_tuple,  //
+   const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple,
    internal_tag
 ) const -> multi_value_type
 {

@@ -32,7 +32,7 @@ namespace detail {
 
 /// If it is an l-value array then we want to pass it on as such and do nothing else.
 template < typename T, class Array >
-   requires is_xarray_ref< Array, T >
+   requires is_xarray_ref_of< Array, T >
 auto build_xarray(Array&& arr) -> decltype(auto)
 {
    return FWD(arr);
@@ -42,14 +42,14 @@ auto build_xarray(Array&& arr) -> decltype(auto)
 /// this is so that pr-values (those values attained from construction of the object as a temporary)
 /// will be copy-elided all the way to the destination, instead of moved and moved and moved...
 template < typename T, class Array >
-   requires is_xarray< raw_t< Array >, T >
+   requires is_xarray_of< raw_t< Array >, T >
 auto build_xarray(Array&& arr)
 {
    return FWD(arr);
 }
 
 template < typename T, typename Array >
-   requires std::ranges::range< raw_t< Array > > and (not detail::is_xarray< raw_t< Array >, T >)
+   requires std::ranges::range< raw_t< Array > > and (not detail::is_xarray_of< raw_t< Array >, T >)
 auto build_xarray(Array&& arr)
 {
    auto [data_storage, size] = detail::make_carray< T >(FWD(arr));
@@ -74,7 +74,7 @@ class TypedMultiDiscreteSpace: public TypedSpace< xarray< T >, TypedMultiDiscret
    template < class Array1, class Array2, typename... Args >
       requires(
          std::ranges::range< Array1 > and std::ranges::range< Array2 >
-         and (not detail::is_xarray< detail::raw_t< Array1 >, value_type > or not detail::is_xarray< detail::raw_t< Array2 >, value_type >)
+         and (not detail::is_xarray_of< detail::raw_t< Array1 >, value_type > or not detail::is_xarray_of< detail::raw_t< Array2 >, value_type >)
       )
    TypedMultiDiscreteSpace(Array1&& start, Array2&& end, Args&&... args)
        : TypedMultiDiscreteSpace(

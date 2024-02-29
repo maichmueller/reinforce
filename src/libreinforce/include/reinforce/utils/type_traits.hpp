@@ -96,15 +96,25 @@ consteval bool same_as(const T&, const U&)
    return std::same_as< T, U >;
 }
 
-template < class Array, typename T >
-concept is_xarray = detail::is_any_v< Array, pyarray< T >, xarray< T > >;
-
-template < class Array, typename T >
-concept is_xarray_ref = is_xarray< detail::raw_t< Array >, T >
-                        and std::is_lvalue_reference_v< Array >;
-
 template < typename T >
 concept has_value_type = requires(T t) { typename T::value_type; };
+
+template < class Array >
+concept is_xarray = has_value_type< Array >
+                    and detail::is_any_v<
+                       Array,
+                       pyarray< typename Array::value_type >,
+                       xarray< typename Array::value_type > >;
+
+template < class Array, typename T >
+concept is_xarray_of = detail::is_any_v< Array, pyarray< T >, xarray< T > >;
+
+template < class Array >
+concept is_xarray_ref = std::is_lvalue_reference_v< Array > and is_xarray< detail::raw_t< Array > >;
+
+template < class Array, typename T = typename Array::value_type >
+concept is_xarray_ref_of = std::is_lvalue_reference_v< Array >
+                           and is_xarray_of< detail::raw_t< Array >, T >;
 
 }  // namespace force::detail
 
