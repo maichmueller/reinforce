@@ -1,3 +1,5 @@
+#include <stdexcept>
+
 #include "gtest/gtest.h"
 #include "pybind11/embed.h"
 #include "reinforce/spaces/box.hpp"
@@ -7,18 +9,24 @@
 
 using namespace force;
 
-TEST(Spaces, Box_single_variates_constructor)
+TEST(Spaces, Box_singlevariate_constructor)
+{
+   EXPECT_NO_THROW((TypedBox{-100, 100, xt::svector{10}}));
+   EXPECT_NO_THROW((TypedBox{-100, 100, xt::svector{10}, 524622}));
+}
+
+TEST(Spaces, Box_multivariates_constructor)
 {
    const xarray< double > low{-infinity<>, 0, -10};
    const xarray< double > high{0, infinity<>, 10};
-   EXPECT_NO_THROW((TypedBox< double >{low, high}));
-   EXPECT_NO_THROW((TypedBox< double >{low, high, xt::svector< int >{}}));
-   EXPECT_NO_THROW((TypedBox< double >{low, high, xt::svector{3}}));
-   EXPECT_THROW((TypedBox< double >{low, high, xt::svector{0}}), std::invalid_argument);
-   EXPECT_THROW((TypedBox< double >{low, high, xt::svector{1}}), std::invalid_argument);
-   EXPECT_THROW((TypedBox< double >{low, high, xt::svector{2}}), std::invalid_argument);
-   EXPECT_THROW((TypedBox< double >{low, high, xt::svector{3, 0}}), std::invalid_argument);
-   EXPECT_THROW((TypedBox< double >{low, high, xt::svector{1, 3}}), std::invalid_argument);
+   EXPECT_NO_THROW((TypedBox{low, high}));
+   EXPECT_NO_THROW((TypedBox{low, high, xt::svector< int >{}}));
+   EXPECT_NO_THROW((TypedBox{low, high, xt::svector{3}}));
+   EXPECT_THROW((TypedBox{low, high, xt::svector{0}}), std::invalid_argument);
+   EXPECT_THROW((TypedBox{low, high, xt::svector{1}}), std::invalid_argument);
+   EXPECT_THROW((TypedBox{low, high, xt::svector{2}}), std::invalid_argument);
+   EXPECT_THROW((TypedBox{low, high, xt::svector{3, 0}}), std::invalid_argument);
+   EXPECT_THROW((TypedBox{low, high, xt::svector{1, 3}}), std::invalid_argument);
 }
 
 TEST(Spaces, Box_single_variates_sample)

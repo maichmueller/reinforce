@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include <cassert>
+#include <cstddef>
 #include <iostream>
 #include <limits>
 #include <optional>
@@ -25,6 +26,7 @@
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
+#include "reinforce/utils/xtensor_extension.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
 namespace force {
@@ -39,9 +41,19 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
    using base::shape;
    using base::rng;
 
-   template < typename... Args >
-   TypedBox(const T& low, const T& high, Args&&... args)
-       : TypedBox(xarray< T >{low}, xarray< T >{high}, std::forward< Args >(args)...)
+   template < typename U, typename Range >
+      requires std::is_integral_v< U > || std::is_floating_point_v< U >
+   TypedBox(
+      const U& low,
+      const U& high,
+      Range&& shape_,
+      std::optional< size_t > seed = std::nullopt
+   )
+       : base(FWD(shape_), seed),
+         m_low(xt::full(shape(), low)),
+         m_high(xt::full(shape(), high)),
+         m_bounded_below(xt::full(shape(), std::isinf(low))),
+         m_bounded_above(xt::full(shape(), std::isinf(high)))
    {
    }
    template < template < typename... > class Array, typename... Args >
@@ -51,12 +63,12 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
    {
    }
 
-   template < typename... Args >
+   template < typename Range = xt::svector< int > >
    TypedBox(
-      const xarray< T >& low,
-      const xarray< T >& high,
-      const xt::svector< int >& shape_ = {},
-      Args&&... args
+      xarray< T > low,
+      xarray< T > high,
+      const Range& shape_ = {},
+      std::optional< size_t > seed = std::nullopt
    );
 
    bool is_bounded(std::string_view manner = "");
@@ -148,49 +160,51 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
    }
 };
 
+/// Deduction guides
+
+template < typename U, typename Range >
+   requires std::is_integral_v< U > || std::is_floating_point_v< U >
+TypedBox(const U& low, const U& high, Range&& shape_, std::optional< size_t > seed = std::nullopt)
+   -> TypedBox< U >;
+
+/// Definitions
+
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-template < typename... Args >
+template < typename Range >
 TypedBox< T >::TypedBox(
-   const xarray< T >& low,
-   const xarray< T >& high,
-   const xt::svector< int >& shape_,
-   Args&&... args
+   xarray< T > low,
+   xarray< T > high,
+   const Range& shape_,
+   std::optional< size_t > seed
 )
     : base(
-       shape_.empty() ? xt::svector< int >(low.shape().begin(), low.shape().end()) : shape_,
-       std::forward< Args >(args)...
-    ),
-      m_low(low),
-      m_high(high),
-      m_bounded_below(not xt::isinf(low)),
-      m_bounded_above(not xt::isinf(high))
+         std::ranges::empty(shape_)
+            ? xt::svector< int >(std::ranges::begin(low.shape()), std::ranges::end(low.shape()))
+            : xt::svector< int >(std::ranges::begin(shape_), std::ranges::end(shape_)),
+         seed
+      ),
+      m_low(std::move(low)),
+      m_high(std::move(high)),
+      m_bounded_below(not xt::isinf(m_low)),
+      m_bounded_above(not xt::isinf(m_high))
 {
    using namespace fmt::literals;
 
-   auto low_shape = low.shape();
-   auto high_shape = high.shape();
+   auto low_shape = m_low.shape();
+   auto high_shape = m_high.shape();
 
    SPDLOG_DEBUG(fmt::format(
       "Low shape {}, high shape: {}, specified shape: {}", low_shape, high_shape, shape()
    ));
-   if(not ranges::equal(high_shape, low_shape)) {
+   if(not ranges::equal(high_shape, low_shape) or not ranges::equal(high_shape, shape())) {
       throw std::invalid_argument(fmt::format(
-         "'Low' and 'High' bound arrays need to have the same shape. Given:\n{}\nand\n{}",
+         "Shape of 'Low' and 'High' bound arrays, as well as the explicit shape need to match. "
+         "Given {}, {}, and {} respectively.",
          low_shape,
-         high_shape
+         high_shape,
+         shape()
       ));
-   }
-   if(shape().size() > 0) {
-      if(not ranges::equal(shape(), low_shape)) {
-         throw std::invalid_argument(fmt::format(
-            "Given shape and shape of 'Low' and 'High' bound arrays have to be the. "
-            "Given:\n{}\nand\n{}\nand\n{}",
-            shape(),
-            low_shape,
-            high_shape
-         ));
-      }
    }
    SPDLOG_DEBUG(fmt::format(
       "Bounds:\n{}", std::invoke([&] {

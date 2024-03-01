@@ -134,7 +134,7 @@ TEST(Spaces, Tuple_Discrete_Box_copy_construction)
    EXPECT_EQ(std::get< 0 >(space_copy.sample()), std::get< 0 >(space.sample()));
    EXPECT_EQ(std::get< 1 >(space_copy.sample()), std::get< 1 >(space.sample()));
    // now the copy has an advanced rng
-   space_copy.sample();
+   std::ignore = space_copy.sample();
    // the samples now should no longer be the same
    EXPECT_NE(std::get< 0 >(space_copy.sample(1000)), std::get< 0 >(space.sample(1000)));
    EXPECT_NE(std::get< 1 >(space_copy.sample(1000)), std::get< 1 >(space.sample(1000)));
