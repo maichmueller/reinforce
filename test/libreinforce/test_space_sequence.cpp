@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <reinforce/spaces/box.hpp>
 #include <reinforce/spaces/discrete.hpp>
 #include <reinforce/spaces/multi_discrete.hpp>
@@ -16,23 +17,23 @@ TEST(Spaces, Sequence_Discrete_construction)
 {
    constexpr auto start_discrete = 5;
    constexpr auto n_discrete = 5;
-   EXPECT_NO_THROW((TypedSequenceSpace{TypedDiscreteSpace{n_discrete, start_discrete}}));
-   EXPECT_NO_THROW((TypedSequenceSpace{TypedDiscreteSpace{n_discrete, start_discrete}, 42}));
+   EXPECT_NO_THROW((SequenceSpace{DiscreteSpace{n_discrete, start_discrete}}));
+   EXPECT_NO_THROW((SequenceSpace{DiscreteSpace{n_discrete, start_discrete}, 42}));
 }
 
 TEST(Spaces, Sequence_Box_construction)
 {
    const xarray< double > box_low{-infinity<>, 0, -10};
    const xarray< double > box_high{0, infinity<>, 10};
-   EXPECT_NO_THROW((TypedSequenceSpace{TypedBox{box_low, box_high}}));
-   EXPECT_NO_THROW((TypedSequenceSpace{TypedBox{box_low, box_high}, 42}));
+   EXPECT_NO_THROW((SequenceSpace{BoxSpace{box_low, box_high}}));
+   EXPECT_NO_THROW((SequenceSpace{BoxSpace{box_low, box_high}, 42}));
 }
 
 TEST(Spaces, Sequence_Discrete_sample)
 {
    constexpr auto start_discrete = 5;
    constexpr auto n_discrete = 5;
-   auto space = TypedSequenceSpace{TypedDiscreteSpace{n_discrete, start_discrete}, 0.5};
+   auto space = SequenceSpace{DiscreteSpace{n_discrete, start_discrete}, 0.5};
    constexpr auto n_samples = 100;
    auto samples = space.sample(n_samples);
    SPDLOG_DEBUG(fmt::format("Samples:\n[{}]", fmt::join(samples, "\n")));
@@ -52,7 +53,7 @@ TEST(Spaces, Sequence_Box_sample)
 {
    const xarray< double > box_low{-infinity<>, 0, -10};
    const xarray< double > box_high{0, infinity<>, 10};
-   auto space = TypedSequenceSpace{TypedBox{box_low, box_high}};
+   auto space = SequenceSpace{BoxSpace{box_low, box_high}};
    constexpr auto n_samples = 1000;
    auto samples = space.sample(n_samples);
    SPDLOG_DEBUG(fmt::format("Samples:\n[{}]", fmt::join(samples, "\n")));
@@ -77,61 +78,81 @@ TEST(Spaces, Sequence_Box_sample)
    }
 }
 
-// TEST(Spaces, Sequence_MultiDiscrete_sample_masked)
-// {
-//    auto start = xarray< int >({0, 0, -3});
-//    auto end = xarray< int >({10, 5, 3});
-//    auto space = TypedSequenceSpace{TypedMultiDiscreteSpace{start, end}, 56363};
-//    auto mask = std::tuple{
-//       xarray< bool >{false, false, true, true, false},
-//       std::vector< std::optional< xarray< bool > > >{
-//          xarray< bool >{false, false, false, false, false, true, true, true, true, true, true},
-//          std::nullopt,
-//          xarray< bool >{true, false, true, true, true, false}
-//       }
-//    };
-//    auto samples = space.sample(10000, mask);
-//    SPDLOG_DEBUG(fmt::format("Discrete Samples:\n{}", disc_samples));
-//    SPDLOG_DEBUG(fmt::format("Multi Discrete Samples:\n{}", multi_disc_samples));
-//
-//    auto md_view = std::array{
-//       xt::strided_view(samples, {0, xt::all()}),
-//       xt::strided_view(samples, {1, xt::all()}),
-//       xt::strided_view(samples, {2, xt::all()})
-//    };
-//    auto expected_ranges = std::array{
-//       xt::xarray< int >{5, 6, 7, 8, 9},
-//       xt::xarray< int >{0, 1, 2, 3, 4},
-//       xt::xarray< int >{-3, -1, 0, 1}
-//    };
-//    for(auto [samples_view, expected_range] : ranges::views::zip(md_view, expected_ranges)) {
-//       // assert that all samples lie in the masked range of possible values
-//       EXPECT_TRUE((xt::all(xt::isin(samples_view, expected_range))));
-//       // assert that not all samples values are the same (compare with settings above!)
-//       for(auto value : expected_range) {
-//          EXPECT_TRUE((xt::any(xt::not_equal(samples_view, value))));
-//       }
-//    }
-//
-//    for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
-//       auto samples = space.sample(mask);
-//
-//       SPDLOG_DEBUG(fmt::format("Discrete Samples:\n{}", new_disc_samples));
-//       SPDLOG_DEBUG(fmt::format("Multi-Discrete Samples:\n{}", new_multi_disc_samples));
-//
-//       EXPECT_TRUE(xt::all(samples >= start));
-//       EXPECT_TRUE(xt::all(samples < end));
-//
-//       EXPECT_GE(samples(0, 0), 5);
-//       EXPECT_LE(samples(0, 0), 9);
-//       EXPECT_GE(samples(1, 0), 0);
-//       EXPECT_LE(samples(1, 0), 4);
-//       EXPECT_GE(samples(2, 0), -3);
-//       EXPECT_NE(samples(2, 0), -2);
-//       EXPECT_LE(samples(2, 0), 1);
-//    }
-// }
-//
+TEST(Spaces, Sequence_Discrete_sample_masked)
+{
+   size_t n = 100;
+   auto space = SequenceSpace{DiscreteSpace{6, 0}, 56363};
+   auto mask = std::tuple{10, xarray< bool >{true, false, true, false, true, false}};
+   auto samples = space.sample(n, mask);
+   SPDLOG_DEBUG(fmt::format("Samples:\n[{}]", fmt::join(samples, "\n")));
+
+   auto expected = xt::xarray< int >{0, 2, 4};
+   for(const auto& sample : samples) {
+      // assert that all samples lie in the masked range of possible values
+      EXPECT_TRUE((xt::all(xt::isin(sample, expected))));
+      // assert that not all samples values are the same (compare with settings above!)
+      for(auto value : expected) {
+         EXPECT_TRUE((xt::any(xt::not_equal(sample, value))));
+      }
+   }
+}
+
+TEST(Spaces, Sequence_MultiDiscrete_sample_masked)
+{
+   size_t n = 100;
+   auto start = xarray< int >({0, 0, -3});
+   auto end = xarray< int >({10, 5, 3});
+   auto space = SequenceSpace{MultiDiscreteSpace{start, end}, 56363};
+   auto mask = std::tuple{
+      10,
+      std::vector< std::optional< xarray< bool > > >{
+         xarray< bool >{false, false, false, false, false, true, true, true, true, true, true},
+         std::nullopt,
+         xarray< bool >{true, false, true, true, true, false}
+      }
+   };
+   auto samples = space.sample(n, mask);
+   SPDLOG_DEBUG(fmt::format("Samples:\n[{}]", fmt::join(samples, "\n")));
+
+   auto expected_ranges = std::array{
+      xt::xarray< int >{5, 6, 7, 8, 9},
+      xt::xarray< int >{0, 1, 2, 3, 4},
+      xt::xarray< int >{-3, -1, 0, 1}
+   };
+   for(const auto& sample : samples) {
+      auto md_view = std::array{
+         xt::strided_view(sample, {0, xt::all()}),
+         xt::strided_view(sample, {1, xt::all()}),
+         xt::strided_view(sample, {2, xt::all()})
+      };
+      for(auto [view, expected] : ranges::views::zip(md_view, expected_ranges)) {
+         // assert that all samples lie in the masked range of possible values
+         EXPECT_TRUE((xt::all(xt::isin(view, expected))));
+         // assert that not all samples values are the same (compare with settings above!)
+         for(auto value : expected) {
+            EXPECT_TRUE((xt::any(xt::not_equal(view, value))));
+         }
+      }
+   }
+
+   for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
+      auto sample = space.sample(mask);
+
+      SPDLOG_DEBUG(fmt::format("Sample:\n{}", sample));
+
+      EXPECT_TRUE(xt::all(sample >= start.reshape({3, 1})));
+      EXPECT_TRUE(xt::all(sample < end.reshape({3, 1})));
+
+      EXPECT_GE(sample(0, 0), 5);
+      EXPECT_LE(sample(0, 0), 9);
+      EXPECT_GE(sample(1, 0), 0);
+      EXPECT_LE(sample(1, 0), 4);
+      EXPECT_GE(sample(2, 0), -3);
+      EXPECT_NE(sample(2, 0), -2);
+      EXPECT_LE(sample(2, 0), 1);
+   }
+}
+
 // TEST(Spaces, Sequence_Box_copy_construction)
 // {
 //    auto start = xarray< int >({0, 0, -3});

@@ -21,11 +21,11 @@ TEST(Spaces, Tuple_Discrete_Box)
    constexpr auto start_discrete = 5;
    constexpr auto n_discrete = 5;
    EXPECT_NO_THROW(
-      (TypedTupleSpace{TypedDiscreteSpace{n_discrete, start_discrete}, TypedBox{box_low, box_high}})
+      (TupleSpace{DiscreteSpace{n_discrete, start_discrete}, BoxSpace{box_low, box_high}})
    );
-   EXPECT_NO_THROW((TypedTupleSpace{
-      42u, TypedDiscreteSpace{n_discrete, start_discrete}, TypedBox{box_low, box_high}
-   }));
+   EXPECT_NO_THROW(
+      (TupleSpace{42u, DiscreteSpace{n_discrete, start_discrete}, BoxSpace{box_low, box_high}})
+   );
 }
 
 TEST(Spaces, Tuple_Discrete_Box_sample)
@@ -34,9 +34,7 @@ TEST(Spaces, Tuple_Discrete_Box_sample)
    const xarray< double > box_high{0, infinity<>, 10};
    constexpr auto start_discrete = 5;
    constexpr auto n_discrete = 5;
-   auto space = TypedTupleSpace{
-      TypedDiscreteSpace{n_discrete, start_discrete}, TypedBox{box_low, box_high}
-   };
+   auto space = TupleSpace{DiscreteSpace{n_discrete, start_discrete}, BoxSpace{box_low, box_high}};
 
    auto [disc_samples, box_samples] = space.sample(10000);
    SPDLOG_DEBUG(fmt::format("Discrete Samples:\n{}", disc_samples));
@@ -68,8 +66,8 @@ TEST(Spaces, Tuple_Discrete_MultiDiscrete_sample_masked)
    auto end = xarray< int >({10, 5, 3});
    constexpr auto start_discrete = 5;
    constexpr auto n_discrete = 5;
-   auto space = TypedTupleSpace{
-      TypedDiscreteSpace{n_discrete, start_discrete}, TypedMultiDiscreteSpace{start, end}
+   auto space = TupleSpace{
+      DiscreteSpace{n_discrete, start_discrete}, MultiDiscreteSpace{start, end}
    };
    auto mask = std::tuple{
       xarray< bool >{false, false, true, true, false},
@@ -127,8 +125,8 @@ TEST(Spaces, Tuple_Discrete_Box_copy_construction)
    auto end = xarray< int >({10, 5, 3});
    constexpr auto start_discrete = 5;
    constexpr auto n_discrete = 5;
-   auto space = TypedTupleSpace{
-      TypedDiscreteSpace{n_discrete, start_discrete}, TypedMultiDiscreteSpace{start, end}
+   auto space = TupleSpace{
+      DiscreteSpace{n_discrete, start_discrete}, MultiDiscreteSpace{start, end}
    };
    auto space_copy = space;
    EXPECT_EQ(space_copy, space);

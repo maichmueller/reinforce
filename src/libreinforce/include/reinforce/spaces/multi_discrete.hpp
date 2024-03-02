@@ -19,12 +19,12 @@
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xstorage.hpp>
 
+#include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
-#include "space.hpp"
 
 namespace force {
 
@@ -63,10 +63,10 @@ auto build_xarray(Array&& arr)
 }  // namespace detail
 
 template < std::integral T >
-class TypedMultiDiscreteSpace: public TypedSpace< xarray< T >, TypedMultiDiscreteSpace< T > > {
+class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
   public:
-   friend class TypedSpace< xarray< T >, TypedMultiDiscreteSpace >;
-   using base = TypedSpace< xarray< T >, TypedMultiDiscreteSpace >;
+   friend class Space< xarray< T >, MultiDiscreteSpace >;
+   using base = Space< xarray< T >, MultiDiscreteSpace >;
    using typename base::value_type;
    using base::shape;
    using base::rng;
@@ -74,54 +74,54 @@ class TypedMultiDiscreteSpace: public TypedSpace< xarray< T >, TypedMultiDiscret
    template < class Array1, class Array2, typename... Args >
       requires(
          std::ranges::range< Array1 > and std::ranges::range< Array2 >
-         and (not detail::is_xarray_of< detail::raw_t< Array1 >, value_type > or not detail::is_xarray_of< detail::raw_t< Array2 >, value_type >)
+         and (not detail::is_xarray< detail::raw_t< Array1 > > or not detail::is_xarray< detail::raw_t< Array2 > >)
       )
-   TypedMultiDiscreteSpace(Array1&& start, Array2&& end, Args&&... args)
-       : TypedMultiDiscreteSpace(
-          detail::build_xarray< T >(FWD(start)),
-          detail::build_xarray< T >(FWD(end)),
-          FWD(args)...
-       )
+   MultiDiscreteSpace(Array1&& start, Array2&& end, Args&&... args)
+       : MultiDiscreteSpace(
+            detail::build_xarray< T >(FWD(start)),
+            detail::build_xarray< T >(FWD(end)),
+            FWD(args)...
+         )
    {
    }
 
    template < class Array, typename FirstArg, typename... TailArgs >
-   TypedMultiDiscreteSpace(const Array& end, FirstArg&& any, TailArgs&&... args)
-       : TypedMultiDiscreteSpace(
-          xt::zeros_like(detail::build_xarray< T >(end)),
-          detail::build_xarray< T >(end),
-          FWD(any),
-          FWD(args)...
-       )
+   MultiDiscreteSpace(const Array& end, FirstArg&& any, TailArgs&&... args)
+       : MultiDiscreteSpace(
+            xt::zeros_like(detail::build_xarray< T >(end)),
+            detail::build_xarray< T >(end),
+            FWD(any),
+            FWD(args)...
+         )
    {
    }
 
    template < class Array >
-   TypedMultiDiscreteSpace(const Array& end)
-       : TypedMultiDiscreteSpace(
-          xt::zeros_like(detail::build_xarray< T >(end)),
-          detail::build_xarray< T >(end)
-       )
+   MultiDiscreteSpace(const Array& end)
+       : MultiDiscreteSpace(
+            xt::zeros_like(detail::build_xarray< T >(end)),
+            detail::build_xarray< T >(end)
+         )
    {
    }
 
    template < std::integral Int >
-   TypedMultiDiscreteSpace(value_type start, value_type end, Int seed)
-       : TypedMultiDiscreteSpace(
-          std::move(start),
-          std::move(end),
-          std::optional{static_cast< size_t >(seed)}
-       )
+   MultiDiscreteSpace(value_type start, value_type end, Int seed)
+       : MultiDiscreteSpace(
+            std::move(start),
+            std::move(end),
+            std::optional{static_cast< size_t >(seed)}
+         )
    {
    }
 
-   TypedMultiDiscreteSpace(
+   MultiDiscreteSpace(
       value_type start,
       value_type end,
       std::optional< size_t > seed = std::nullopt
    );
 
-   bool operator==(const TypedMultiDiscreteSpace& rhs) const
+   bool operator==(const MultiDiscreteSpace& rhs) const
    {
       return xt::all(xt::equal(m_start, rhs.m_start)) and xt::all(xt::equal(m_end, rhs.m_end));
    }
@@ -160,26 +160,28 @@ class TypedMultiDiscreteSpace: public TypedSpace< xarray< T >, TypedMultiDiscret
 /// Deduction guides
 
 template < class Array1, class Array2, typename... Args >
-TypedMultiDiscreteSpace(Array1&& start, Array2&& end, Args&&... args)
-   -> TypedMultiDiscreteSpace< std::ranges::range_value_t< Array1 > >;
+MultiDiscreteSpace(Array1&& start, Array2&& end, Args&&... args)
+   -> MultiDiscreteSpace< std::ranges::range_value_t< Array1 > >;
 
 template < class Array, typename FirstArg, typename... TailArgs >
-TypedMultiDiscreteSpace(const Array& end, FirstArg&& any, TailArgs&&... args)
-   -> TypedMultiDiscreteSpace< std::ranges::range_value_t< Array > >;
+MultiDiscreteSpace(const Array& end, FirstArg&& any, TailArgs&&... args)
+   -> MultiDiscreteSpace< std::ranges::range_value_t< Array > >;
 
 template < class Array >
-TypedMultiDiscreteSpace(const Array& end)
-   -> TypedMultiDiscreteSpace< std::ranges::range_value_t< Array > >;
+MultiDiscreteSpace(const Array& end) -> MultiDiscreteSpace< std::ranges::range_value_t< Array > >;
 
 /// Implementations
 
 template < std::integral T >
-TypedMultiDiscreteSpace< T >::TypedMultiDiscreteSpace(
+MultiDiscreteSpace< T >::MultiDiscreteSpace(
    value_type start,
    value_type end,
    std::optional< size_t > seed
 )
-    : base(xt::svector< int >(start.shape().begin(), start.shape().end()), std::move(seed)),
+    : base(
+         xt::svector< int >(std::ranges::begin(start.shape()), std::ranges::end(start.shape())),
+         seed
+      ),
       m_start(std::move(start)),
       m_end(std::move(end))
 {
@@ -219,7 +221,7 @@ TypedMultiDiscreteSpace< T >::TypedMultiDiscreteSpace(
 }
 
 template < std::integral T >
-auto TypedMultiDiscreteSpace< T >::_sample(
+auto MultiDiscreteSpace< T >::_sample(
    size_t nr_samples,
    const std::vector< std::optional< xarray< bool > > >& mask_vec
 ) const -> value_type

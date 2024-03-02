@@ -1,8 +1,11 @@
+#include <gtest/gtest.h>
+#include <pybind11/embed.h>
+#include <spdlog/spdlog.h>
+
 #include <array>
 #include <cstddef>
 
-#include "gtest/gtest.h"
-#include "pybind11/embed.h"
+#include "reinforce/env/gridworld.hpp"
 #include "reinforce/reinforce.hpp"
 
 using namespace force;
@@ -32,7 +35,7 @@ TEST(Gridworld, construction)
    auto grid_env = Gridworld< 3 >(std::vector{1, 2, 3}, starts, goals, 1.);
 }
 
-class Gridworld3DimF {
+class Gridworld3D {
   public:
    constexpr static std::array< size_t, 3 > shape = {3, 4, 5};
 
@@ -40,23 +43,23 @@ class Gridworld3DimF {
    Gridworld< 3 > gridworld{shape, idx_pyarray{{0, 0, 2}}, idx_pyarray{{0, 1, 0}}, 1.};
 };
 
-class IndexCoordinatesMappingParamsF: public Gridworld3DimF, public ::testing::Test {};
+class Gridworld3D_F: public Gridworld3D, public ::testing::Test {};
 
-class ParameterizedIndexCoordinatesMappingParamsF:
-    public Gridworld3DimF,
+class Gridworld3D_idx_to_coords_params_F:
+    public Gridworld3D,
     public ::testing::TestWithParam< std::tuple<
        size_t,  // index
        std::array< size_t, 3 >  // the associated coordinates
        > > {};
 
-TEST_P(ParameterizedIndexCoordinatesMappingParamsF, index_to_coordinates)
+TEST_P(Gridworld3D_idx_to_coords_params_F, index_to_coordinates)
 {
    auto [index, expected_coordinates] = GetParam();
    auto computed_coordinates = gridworld.coord_state(index);
    EXPECT_TRUE(ranges::equal(computed_coordinates, expected_coordinates));
 }
 
-TEST_P(ParameterizedIndexCoordinatesMappingParamsF, coordinates_to_index)
+TEST_P(Gridworld3D_idx_to_coords_params_F, coordinates_to_index)
 {
    auto [expected_index, coordinates] = GetParam();
    auto computed_index = gridworld.index_state(coordinates);
@@ -65,8 +68,8 @@ TEST_P(ParameterizedIndexCoordinatesMappingParamsF, coordinates_to_index)
 
 auto idx_to_coords_parameters()
 {
-   std::vector< typename ParameterizedIndexCoordinatesMappingParamsF::ParamType > values;
-   constexpr auto shape = IndexCoordinatesMappingParamsF::shape;
+   std::vector< typename Gridworld3D_idx_to_coords_params_F::ParamType > values;
+   constexpr auto shape = Gridworld3D_F::shape;
    values.reserve(ranges::accumulate(shape, size_t(0), std::plus{}));
    for(size_t i = 0; i < shape[0]; i++) {
       for(size_t j = 0; j < shape[1]; j++) {
@@ -81,12 +84,12 @@ auto idx_to_coords_parameters()
 }
 
 INSTANTIATE_TEST_SUITE_P(
-   index_to_coordinates_serial,
-   ParameterizedIndexCoordinatesMappingParamsF,
+   serial,
+   Gridworld3D_idx_to_coords_params_F,
    ::testing::ValuesIn(idx_to_coords_parameters())
 );
 
-TEST_F(IndexCoordinatesMappingParamsF, index_to_coordinates_batch)
+TEST_F(Gridworld3D_F, index_to_coordinates_batch)
 {
    auto values = idx_to_coords_parameters();
    auto indices = ranges::to_vector(values | ranges::views::transform([](auto&& tuple) {
@@ -100,7 +103,7 @@ TEST_F(IndexCoordinatesMappingParamsF, index_to_coordinates_batch)
    }
 }
 
-class ParamterizedTerminalParamsF:
+class Gridworld_terminal_params_F:
     public ::testing::TestWithParam< std::tuple<
        size_t,  // state index
        bool  // whether the state is terminal
@@ -117,7 +120,7 @@ class ParamterizedTerminalParamsF:
    };
 };
 
-TEST_P(ParamterizedTerminalParamsF, is_terminal)
+TEST_P(Gridworld_terminal_params_F, is_terminal)
 {
    auto [index, expected_terminal] = GetParam();
    auto answer_for_index = gridworld.is_terminal(index);
@@ -127,12 +130,12 @@ TEST_P(ParamterizedTerminalParamsF, is_terminal)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-   is_terminal_,
-   ParamterizedTerminalParamsF,
+   is_terminal,
+   Gridworld_terminal_params_F,
    ::testing::ValuesIn(std::invoke([] {
-      std::vector< typename ParamterizedTerminalParamsF::ParamType > values;
+      std::vector< typename Gridworld_terminal_params_F::ParamType > values;
       const std::vector< std::array< size_t, 3 > > chosen_goals{{1, 2, 3}, {2, 2, 2}};
-      constexpr auto shape = ParamterizedTerminalParamsF::shape;
+      constexpr auto shape = Gridworld_terminal_params_F::shape;
       values.reserve(ranges::accumulate(shape, size_t(0), std::plus{}));
       for(size_t i = 0; i < shape[0]; i++) {
          for(size_t j = 0; j < shape[1]; j++) {
@@ -148,7 +151,7 @@ INSTANTIATE_TEST_SUITE_P(
    }))
 );
 
-class Gridworld2DimF {
+class Gridworld2D {
   public:
    constexpr static std::array< size_t, 2 > shape = {4, 5};
 
@@ -156,9 +159,9 @@ class Gridworld2DimF {
    Gridworld< 2 > gridworld{shape, idx_pyarray{{0, 2}}, idx_pyarray{{3, 0}}, 1.};
 };
 
-class Gridworld2DimStepF: public Gridworld2DimF, public ::testing::Test {};
+class Gridworld2D_step_F: public Gridworld2D, public ::testing::Test {};
 
-TEST_F(Gridworld2DimStepF, step)
+TEST_F(Gridworld2D_step_F, step)
 {
    SPDLOG_DEBUG(fmt::format(
       "Gridworld for `step` function test:\n"

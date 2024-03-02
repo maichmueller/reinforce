@@ -13,6 +13,7 @@
 #include <optional>
 #include <range/v3/all.hpp>
 #include <range/v3/iterator/traits.hpp>
+#include <reinforce/utils/xtensor_extension.hpp>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -36,7 +37,7 @@
 
 namespace force {
 
-class TextSpace: public TypedSpace< std::string, TextSpace, std::vector< std::string > > {
+class TextSpace: public Space< std::string, TextSpace, std::vector< std::string > > {
    /// Hidden Options class to allow for designated initializers simplifying the init of TextSpace.
    /// Without options there would be overlaps e.g. between seed and max/min-length parameters.
    /// With this struct the usage should be as easy as:
@@ -51,8 +52,8 @@ class TextSpace: public TypedSpace< std::string, TextSpace, std::vector< std::st
    };
 
   public:
-   friend class TypedSpace;
-   using base = TypedSpace;
+   friend class Space;
+   using base = Space;
    using typename base::value_type;
    using typename base::multi_value_type;
    using base::shape;
@@ -249,12 +250,7 @@ xarray< size_t > TextSpace::_compute_lengths(size_t nr_samples, const SizeOrVect
       const SizeOrVectorT& lengths = *lengths_ptr;
       return std::invoke([&] {
          if constexpr(std::convertible_to< SizeOrVectorT, size_t >) {
-            return xarray< size_t >{xt::adapt(
-               detail::make_carray< size_t >(nr_samples, static_cast< size_t >(lengths))
-                  .first.release(),
-               nr_samples,
-               xt::acquire_ownership()
-            )};
+            return xt::full(xt::svector{nr_samples}, static_cast< size_t >(lengths));
          } else {
             // lengths is now confirmed to be a std::vector type
             if(lengths.size() != nr_samples) {

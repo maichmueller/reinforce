@@ -73,10 +73,7 @@ Gridworld< dim >::Gridworld(
       m_reward_map(_init_reward_map(goal_reward, subgoal_states_reward, restart_states_reward)),
       m_step_reward(step_reward),
       m_action_space{0, m_num_actions - 1},
-      m_obs_space{
-         TypedDiscreteSpace< size_t >{m_size},
-         TypedMultiDiscreteSpace< size_t >{m_grid_shape}
-      },
+      m_obs_space{DiscreteSpace{m_size}, MultiDiscreteSpace< size_t >{m_grid_shape}},
       m_reward_range{std::invoke([&] {
          auto [min, max] = std::ranges::minmax(
             m_reward_map | std::views::values | std::views::values

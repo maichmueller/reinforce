@@ -19,14 +19,14 @@
 namespace force {
 
 template < std::integral T >
-class TypedDiscreteSpace: public TypedSpace< xarray< T >, TypedDiscreteSpace< T > > {
+class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
   public:
-   friend class TypedSpace< xarray< T >, TypedDiscreteSpace >;
-   using base = TypedSpace< xarray< T >, TypedDiscreteSpace >;
+   friend class Space< xarray< T >, DiscreteSpace >;
+   using base = Space< xarray< T >, DiscreteSpace >;
    using typename base::value_type;
    using base::rng;
 
-   explicit TypedDiscreteSpace(T n, T start = 0, std::optional< size_t > seed = std::nullopt)
+   explicit DiscreteSpace(T n, T start = 0, std::optional< size_t > seed = std::nullopt)
        : base({}, seed), m_nr_values(n), m_start(start)
    {
       if constexpr(std::is_signed_v< T >) {
@@ -36,7 +36,7 @@ class TypedDiscreteSpace: public TypedSpace< xarray< T >, TypedDiscreteSpace< T 
       }
    }
 
-   bool operator==(const TypedDiscreteSpace< T >& rhs) const
+   bool operator==(const DiscreteSpace< T >& rhs) const
    {
       return m_nr_values == rhs.m_nr_values && m_start == rhs.m_start;
    }
@@ -68,14 +68,13 @@ class TypedDiscreteSpace: public TypedSpace< xarray< T >, TypedDiscreteSpace< T 
 };
 
 template < std::integral T >
-auto TypedDiscreteSpace< T >::_sample(size_t nr_samples) const -> value_type
+auto DiscreteSpace< T >::_sample(size_t nr_samples) const -> value_type
 {
    return xt::random::randint({nr_samples}, m_start, m_start + m_nr_values, rng());
 }
 
 template < std::integral T >
-auto TypedDiscreteSpace< T >::_sample(size_t nr_samples, const xarray< bool >& mask) const
-   -> value_type
+auto DiscreteSpace< T >::_sample(size_t nr_samples, const xarray< bool >& mask) const -> value_type
 {
    auto samples = xt::empty< T >(xt::svector{nr_samples});
 

@@ -14,18 +14,18 @@ TEST(Spaces, MultiDiscrete_constructor)
 {
    auto start = xarray< int >{0, 0, -2};
    auto end = xarray< int >{10, 5, 3};
-   EXPECT_NO_THROW((TypedMultiDiscreteSpace{start, end}));
-   EXPECT_NO_THROW((TypedMultiDiscreteSpace{end}));
+   EXPECT_NO_THROW((MultiDiscreteSpace{start, end}));
+   EXPECT_NO_THROW((MultiDiscreteSpace{end}));
    // construct with seed
-   EXPECT_NO_THROW((TypedMultiDiscreteSpace{start, end, 42}));
-   EXPECT_NO_THROW((TypedMultiDiscreteSpace{end, 42}));
+   EXPECT_NO_THROW((MultiDiscreteSpace{start, end, 42}));
+   EXPECT_NO_THROW((MultiDiscreteSpace{end, 42}));
 }
 
 TEST(Spaces, MultiDiscrete_sample)
 {
    auto start = xarray< int >{{-5, -4, -1}, {0, 0, 2}};
    auto end = xarray< int >{{-2, 4, 1}, {10, 5, 3}};
-   auto space = TypedMultiDiscreteSpace{start, end};
+   auto space = MultiDiscreteSpace{start, end};
    constexpr auto n_samples = 1000;
    auto samples = space.sample(n_samples);
    SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
@@ -46,7 +46,7 @@ TEST(Spaces, MultiDiscrete_sample_masked)
    constexpr auto n_samples = 10000;
    auto start = xarray< int >{0, 0, -2};
    auto end = xarray< int >{10, 5, 3};
-   auto space = TypedMultiDiscreteSpace{start, end};
+   auto space = MultiDiscreteSpace{start, end};
    auto mask = std::vector< std::optional< xarray< bool > > >{
       xarray< bool >{false, false, false, false, false, true, true, true, true, true, true},
       std::nullopt,
@@ -80,7 +80,7 @@ TEST(Spaces, MultiDiscrete_copy_construction)
 {
    auto start = xarray< int >{0, 0, -2};
    auto end = xarray< int >{10, 5, 3};
-   TypedMultiDiscreteSpace space{start, end};
+   MultiDiscreteSpace space{start, end};
    auto space_copy = space;
    EXPECT_EQ(space_copy, space);
    // RNG state should still be aligned

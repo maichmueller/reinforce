@@ -247,9 +247,9 @@ class Gridworld {
    /// the current position of the agent as index array and associated coordinates
    obs_type m_location{};
    /// the action space underlying this environment
-   TypedDiscreteSpace< size_t > m_action_space;
+   DiscreteSpace< size_t > m_action_space;
    /// the observation space underlying this environment
-   TypedTupleSpace< TypedDiscreteSpace< size_t >, TypedMultiDiscreteSpace< size_t > > m_obs_space;
+   TupleSpace< DiscreteSpace< size_t >, MultiDiscreteSpace< size_t > > m_obs_space;
    /// the minimum and maximum reward that can be expected from the environment
    std::pair< double, double > m_reward_range;
 

@@ -33,10 +33,10 @@
 
 namespace force {
 
-class MultiBinarySpace: public TypedSpace< xarray< int8_t >, MultiBinarySpace > {
+class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
   public:
-   friend class TypedSpace;
-   using base = TypedSpace;
+   friend class Space;
+   using base = Space;
    using typename base::value_type;
    using typename base::multi_value_type;
    using base::shape;

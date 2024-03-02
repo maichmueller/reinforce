@@ -33,6 +33,7 @@
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
+#include "reinforce/utils/xtensor_extension.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
 namespace force {
@@ -49,55 +50,67 @@ using vector_if_not_xarray_t = typename vector_if_not_xarray< T >::type;
 }  // namespace detail
 
 template < typename FeatureSpace >
-class TypedSequenceSpace:
-    public TypedSpace<
+class SequenceSpace:
+    public Space<
        detail::vector_if_not_xarray_t< typename FeatureSpace::value_type >,
-       TypedSequenceSpace< FeatureSpace >,
+       SequenceSpace< FeatureSpace >,
        std::vector< typename FeatureSpace::multi_value_type > > {
    struct internal_tag {};
 
   public:
-   friend class TypedSpace<
+   friend class Space<
       detail::vector_if_not_xarray_t< typename FeatureSpace::value_type >,
-      TypedSequenceSpace,
+      SequenceSpace,
       std::vector< typename FeatureSpace::multi_value_type > >;
-   using base = TypedSpace<
+   using base = Space<
       detail::vector_if_not_xarray_t< typename FeatureSpace::value_type >,
-      TypedSequenceSpace,
+      SequenceSpace,
       std::vector< typename FeatureSpace::multi_value_type > >;
+   using feature_space_type = FeatureSpace;
    using typename base::value_type;
    using typename base::multi_value_type;
+   using base::seed;
    using base::shape;
    using base::rng;
 
    template < std::convertible_to< std::optional< size_t > > Int = std::nullopt_t >
       requires(not std::floating_point< Int >)
-   TypedSequenceSpace(FeatureSpace space, Int seed = std::nullopt)
-       : base(xt::svector< int >(), seed), m_feature_space(std::move(space))
+   SequenceSpace(FeatureSpace space, Int seed_ = std::nullopt)
+       : base(xt::svector< int >(), seed_), m_feature_space(std::move(space))
    {
+      m_feature_space.seed(seed());
    }
 
    template < std::convertible_to< double > Float >
       requires(not std::integral< Float >)
-   explicit TypedSequenceSpace(FeatureSpace space, Float geometric_probability)
+   explicit SequenceSpace(FeatureSpace space, Float geometric_probability)
        : base(xt::svector< int >()),
          m_feature_space(std::move(space)),
          m_geometric_prob(geometric_probability)
    {
+      m_feature_space.seed(seed());
    }
 
-   explicit TypedSequenceSpace(
+   explicit SequenceSpace(
       FeatureSpace space,
       double geometric_probability,
-      std::optional< size_t > seed
+      std::optional< size_t > seed_
    )
-       : base(xt::svector< int >(), seed),
+       : base(xt::svector< int >(), seed_),
          m_feature_space(std::move(space)),
          m_geometric_prob(geometric_probability)
    {
+      m_feature_space.seed(seed());
    }
 
-   bool operator==(const TypedSequenceSpace& rhs) const = default;
+   template < typename T >
+   void seed(T value)
+   {
+      base::seed(value);
+      m_feature_space(value);
+   }
+
+   bool operator==(const SequenceSpace& rhs) const = default;
 
    std::string repr() { return fmt::format("Sequence({}, stack=true)", m_feature_space); }
 
@@ -108,19 +121,16 @@ class TypedSequenceSpace:
    FeatureSpace m_feature_space;
    double m_geometric_prob = 0.25;
 
-   template <
-      template < typename... > class MaskTupleT = std::tuple,
-      typename MaskT1 = std::nullopt_t,
-      typename MaskT2 = std::nullopt_t >
-      requires(
-         (detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::tuple >
-          or detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::pair >)
-         or std::same_as< MaskT1, std::nullopt_t >
-         or std::convertible_to< detail::raw_t< MaskT1 >, size_t >
-         or (std::ranges::range< detail::raw_t< MaskT1 > > and std::convertible_to< ranges::value_type_t< detail::raw_t< MaskT1 > >, size_t >)
-      )
+   template < typename MaskT1 = std::nullopt_t, typename MaskT2 = std::nullopt_t >
+   // requires(
+   //    (detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::tuple >
+   //     or detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::pair >)
+   //    and (std::same_as< MaskT1, std::nullopt_t > or std::convertible_to< detail::raw_t< MaskT1
+   //    >, size_t > or (std::ranges::range< detail::raw_t< MaskT1 > > and std::convertible_to<
+   //    ranges::value_type_t< detail::raw_t< MaskT1 > >, size_t >))
+   // )
    [[nodiscard]] multi_value_type
-   _sample(size_t nr_samples, MaskTupleT< MaskT1, MaskT2 >&& mask_tuple = {}) const;
+   _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple = {}) const;
 
    [[nodiscard]] multi_value_type _sample(size_t nr_samples) const
    {
@@ -139,17 +149,17 @@ class TypedSequenceSpace:
 // template implementations
 
 template < typename FeatureSpace >
-template < template < typename... > class MaskTupleT, typename MaskT1, typename MaskT2 >
-   requires(
-      (detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::tuple >
-       or detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::pair >)
-      or std::same_as< MaskT1, std::nullopt_t >
-      or std::convertible_to< detail::raw_t< MaskT1 >, size_t >
-      or (std::ranges::range< detail::raw_t< MaskT1 > > and std::convertible_to< ranges::value_type_t< detail::raw_t< MaskT1 > >, size_t >)
-   )
-auto TypedSequenceSpace< FeatureSpace >::_sample(
+template < typename MaskT1, typename MaskT2 >
+// requires(
+//    (detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::tuple >
+//     or detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::pair >)
+//    and (std::same_as< MaskT1, std::nullopt_t > or std::convertible_to< detail::raw_t< MaskT1 >,
+//    size_t > or (std::ranges::range< detail::raw_t< MaskT1 > > and std::convertible_to<
+//    ranges::value_type_t< detail::raw_t< MaskT1 > >, size_t >))
+// )
+auto SequenceSpace< FeatureSpace >::_sample(
    size_t nr_samples,
-   MaskTupleT< MaskT1, MaskT2 >&& mask_tuple
+   const std::tuple< MaskT1, MaskT2 >& mask_tuple
 ) const -> multi_value_type
 {
    if(nr_samples == 0) {
@@ -162,13 +172,18 @@ auto TypedSequenceSpace< FeatureSpace >::_sample(
    SPDLOG_DEBUG(fmt::format("Lengths of each sample:\n{}", lengths_per_sample));
    return std::invoke([&] {
       return std::views::all(lengths_per_sample)  //
-             | std::views::transform([&](auto nr_samples_concrete) {
-                  if constexpr(std::same_as< MaskT2, std::nullopt_t >) {
-                     return m_feature_space.sample(nr_samples_concrete);
-                  } else {
-                     return m_feature_space.sample(nr_samples_concrete, feature_mask);
-                  }
-               })  //
+             | std::views::transform(
+                [&](auto nr_samples_concrete) -> feature_space_type::multi_value_type {
+                   if(nr_samples > 0) {
+                      if constexpr(std::same_as< MaskT2, std::nullopt_t >) {
+                         return m_feature_space.sample(nr_samples_concrete);
+                      } else {
+                         return m_feature_space.sample(nr_samples_concrete, feature_mask);
+                      }
+                   }
+                   return {};
+                }
+             )  //
              | ranges::to_vector;
    });
 }
@@ -176,7 +191,7 @@ auto TypedSequenceSpace< FeatureSpace >::_sample(
 template < typename FeatureSpace >
 template < typename Range >
 xarray< size_t >
-TypedSequenceSpace< FeatureSpace >::_compute_lengths(size_t nr_samples, Range&& lengths_rng) const
+SequenceSpace< FeatureSpace >::_compute_lengths(size_t nr_samples, Range&& lengths_rng) const
 {
    using namespace detail;
    if constexpr(std::same_as< raw_t< Range >, std::nullopt_t >) {
@@ -189,11 +204,7 @@ TypedSequenceSpace< FeatureSpace >::_compute_lengths(size_t nr_samples, Range&& 
             fmt::format("Expecting a fixed length mask greater than 0. Given: {}", length)
          );
       }
-      return xarray< size_t >{xt::adapt(
-         make_carray< size_t >(nr_samples, length).first.release(),
-         nr_samples,
-         xt::acquire_ownership()
-      )};
+      return xt::full(xt::svector{nr_samples}, length);
    } else {
       auto&& length_options = xt::cast< size_t >(std::invoke([&]() -> decltype(auto) {
          static constexpr bool is_already_xarray = is_xarray< raw_t< Range > >

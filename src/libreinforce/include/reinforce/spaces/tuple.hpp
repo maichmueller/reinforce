@@ -16,22 +16,23 @@
 namespace force {
 
 template < typename... Spaces >
-class TypedTupleSpace:
-    public TypedSpace<
+class TupleSpace:
+    public Space<
        std::tuple< typename Spaces::value_type... >,
-       TypedTupleSpace< Spaces... >,
+       TupleSpace< Spaces... >,
        std::tuple< typename Spaces::multi_value_type... > > {
   public:
-   friend class TypedSpace<
+   friend class Space<
       std::tuple< typename Spaces::value_type... >,
-      TypedTupleSpace,
+      TupleSpace,
       std::tuple< typename Spaces::multi_value_type... > >;
-   using base = TypedSpace<
+   using base = Space<
       std::tuple< typename Spaces::value_type... >,
-      TypedTupleSpace,
+      TupleSpace,
       std::tuple< typename Spaces::multi_value_type... > >;
    using typename base::value_type;
    using typename base::multi_value_type;
+   using base::seed;
    using base::shape;
    using base::rng;
 
@@ -42,12 +43,12 @@ class TypedTupleSpace:
 
   public:
    template < std::integral T >
-   explicit TypedTupleSpace(T seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
+   explicit TupleSpace(T seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
       SPDLOG_DEBUG("Called tuple space constructor with seed");
       seed(seed_);
    }
-   explicit TypedTupleSpace(Spaces... spaces) : m_spaces{std::move(spaces)...} {}
+   explicit TupleSpace(Spaces... spaces) : m_spaces{std::move(spaces)...} {}
 
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
@@ -127,17 +128,19 @@ class TypedTupleSpace:
       );
    }
 
-   void seed(size_t value)
+   template < typename T >
+   void seed(T value)
    {
+      base::seed(value);
       std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
-            (std::get< Is >(m_spaces).seed(value), ...);
+            (std::get< Is >(m_spaces).seed(rng()), ...);
          },
          spaces_idx_seq{}
       );
    }
 
-   bool operator==(const TypedTupleSpace& other) const
+   bool operator==(const TupleSpace& other) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {

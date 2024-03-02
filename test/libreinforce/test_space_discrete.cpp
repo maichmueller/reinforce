@@ -16,15 +16,15 @@ TEST(Spaces, Discrete_constructor)
 {
    constexpr int n = 10;
    constexpr int start = 0;
-   EXPECT_NO_THROW((TypedDiscreteSpace{n, start}));
-   EXPECT_THROW((TypedDiscreteSpace{0, start}), std::invalid_argument);
+   EXPECT_NO_THROW((DiscreteSpace{n, start}));
+   EXPECT_THROW((DiscreteSpace{0, start}), std::invalid_argument);
 }
 
 TEST(Spaces, Discrete_sample)
 {
    constexpr int n = 10;
    constexpr int start = 0;
-   auto space = TypedDiscreteSpace{n, start};
+   auto space = DiscreteSpace{n, start};
    auto samples = space.sample(10000);
    SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
    EXPECT_TRUE(xt::all(samples >= start));
@@ -41,7 +41,7 @@ TEST(Spaces, Discrete_sample_masked)
 {
    constexpr int n = 10;
    constexpr int start = 0;
-   auto space = TypedDiscreteSpace{n, start};
+   auto space = DiscreteSpace{n, start};
    xarray< bool > mask = {false, false, true, true, false, true, true, false, false, false};
    auto samples = space.sample(10000, mask);
    SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
@@ -57,7 +57,7 @@ TEST(Spaces, Discrete_copy_construction)
 {
    constexpr int n = 10;
    constexpr int start = 0;
-   TypedDiscreteSpace space{n, start};
+   DiscreteSpace space{n, start};
    auto space_copy = space;
    EXPECT_EQ(space_copy, space);
    // RNG state should still be aligned

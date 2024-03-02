@@ -33,10 +33,10 @@ namespace force {
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
+class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
   public:
-   friend class TypedSpace< xarray< T >, TypedBox >;
-   using base = TypedSpace< xarray< T >, TypedBox >;
+   friend class Space< xarray< T >, BoxSpace >;
+   using base = Space< xarray< T >, BoxSpace >;
    using typename base::value_type;
    using base::shape;
    using base::rng;
@@ -44,7 +44,7 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
    template < typename U, typename V, typename Range >
       requires(std::is_integral_v< U > || std::is_floating_point_v< U >)
                  and (std::is_integral_v< V > || std::is_floating_point_v< V >)
-   TypedBox(
+   BoxSpace(
       const U& low,
       const V& high,
       Range&& shape_,
@@ -59,13 +59,13 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
    }
    template < template < typename... > class Array, typename... Args >
       requires detail::is_any_v< Array< T >, pyarray< T >, std::vector< T > >
-   TypedBox(const Array< T >& low, const Array< T >& high, Args&&... args)
-       : TypedBox(xarray< T >(low), xarray< T >(high), std::forward< Args >(args)...)
+   BoxSpace(const Array< T >& low, const Array< T >& high, Args&&... args)
+       : BoxSpace(xarray< T >(low), xarray< T >(high), std::forward< Args >(args)...)
    {
    }
 
    template < typename Range = xt::svector< int > >
-   TypedBox(
+   BoxSpace(
       xarray< T > low,
       xarray< T > high,
       const Range& shape_ = {},
@@ -91,7 +91,7 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
       };
    }
 
-   bool operator==(const TypedBox& rhs) const
+   bool operator==(const BoxSpace& rhs) const
    {
       // we can safely use static-cast here, because the base checks for type-identity first and
       // only calls equals if the types of two compared objects are the same (hence
@@ -166,15 +166,15 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
 template < typename U, typename V, typename Range >
    requires(std::is_integral_v< U > || std::is_floating_point_v< U >)
            and (std::is_integral_v< V > || std::is_floating_point_v< V >)
-TypedBox(const U& low, const V& high, Range&& shape_, std::optional< size_t > seed = std::nullopt)
-   -> TypedBox< std::common_type_t< U, V > >;
+BoxSpace(const U& low, const V& high, Range&& shape_, std::optional< size_t > seed = std::nullopt)
+   -> BoxSpace< std::common_type_t< U, V > >;
 
 /// Definitions
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
 template < typename Range >
-TypedBox< T >::TypedBox(
+BoxSpace< T >::BoxSpace(
    xarray< T > low,
    xarray< T > high,
    const Range& shape_,
@@ -231,7 +231,7 @@ TypedBox< T >::TypedBox(
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-auto TypedBox< T >::_sample(const std::optional< xarray< bool > >&) const -> value_type
+auto BoxSpace< T >::_sample(const std::optional< xarray< bool > >&) const -> value_type
 {
    xarray< T > samples = xt::empty< T >(shape());
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
@@ -281,7 +281,7 @@ auto TypedBox< T >::_sample(const std::optional< xarray< bool > >&) const -> val
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-auto TypedBox< T >::_sample(
+auto BoxSpace< T >::_sample(
    size_t nr_samples,
    const std::optional< xarray< bool > >& /*unused*/
 ) const -> value_type
@@ -344,7 +344,7 @@ auto TypedBox< T >::_sample(
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-bool TypedBox< T >::is_bounded(const std::string_view manner)
+bool BoxSpace< T >::is_bounded(const std::string_view manner)
 {
    constexpr auto below = [&] { return xt::all(m_bounded_below); };
    constexpr auto above = [&] { return xt::all(m_bounded_above); };

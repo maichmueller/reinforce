@@ -34,7 +34,7 @@ concept has_getitem_operator = requires(T t, size_t idx) { t[idx]; };
 /// openai/gymnasium python class.
 template < typename T, typename Derived, typename MultiT = T >
    requires std::is_same_v< T, MultiT > or detail::has_getitem_operator< MultiT >
-class TypedSpace: public detail::rng_mixin {
+class Space: public detail::rng_mixin {
   public:
    // the type of values returned by sampling or containment queries
    using value_type = T;
@@ -45,8 +45,13 @@ class TypedSpace: public detail::rng_mixin {
    constexpr static bool mvt_is_container = not std::is_same_v< multi_value_type, value_type >
                                             and detail::has_getitem_operator< MultiT >;
 
-   explicit TypedSpace(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
-       : rng_mixin(seed), m_shape(std::move(shape))
+   explicit Space(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
+       : rng_mixin(std::invoke([&] {
+            if(seed.has_value())
+               return rng_mixin{*seed};
+            return rng_mixin{};
+         })),
+         m_shape(std::move(shape))
    {
    }
 

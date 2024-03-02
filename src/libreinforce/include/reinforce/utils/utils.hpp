@@ -6,6 +6,7 @@
 #include <fmt/ranges.h>
 
 #include <algorithm>
+#include <concepts>
 #include <cstddef>
 #include <iterator>
 #include <memory>
@@ -80,26 +81,37 @@ constexpr std::pair< std::unique_ptr< T[] >, size_t > make_carray(Rng&& range)
 }
 
 // Seed a PRNG
-inline auto create_rng(std::optional< size_t > seed)
+inline auto create_rng(pcg_extras::seed_seq_from< pcg64 > seed)
 {
-   if(seed.has_value()) {
-      return pcg64{*seed};
-   }
+   return pcg64{seed};
+}
+inline auto create_rng(std::nullopt_t)
+{
    return pcg64{pcg_extras::seed_seq_from< std::random_device >{}};
 }
 
 class rng_mixin {
   public:
-   explicit rng_mixin(std::optional< size_t > seed = std::nullopt) : m_rng(create_rng(seed)) {}
+   explicit rng_mixin()
+       : m_seed(pcg_extras::seed_seq_from< std::random_device >{}), m_rng(create_rng(m_seed))
+   {
+   }
+   explicit rng_mixin(pcg_extras::seed_seq_from< pcg64 > seed)
+       : m_seed(seed), m_rng(create_rng(m_seed))
+   {
+   }
    // Seed the PRNG of this space
-   void seed(size_t seed) { m_rng = create_rng(seed); }
-
+   void seed(pcg_extras::seed_seq_from< pcg64 > seed) { m_rng = create_rng(seed); }
+   void seed(pcg64& seeder) { m_rng = create_rng(seeder()); }
+   // get a const ref to the seed used to initialize (if any)
+   const auto& seed() const { return m_seed; }
    /// const rng reference for external rng state inspection
    [[nodiscard]] auto& rng() const { return m_rng; }
    /// mutable rng reference for derived classes to forward random state
    auto& rng() { return m_rng; }
 
   private:
+   pcg_extras::seed_seq_from< pcg64 > m_seed;
    mutable pcg64 m_rng;
 };
 
@@ -133,8 +145,8 @@ class RangeAdaptor {
    using sentinel_type = Sentinel;
    RangeAdaptor(Iterator begin, Sentinel sentinel) : m_begin(begin), m_end(sentinel) {}
 
-   // can be used to erase other implementation mismatches of ranges with APIs of the same names,
-   // but no the same meanings
+   // can be used to erase other implementation mismatches of ranges with APIs of the same
+   // names, but no the same meanings
    template < std::ranges::range Rng >
    explicit RangeAdaptor(Rng& rng) : m_begin(std::ranges::begin(rng)), m_end(std::ranges::end(rng))
    {
@@ -200,7 +212,8 @@ inline void hash_combine(std::size_t& seed, const T& v, Rest... rest)
    hash_combine(seed, rest...);
 }
 
-// taken from the proposal https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p0870r4.html
+// taken from the proposal
+// https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p0870r4.html
 template < class From, class To >
 inline constexpr bool is_convertible_without_narrowing_v = false;
 
