@@ -41,17 +41,18 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
    using base::shape;
    using base::rng;
 
-   template < typename U, typename Range >
-      requires std::is_integral_v< U > || std::is_floating_point_v< U >
+   template < typename U, typename V, typename Range >
+      requires(std::is_integral_v< U > || std::is_floating_point_v< U >)
+                 and (std::is_integral_v< V > || std::is_floating_point_v< V >)
    TypedBox(
       const U& low,
-      const U& high,
+      const V& high,
       Range&& shape_,
       std::optional< size_t > seed = std::nullopt
    )
        : base(FWD(shape_), seed),
-         m_low(xt::full(shape(), low)),
-         m_high(xt::full(shape(), high)),
+         m_low(xt::full< T >(shape(), static_cast< T >(low))),
+         m_high(xt::full< T >(shape(), static_cast< T >(high))),
          m_bounded_below(xt::full(shape(), std::isinf(low))),
          m_bounded_above(xt::full(shape(), std::isinf(high)))
    {
@@ -162,10 +163,11 @@ class TypedBox: public TypedSpace< xarray< T >, TypedBox< T > > {
 
 /// Deduction guides
 
-template < typename U, typename Range >
-   requires std::is_integral_v< U > || std::is_floating_point_v< U >
-TypedBox(const U& low, const U& high, Range&& shape_, std::optional< size_t > seed = std::nullopt)
-   -> TypedBox< U >;
+template < typename U, typename V, typename Range >
+   requires(std::is_integral_v< U > || std::is_floating_point_v< U >)
+           and (std::is_integral_v< V > || std::is_floating_point_v< V >)
+TypedBox(const U& low, const V& high, Range&& shape_, std::optional< size_t > seed = std::nullopt)
+   -> TypedBox< std::common_type_t< U, V > >;
 
 /// Definitions
 
