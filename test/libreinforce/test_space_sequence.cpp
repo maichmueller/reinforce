@@ -36,7 +36,7 @@ TEST(Spaces, Sequence_Discrete_sample)
    auto space = SequenceSpace{DiscreteSpace{n_discrete, start_discrete}, 0.5};
    constexpr auto n_samples = 100;
    auto samples = space.sample(n_samples);
-   SPDLOG_DEBUG(fmt::format("Samples:\n[{}]", fmt::join(samples, "\n")));
+   SPDLOG_DEBUG(fmt::format("Samples: [\n{}\n]", fmt::join(samples, "\n")));
 
    for(auto sample_arr : samples) {
       EXPECT_TRUE(xt::all(sample_arr >= start_discrete));
@@ -53,18 +53,23 @@ TEST(Spaces, Sequence_Box_sample)
 {
    const xarray< double > box_low{-infinity<>, 0, -10};
    const xarray< double > box_high{0, infinity<>, 10};
-   auto space = SequenceSpace{BoxSpace{box_low, box_high}};
-   constexpr auto n_samples = 1000;
+   auto space = SequenceSpace{BoxSpace{box_low, box_high}, 3737};
+   constexpr auto n_samples = 10;
    auto samples = space.sample(n_samples);
-   SPDLOG_DEBUG(fmt::format("Samples:\n[{}]", fmt::join(samples, "\n")));
+   SPDLOG_DEBUG(fmt::format("Samples: [\n{}\n]", fmt::join(samples, "\n")));
 
    bool all_length_0 = true;
-   for(auto sample_arr : samples) {
+   for(auto [idx, sample_arr] : ranges::views::enumerate(samples)) {
       all_length_0 &= sample_arr.size() == 0;
-      for(auto i : ranges::views::iota(0, 3)) {
-         auto&& sample_view = xt::view(sample_arr, i, xt::all());
-         EXPECT_TRUE(sample_view.size() == 0 or xt::all(sample_view >= box_low(i)));
-         EXPECT_TRUE(sample_view.size() == 0 or xt::all(sample_view <= box_high(i)));
+      for(auto coord : ranges::views::iota(0, 3)) {
+         if(sample_arr.size() > 0) {
+            auto sample_view = xt::view(sample_arr, coord, xt::all());
+            SPDLOG_DEBUG(fmt::format("Sample {} view:\n{}", idx, sample_view));
+            EXPECT_TRUE(xt::all(sample_view >= box_low(coord)));
+            EXPECT_TRUE(xt::all(sample_view <= box_high(coord)));
+         } else {
+            SPDLOG_DEBUG(fmt::format("Sample {} view: EMPTY", idx));
+         }
       }
    }
    // statistically extreeemly unlikely, so should not happen.
@@ -72,8 +77,13 @@ TEST(Spaces, Sequence_Box_sample)
    for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
       auto new_samples = space.sample();
       for(auto i : ranges::views::iota(0, 3)) {
-         EXPECT_TRUE(xt::all(xt::view(new_samples, i) >= box_low(i)));
-         EXPECT_TRUE(xt::all(xt::view(new_samples, i) <= box_high(i)));
+         if(new_samples.size() > 0) {
+            SPDLOG_DEBUG(fmt::format("Sample {}:\n{}", i, new_samples));
+            EXPECT_TRUE(xt::all(xt::view(new_samples, i) >= box_low(i)));
+            EXPECT_TRUE(xt::all(xt::view(new_samples, i) <= box_high(i)));
+         } else {
+            SPDLOG_DEBUG(fmt::format("Sample {}: EMPTY", i));
+         }
       }
    }
 }
@@ -153,21 +163,45 @@ TEST(Spaces, Sequence_MultiDiscrete_sample_masked)
    }
 }
 
-// TEST(Spaces, Sequence_Box_copy_construction)
-// {
-//    auto start = xarray< int >({0, 0, -3});
-//    auto end = xarray< int >({10, 5, 3});
-//
-//    auto space = TypedSequenceSpace{TypedMultiDiscreteSpace{start, end}
-//    };
-//    auto space_copy = space;
-//    EXPECT_EQ(space_copy, space);
-//    // RNG state should still be aligned
-//    EXPECT_EQ(std::get< 0 >(space_copy.sample()), std::get< 0 >(space.sample()));
-//    EXPECT_EQ(std::get< 1 >(space_copy.sample()), std::get< 1 >(space.sample()));
-//    // now the copy has an advanced rng
-//    space_copy.sample();
-//    // the samples now should no longer be the same
-//    EXPECT_NE(std::get< 0 >(space_copy.sample(1000)), std::get< 0 >(space.sample(1000)));
-//    EXPECT_NE(std::get< 1 >(space_copy.sample(1000)), std::get< 1 >(space.sample(1000)));
-// }
+TEST(Spaces, Sequence_reseeding)
+{
+   constexpr size_t SEED = 6492374569235;
+   auto start = xarray< int >({0, 0, -3});
+   auto end = xarray< int >({10, 5, 3});
+   auto space = SequenceSpace{MultiDiscreteSpace{start, end}, SEED};
+   constexpr size_t nr = 10;
+   auto samples1 = space.sample(nr);
+   auto samples2 = space.sample(nr);
+   auto sample_cmp = [](const auto& s1_s2) {
+      const auto& [sample1, sample2] = s1_s2;
+      if(sample1.size() == 0 or sample2.size() == 0) {
+         return sample1.size() == sample2.size();
+      }
+      return xt::all(xt::equal(sample1, sample2));
+   };
+   EXPECT_FALSE(ranges::all_of(ranges::views::zip(samples1, samples2), sample_cmp));
+   space.seed(SEED);
+   auto samples3 = space.sample(nr);
+   auto samples4 = space.sample(nr);
+   SPDLOG_DEBUG(fmt::format("Sample 1:\n{}", fmt::join(samples1, "\n")));
+   SPDLOG_DEBUG(fmt::format("Sample 2:\n{}", fmt::join(samples2, "\n")));
+   SPDLOG_DEBUG(fmt::format("Sample 3:\n{}", fmt::join(samples3, "\n")));
+   SPDLOG_DEBUG(fmt::format("Sample 4:\n{}", fmt::join(samples4, "\n")));
+   EXPECT_TRUE(ranges::all_of(ranges::views::zip(samples1, samples3), sample_cmp));
+   EXPECT_TRUE(ranges::all_of(ranges::views::zip(samples2, samples4), sample_cmp));
+}
+
+TEST(Spaces, Sequence_Box_copy_construction)
+{
+   auto start = xarray< int >({0, 0, -3});
+   auto end = xarray< int >({10, 5, 3});
+   auto space = SequenceSpace{MultiDiscreteSpace{start, end}, 63467};
+   auto space_copy = space;
+   EXPECT_EQ(space_copy, space);
+   // RNG state should still be aligned
+   EXPECT_TRUE(xt::all(xt::equal(space_copy.sample(), space.sample())));
+   // now the copy has an advanced rng
+   std::ignore = space_copy.sample();
+   // the samples now should no longer be the same
+   EXPECT_TRUE(xt::all(xt::equal(space_copy.sample(), space.sample())));
+}

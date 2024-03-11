@@ -111,6 +111,27 @@ TEST(Spaces, Text_sample_masked_lengths)
    EXPECT_THROW(space.sample(mask3), std::invalid_argument);
 }
 
+TEST(Spaces, Text_reseeding)
+{
+   constexpr size_t SEED = 6492374569235;
+   const xarray< double > low{-infinity<>, 0, -10};
+   const xarray< double > high{0, infinity<>, 10};
+   auto space = TextSpace{{.max_length = 5, .characters = "AEIOU"}, SEED};
+   size_t n = 1000;
+   auto samples1 = space.sample(n);
+   auto samples2 = space.sample(n);
+   EXPECT_FALSE(ranges::equal(samples1, samples2));
+   space.seed(SEED);
+   auto samples3 = space.sample(n);
+   auto samples4 = space.sample(n);
+   SPDLOG_DEBUG(fmt::format("Sample1:\n{}", samples1));
+   SPDLOG_DEBUG(fmt::format("Sample3:\n{}", samples3));
+   SPDLOG_DEBUG(fmt::format("Sample2:\n{}", samples2));
+   SPDLOG_DEBUG(fmt::format("Sample4:\n{}", samples4));
+   EXPECT_TRUE(ranges::equal(samples1, samples3));
+   EXPECT_TRUE(ranges::equal(samples2, samples4));
+}
+
 TEST(Spaces, Text_copy_construction)
 {
    auto space = TextSpace{{.max_length = 5, .characters = "AEIOU"}, 56356739};

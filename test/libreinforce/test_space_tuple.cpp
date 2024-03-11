@@ -119,6 +119,34 @@ TEST(Spaces, Tuple_Discrete_MultiDiscrete_sample_masked)
    }
 }
 
+TEST(Spaces, Tuple_Discrete_Box_reseeding)
+{
+   constexpr size_t SEED = 6492374569235;
+   auto start = xarray< int >({0, 0, -3});
+   auto end = xarray< int >({10, 5, 3});
+   auto space = SequenceSpace{MultiDiscreteSpace{start, end}, SEED};
+   constexpr size_t nr = 10;
+   auto samples1 = space.sample(nr);
+   auto samples2 = space.sample(nr);
+   auto sample_cmp = [](const auto& s1_s2) {
+      const auto& [sample1, sample2] = s1_s2;
+      if(sample1.size() == 0 or sample2.size() == 0) {
+         return sample1.size() == sample2.size();
+      }
+      return xt::all(xt::equal(sample1, sample2));
+   };
+   EXPECT_FALSE(ranges::all_of(ranges::views::zip(samples1, samples2), sample_cmp));
+   space.seed(SEED);
+   auto samples3 = space.sample(nr);
+   auto samples4 = space.sample(nr);
+   SPDLOG_DEBUG(fmt::format("Sample 1:\n{}", fmt::join(samples1, "\n")));
+   SPDLOG_DEBUG(fmt::format("Sample 2:\n{}", fmt::join(samples2, "\n")));
+   SPDLOG_DEBUG(fmt::format("Sample 3:\n{}", fmt::join(samples3, "\n")));
+   SPDLOG_DEBUG(fmt::format("Sample 4:\n{}", fmt::join(samples4, "\n")));
+   EXPECT_TRUE(ranges::all_of(ranges::views::zip(samples1, samples3), sample_cmp));
+   EXPECT_TRUE(ranges::all_of(ranges::views::zip(samples2, samples4), sample_cmp));
+}
+
 TEST(Spaces, Tuple_Discrete_Box_copy_construction)
 {
    auto start = xarray< int >({0, 0, -3});

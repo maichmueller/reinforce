@@ -63,6 +63,25 @@ TEST(Spaces, MultiBinary_sample_masked)
    }
 }
 
+TEST(Spaces, MultiBinary_reseeding)
+{
+   constexpr size_t SEED = 6492374569235;
+   auto space = MultiBinarySpace{xt::svector{2, 3}, SEED};
+   constexpr size_t nr = 100;
+   auto samples1 = space.sample(nr);
+   auto samples2 = space.sample(nr);
+   EXPECT_FALSE(xt::all(xt::equal(samples1, samples2)));
+   space.seed(SEED);
+   auto samples3 = space.sample(nr);
+   auto samples4 = space.sample(nr);
+   SPDLOG_DEBUG(fmt::format("Sample1:\n{}", samples1));
+   SPDLOG_DEBUG(fmt::format("Sample3:\n{}", samples3));
+   SPDLOG_DEBUG(fmt::format("Sample2:\n{}", samples2));
+   SPDLOG_DEBUG(fmt::format("Sample4:\n{}", samples4));
+   EXPECT_TRUE(xt::all(xt::equal(samples1, samples3)));
+   EXPECT_TRUE(xt::all(xt::equal(samples2, samples4)));
+}
+
 TEST(Spaces, MultiBinary_copy_construction)
 {
    auto space = MultiBinarySpace{xt::svector{2, 3}};
