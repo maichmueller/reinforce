@@ -107,7 +107,7 @@ class SequenceSpace:
    void seed(T value)
    {
       base::seed(value);
-      m_feature_space(value);
+      m_feature_space.seed(value);
    }
 
    bool operator==(const SequenceSpace& rhs) const = default;
@@ -173,13 +173,19 @@ auto SequenceSpace< FeatureSpace >::_sample(
    return std::invoke([&] {
       return std::views::all(lengths_per_sample)  //
              | std::views::transform(
-                [&](auto nr_samples_concrete) -> feature_space_type::multi_value_type {
-                   if(nr_samples > 0) {
+                [&](auto nr_samples_concrete) -> typename feature_space_type::multi_value_type {
+                   if(nr_samples_concrete > 0) {
                       if constexpr(std::same_as< MaskT2, std::nullopt_t >) {
                          return m_feature_space.sample(nr_samples_concrete);
                       } else {
                          return m_feature_space.sample(nr_samples_concrete, feature_mask);
                       }
+                   }
+                   if constexpr(detail::is_xarray<
+                                   typename feature_space_type::multi_value_type >) {
+                      // a default constructed xarray of type int, i.e. xarray<int>{}, will convert
+                      // to 0, instead of an empty xarray. We have to handle this case manually then
+                      return feature_space_type::multi_value_type::from_shape(xt::svector{0});
                    }
                    return {};
                 }
@@ -198,7 +204,7 @@ SequenceSpace< FeatureSpace >::_compute_lengths(size_t nr_samples, Range&& lengt
       // if none given, then sample the length from a geometric distribution
       return xt::random::geometric< size_t >(xt::svector{nr_samples}, m_geometric_prob, rng());
    } else if constexpr(std::convertible_to< raw_t< Range >, size_t >) {
-      size_t length = static_cast< size_t >(lengths_rng);
+      auto length = static_cast< size_t >(lengths_rng);
       if(length == 0) {
          throw std::invalid_argument(
             fmt::format("Expecting a fixed length mask greater than 0. Given: {}", length)
