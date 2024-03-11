@@ -12,7 +12,7 @@ auto MultiBinarySpace::_sample(size_t nr_samples, const std::optional< value_typ
    samples_shape.push_back(static_cast< int >(nr_samples));
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples_shape));
    if(not mask_opt.has_value()) {
-      return {xt::random::randint(samples_shape, 0, 2, rng())};
+      return xt::random::randint(samples_shape, 0, 2, rng());
    }
    const auto& mask = *mask_opt;
    if(not ranges::equal(mask.shape(), shape())) {
