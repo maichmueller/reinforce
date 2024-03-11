@@ -203,5 +203,7 @@ TEST(Spaces, Sequence_Box_copy_construction)
    // now the copy has an advanced rng
    std::ignore = space_copy.sample();
    // the samples now should no longer be the same
-   EXPECT_TRUE(xt::all(xt::equal(space_copy.sample(), space.sample())));
+   auto sample_copy = space_copy.sample();
+   auto sample = space.sample();
+   EXPECT_TRUE(sample_copy.size() != sample.size() or xt::any(xt::not_equal(sample_copy, sample)));
 }

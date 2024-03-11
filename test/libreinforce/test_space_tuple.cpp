@@ -14,7 +14,7 @@
 
 using namespace force;
 
-TEST(Spaces, Tuple_Discrete_Box)
+TEST(Spaces, Tuple_Discrete_Box_constructor)
 {
    const xarray< double > box_low{-infinity<>, 0, -10};
    const xarray< double > box_high{0, infinity<>, 10};
@@ -23,8 +23,21 @@ TEST(Spaces, Tuple_Discrete_Box)
    EXPECT_NO_THROW(
       (TupleSpace{DiscreteSpace{n_discrete, start_discrete}, BoxSpace{box_low, box_high}})
    );
+   EXPECT_NO_THROW((
+      TupleSpace{size_t{42}, DiscreteSpace{n_discrete, start_discrete}, BoxSpace{box_low, box_high}}
+   ));
+   EXPECT_NO_THROW((TupleSpace{
+      std::optional< size_t >{42},
+      DiscreteSpace{n_discrete, start_discrete},
+      BoxSpace{box_low, box_high}
+   }));
+   EXPECT_NO_THROW((TupleSpace{
+      std::optional< short >{42},
+      DiscreteSpace{n_discrete, start_discrete},
+      BoxSpace{box_low, box_high}
+   }));
    EXPECT_NO_THROW(
-      (TupleSpace{42u, DiscreteSpace{n_discrete, start_discrete}, BoxSpace{box_low, box_high}})
+      (TupleSpace{int{42}, DiscreteSpace{n_discrete, start_discrete}, BoxSpace{box_low, box_high}})
    );
 }
 
@@ -124,18 +137,26 @@ TEST(Spaces, Tuple_Discrete_Box_reseeding)
    constexpr size_t SEED = 6492374569235;
    auto start = xarray< int >({0, 0, -3});
    auto end = xarray< int >({10, 5, 3});
-   auto space = SequenceSpace{MultiDiscreteSpace{start, end}, SEED};
+   constexpr auto start_discrete = 5;
+   constexpr auto n_discrete = 5;
+   auto space = TupleSpace{
+      SEED, DiscreteSpace{n_discrete, start_discrete}, MultiDiscreteSpace{start, end}
+   };
    constexpr size_t nr = 10;
    auto samples1 = space.sample(nr);
    auto samples2 = space.sample(nr);
-   auto sample_cmp = [](const auto& s1_s2) {
-      const auto& [sample1, sample2] = s1_s2;
-      if(sample1.size() == 0 or sample2.size() == 0) {
-         return sample1.size() == sample2.size();
-      }
-      return xt::all(xt::equal(sample1, sample2));
+   auto sample_cmp = [](const auto& sample1, const auto& sample2) {
+      const auto& [disc_sample1, mdisc_sample1] = sample1;
+      const auto& [disc_sample2, mdisc_sample2] = sample2;
+      auto xarray_cmp = [](const auto& a1, const auto& a2) {
+         if(a1.size() == 0 or a2.size() == 0) {
+            return a1.size() == a2.size();
+         }
+         return xt::all(xt::equal(a1, a2));
+      };
+      return xarray_cmp(disc_sample1, disc_sample2) and xarray_cmp(mdisc_sample1, mdisc_sample2);
    };
-   EXPECT_FALSE(ranges::all_of(ranges::views::zip(samples1, samples2), sample_cmp));
+   EXPECT_FALSE(sample_cmp(samples1, samples2));
    space.seed(SEED);
    auto samples3 = space.sample(nr);
    auto samples4 = space.sample(nr);
@@ -143,8 +164,8 @@ TEST(Spaces, Tuple_Discrete_Box_reseeding)
    SPDLOG_DEBUG(fmt::format("Sample 2:\n{}", fmt::join(samples2, "\n")));
    SPDLOG_DEBUG(fmt::format("Sample 3:\n{}", fmt::join(samples3, "\n")));
    SPDLOG_DEBUG(fmt::format("Sample 4:\n{}", fmt::join(samples4, "\n")));
-   EXPECT_TRUE(ranges::all_of(ranges::views::zip(samples1, samples3), sample_cmp));
-   EXPECT_TRUE(ranges::all_of(ranges::views::zip(samples2, samples4), sample_cmp));
+   EXPECT_TRUE(sample_cmp(samples1, samples3));
+   EXPECT_TRUE(sample_cmp(samples2, samples4));
 }
 
 TEST(Spaces, Tuple_Discrete_Box_copy_construction)

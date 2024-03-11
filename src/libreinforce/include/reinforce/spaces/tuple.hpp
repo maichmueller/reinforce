@@ -42,13 +42,26 @@ class TupleSpace:
    std::tuple< Spaces... > m_spaces;
 
   public:
-   template < std::integral T >
+   template < std::integral T = size_t >
    explicit TupleSpace(T seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
       SPDLOG_DEBUG("Called tuple space constructor with seed");
       seed(seed_);
    }
-   explicit TupleSpace(Spaces... spaces) : m_spaces{std::move(spaces)...} {}
+
+   template < typename OptionalT = std::optional< size_t > >
+      requires detail::is_specialization_v< OptionalT, std::optional >
+               and std::convertible_to< detail::value_t< OptionalT >, size_t >
+   explicit TupleSpace(OptionalT seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
+   {
+      SPDLOG_DEBUG("Called tuple space constructor with optional-seed");
+      seed(seed_);
+   }
+
+   explicit TupleSpace(Spaces... spaces) : m_spaces{std::move(spaces)...}
+   {
+      seed(std::optional< size_t >{});
+   }
 
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
