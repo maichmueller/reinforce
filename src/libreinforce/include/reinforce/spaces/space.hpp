@@ -46,12 +46,7 @@ class Space: public detail::rng_mixin {
                                             and detail::has_getitem_operator< MultiT >;
 
    explicit Space(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
-       : rng_mixin(std::invoke([&] {
-            if(seed.has_value())
-               return rng_mixin{*seed};
-            return rng_mixin{};
-         })),
-         m_shape(std::move(shape))
+       : rng_mixin(seed), m_shape(std::move(shape))
    {
    }
 
@@ -129,6 +124,8 @@ class Space: public detail::rng_mixin {
 
    // Checks whether this space can be flattened to a Box
    [[nodiscard]] bool is_flattenable() const { return false; }
+
+   bool operator==(const Space& rhs) const = default;
 
    // Return the shape of the space
    auto& shape() const { return m_shape; }

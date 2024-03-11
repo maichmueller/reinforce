@@ -81,38 +81,41 @@ constexpr std::pair< std::unique_ptr< T[] >, size_t > make_carray(Rng&& range)
 }
 
 // Seed a PRNG
-inline auto create_rng(pcg_extras::seed_seq_from< pcg64 > seed)
+inline auto create_rng(std::optional< size_t > seed)
 {
-   return pcg64{seed};
+   if(seed.has_value()) {
+      return pcg64{*seed};
+   }
+   return pcg64{pcg_extras::seed_seq_from< std::random_device >{}};
 }
-inline auto create_rng(std::nullopt_t)
+inline auto create_rng()
 {
    return pcg64{pcg_extras::seed_seq_from< std::random_device >{}};
 }
 
 class rng_mixin {
   public:
-   explicit rng_mixin()
-       : m_seed(pcg_extras::seed_seq_from< std::random_device >{}), m_rng(create_rng(m_seed))
-   {
-   }
-   explicit rng_mixin(pcg_extras::seed_seq_from< pcg64 > seed)
-       : m_seed(seed), m_rng(create_rng(m_seed))
+   explicit rng_mixin(std::optional< size_t > seed = std::nullopt)
+       : m_rng(create_rng(seed)), m_seed(seed)
    {
    }
    // Seed the PRNG of this space
-   void seed(pcg_extras::seed_seq_from< pcg64 > seed) { m_rng = create_rng(seed); }
-   void seed(pcg64& seeder) { m_rng = create_rng(seeder()); }
-   // get a const ref to the seed used to initialize (if any)
-   const auto& seed() const { return m_seed; }
+   /// `seed` can be made const since m_rng is mutable, but do not do this! The only access to m_rng
+   /// in a const-object should be for the sake of sampling, not changing the RNG object altogether
+   void seed(std::optional< size_t > seed) { m_rng = create_rng(seed); }
+   void seed(pcg64& seed) { m_rng = create_rng(seed()); }
+
+   auto seed() const { return m_seed; }
    /// const rng reference for external rng state inspection
    [[nodiscard]] auto& rng() const { return m_rng; }
    /// mutable rng reference for derived classes to forward random state
    auto& rng() { return m_rng; }
 
+   bool operator==(const rng_mixin& rhs) const = default;
+
   private:
-   pcg_extras::seed_seq_from< pcg64 > m_seed;
    mutable pcg64 m_rng;
+   std::optional< size_t > m_seed = std::nullopt;
 };
 
 template < typename To >

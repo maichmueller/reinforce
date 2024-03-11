@@ -64,13 +64,18 @@ class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
    {
    }
 
-   template < typename Range = xt::svector< int > >
+   template < std::ranges::range Range = xt::svector< int > >
    BoxSpace(
       xarray< T > low,
       xarray< T > high,
       const Range& shape_ = {},
       std::optional< size_t > seed = std::nullopt
    );
+
+   BoxSpace(xarray< T > low, xarray< T > high, std::optional< size_t > seed)
+       : BoxSpace(std::move(low), std::move(high), xt::svector< int >{}, seed)
+   {
+   }
 
    bool is_bounded(std::string_view manner = "");
 
@@ -170,10 +175,12 @@ BoxSpace(const U& low, const V& high, Range&& shape_, std::optional< size_t > se
    -> BoxSpace< std::common_type_t< U, V > >;
 
 /// Definitions
+///
+///
 
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
-template < typename Range >
+template < std::ranges::range Range >
 BoxSpace< T >::BoxSpace(
    xarray< T > low,
    xarray< T > high,

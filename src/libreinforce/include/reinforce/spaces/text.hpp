@@ -229,7 +229,7 @@ auto TextSpace::_sample(
 
    return std::views::transform(
              lengths_per_sample,
-             [&, offset = 0u](auto length) mutable {
+             [&, offset = 0U](auto length) mutable {
                 if(length == 0) {
                    return std::string{};
                 }
@@ -262,7 +262,7 @@ xarray< size_t > TextSpace::_compute_lengths(size_t nr_samples, const SizeOrVect
                ));
             }
             xarray< size_t > arr = xt::empty< size_t >({lengths.size()});
-            for(auto index : std::views::iota(0u, lengths.size())) {
+            for(auto index : std::views::iota(0U, lengths.size())) {
                arr.unchecked(index) = static_cast< size_t >(lengths[index]);
             }
             return arr;
