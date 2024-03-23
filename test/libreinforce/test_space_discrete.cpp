@@ -74,6 +74,35 @@ TEST(Spaces, Discrete_reseeding)
    EXPECT_TRUE(xt::all(xt::equal(samples2, samples4)));
 }
 
+TEST(Spaces, Discrete_contains)
+{
+   constexpr size_t SEED = 6492374569235;
+   constexpr int start = 10;
+   constexpr int nr_elems = 10;
+   auto space = DiscreteSpace{nr_elems, start, SEED};
+   int n = 1000;
+   xarray< int > contain_candidates = xt::random::randint(
+      xt::svector{1, n}, start, start + 2 * nr_elems
+   );
+   SPDLOG_DEBUG(fmt::format("Incorrect containment candidates array:\n{}", contain_candidates));
+   /// candidates are missing one dimension to be part of this space
+   EXPECT_FALSE(space.contains(contain_candidates));
+   /// add last dimension to candiates to become part of the space
+   contain_candidates = xt::random::randint(xt::svector{1, n}, start, start + nr_elems);
+   SPDLOG_DEBUG(fmt::format("Correct containment candidates array:\n{}", contain_candidates));
+   EXPECT_TRUE(space.contains(contain_candidates));
+   // Individual values tests
+   for(auto value : ranges::views::indices(start, start + nr_elems)) {
+      EXPECT_TRUE(space.contains(value));
+   }
+   for(auto value : ranges::views::concat(
+          ranges::views::indices(-start - nr_elems, -start),
+          ranges::views::indices(start + nr_elems + 1, start + nr_elems + 100)
+       )) {
+      EXPECT_FALSE(space.contains(value));
+   }
+}
+
 TEST(Spaces, Discrete_copy_construction)
 {
    constexpr int n = 10;

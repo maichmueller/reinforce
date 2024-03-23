@@ -110,6 +110,28 @@ TEST(Spaces, Box_reseeding)
    EXPECT_TRUE(xt::all(xt::equal(samples2, samples4)));
 }
 
+TEST(Spaces, Box_contains)
+{
+   constexpr size_t SEED = 6492374569235;
+   const xarray< double > low{-infinity<>, 0, 50, 1.1};
+   const xarray< double > high{0, infinity<>, 51, std::numbers::e};
+   BoxSpace space{low, high, low.shape(), SEED};
+   int n = 1000;
+   xarray< double > contain_candidates = xt::vstack(std::tuple{
+      -xt::random::exponential(xt::svector{1, n}, 10.),
+      xt::random::exponential(xt::svector{1, n}, 100.),
+      xt::random::rand(xt::svector{1, n}, 50., 51.)
+   });
+   SPDLOG_DEBUG(fmt::format("Containment candidates array:\n{}", contain_candidates));
+   /// candidates are missing one dimension to be part of this space
+   EXPECT_FALSE(space.contains(contain_candidates));
+   /// add last dimension to candiates to become part of the spacel
+   contain_candidates = xt::vstack(
+      std::tuple{contain_candidates, xt::random::rand(xt::svector{1, n}, 1.1, std::numbers::e)}
+   );
+   EXPECT_TRUE(space.contains(contain_candidates));
+}
+
 TEST(Spaces, Box_copy_construction)
 {
    const xarray< double > low{-infinity<>, 0, -10};

@@ -125,44 +125,50 @@ class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
       const std::optional< xarray< bool > >& /*unused*/ = std::nullopt
    ) const;
 
-   bool contains(const value_type& value) const
+   bool _contains(const value_type& value) const
    {
       const auto& incoming_shape = value.shape();
+      const auto& incoming_dim = incoming_shape.size();
+      const auto space_dim = shape().size();
 
-      if(incoming_shape.dimension() < shape().dimension()) {
-         return false;
-      }
-      if(not ranges::any_of(ranges::views::zip(shape(), incoming_shape), [](auto&& v1, auto&& v2) {
-            return v1 != v2;
-         })) {
+      if(incoming_dim < space_dim or space_dim + 1 < incoming_dim) {
          return false;
       }
 
       auto enum_bounds_view = ranges::views::enumerate(ranges::views::zip(m_low, m_high));
-      if(incoming_shape.dimension() == shape().dimension()) {
+      if(incoming_dim == space_dim + 1) {
+         // zip to cut off the last entry in incoming_shape
+         if(not ranges::all_of(ranges::views::zip(shape(), incoming_shape), [](auto pair) {
+               return std::apply(std::equal_to< int >{}, pair);
+            })) {
+            return false;
+         }
          return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {
             const auto& [i, low_high] = idx_low_high;
             const auto& [low, high] = low_high;
-            auto coordinates = xt::unravel_index(i, shape());
+            auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
+            const auto& vals = xt::strided_view(
+               value, std::invoke([&] {
+                  xt::xstrided_slice_vector slice(coordinates.begin(), coordinates.end());
+                  slice.emplace_back(xt::all());
+                  return slice;
+               })
+            );
+            return xt::all(xt::greater_equal(vals, low) and xt::less_equal(vals, high));
+         });
+      } else {
+         // we now know that shape().size() == incoming_shape.size()
+         if(not ranges::equal(shape(), incoming_shape)) {
+            return false;
+         }
+         return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {
+            const auto& [i, low_high] = idx_low_high;
+            const auto& [low, high] = low_high;
+            auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
             const auto& val = value.element(coordinates.begin(), coordinates.end());
             return low <= val and high >= val;
          });
       }
-      if(incoming_shape.dimension() == shape().dimension() + 1) {
-         return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {
-            const auto& [i, low_high] = idx_low_high;
-            const auto& [low, high] = low_high;
-            auto coordinates = xt::unravel_index(i, shape());
-            const auto& vals = xt::view(
-               value,
-               ranges::to< xt::xstrided_slice_vector >(
-                  ranges::views::concat(coordinates, std::ranges::single_view(xt::all()))
-               )
-            );
-            return xt::all(xt::greater_equal(vals, low) and xt::less_equal(vals, high));
-         });
-      }
-      return false;
    }
 };
 
@@ -170,7 +176,7 @@ class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
 
 template < typename U, typename V, typename Range >
    requires(std::is_integral_v< U > || std::is_floating_point_v< U >)
-           and (std::is_integral_v< V > || std::is_floating_point_v< V >)
+              and (std::is_integral_v< V > || std::is_floating_point_v< V >)
 BoxSpace(const U& low, const V& high, Range&& shape_, std::optional< size_t > seed = std::nullopt)
    -> BoxSpace< std::common_type_t< U, V > >;
 

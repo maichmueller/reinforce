@@ -61,9 +61,15 @@ class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
 
    value_type _sample(size_t nr_samples, const xarray< bool >& mask) const;
 
-   bool _contains(const value_type& value) const
+   bool _contains(const detail::value_t< value_type >& value) const
    {
       return m_start <= value && value < m_start + m_nr_values;
+   }
+   bool _contains(const value_type& value) const
+   {
+      return xt::all(
+         xt::greater_equal(value, m_start) and xt::less_equal(value, m_start + m_nr_values)
+      );
    }
 };
 
