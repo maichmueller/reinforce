@@ -90,9 +90,20 @@ class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
       return _sample(1, mask);
    }
 
-   [[nodiscard]] static bool _contains(const value_type& value)
+   [[nodiscard]] bool _contains(const value_type& value) const
    {
-      return xt::all(xt::less_equal(value, 1) or xt::greater_equal(value, 0));
+      const auto& incoming_shape = value.shape();
+      const auto& incoming_dim = incoming_shape.size();
+      const auto space_dim = shape().size();
+
+      if(incoming_dim < space_dim or space_dim + 1 < incoming_dim) {
+         return false;
+      }
+      return ranges::all_of(
+                ranges::views::zip(shape(), incoming_shape),
+                [](auto pair) { return std::cmp_equal(std::get< 0 >(pair), std::get< 1 >(pair)); }
+             )  // zip cuts off last dim (batch dim) if necessary
+             and xt::all(xt::less_equal(value, 1) or xt::greater_equal(value, 0));
    }
 };
 

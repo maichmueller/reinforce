@@ -82,6 +82,38 @@ TEST(Spaces, MultiBinary_reseeding)
    EXPECT_TRUE(xt::all(xt::equal(samples2, samples4)));
 }
 
+TEST(Spaces, MultiBinary_contains)
+{
+   auto space = MultiBinarySpace{xt::svector{2, 2}};
+   int n = 1000;
+   xarray< int > contain_candidates = xt::vstack(std::tuple{
+                                                    xt::random::randint(xt::svector{1, n}, 0, 2),
+                                                    xt::random::randint(xt::svector{1, n}, 0, 2),
+                                                    xt::random::randint(xt::svector{1, n}, 0, 2)
+                                                 })
+                                         .reshape({1, 3, -1});
+   SPDLOG_DEBUG(fmt::format(
+      "Incorrect containment candidates array: {}\n{}",
+      contain_candidates.shape(),
+      contain_candidates
+   ));
+   /// candidates are missing one dimension to be part of this space
+   EXPECT_FALSE(space.contains(contain_candidates));
+   /// add last dimension to candiates to become part of the space
+   contain_candidates = xt::concatenate(
+                           std::tuple{
+                              std::move(contain_candidates),
+                              xt::random::randint(xt::svector{1, 1, n}, 0, 2)
+                           },
+                           1
+   )
+                           .reshape({2, 2, -1});
+   SPDLOG_DEBUG(fmt::format(
+      "Correct containment candidates array: {}\n{}", contain_candidates.shape(), contain_candidates
+   ));
+   EXPECT_TRUE(space.contains(contain_candidates));
+}
+
 TEST(Spaces, MultiBinary_copy_construction)
 {
    auto space = MultiBinarySpace{xt::svector{2, 3}};

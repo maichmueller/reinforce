@@ -25,6 +25,7 @@ class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
    using base = Space< xarray< T >, DiscreteSpace >;
    using typename base::value_type;
    using base::rng;
+   using base::shape;
 
    explicit DiscreteSpace(T n, T start = 0, std::optional< size_t > seed = std::nullopt)
        : base({}, seed), m_nr_values(n), m_start(start)

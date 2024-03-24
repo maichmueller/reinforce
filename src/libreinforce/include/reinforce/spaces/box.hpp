@@ -125,51 +125,7 @@ class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
       const std::optional< xarray< bool > >& /*unused*/ = std::nullopt
    ) const;
 
-   bool _contains(const value_type& value) const
-   {
-      const auto& incoming_shape = value.shape();
-      const auto& incoming_dim = incoming_shape.size();
-      const auto space_dim = shape().size();
-
-      if(incoming_dim < space_dim or space_dim + 1 < incoming_dim) {
-         return false;
-      }
-
-      auto enum_bounds_view = ranges::views::enumerate(ranges::views::zip(m_low, m_high));
-      if(incoming_dim == space_dim + 1) {
-         // zip to cut off the last entry in incoming_shape
-         if(not ranges::all_of(ranges::views::zip(shape(), incoming_shape), [](auto pair) {
-               return std::apply(std::equal_to< int >{}, pair);
-            })) {
-            return false;
-         }
-         return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {
-            const auto& [i, low_high] = idx_low_high;
-            const auto& [low, high] = low_high;
-            auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
-            const auto& vals = xt::strided_view(
-               value, std::invoke([&] {
-                  xt::xstrided_slice_vector slice(coordinates.begin(), coordinates.end());
-                  slice.emplace_back(xt::all());
-                  return slice;
-               })
-            );
-            return xt::all(xt::greater_equal(vals, low) and xt::less_equal(vals, high));
-         });
-      } else {
-         // we now know that shape().size() == incoming_shape.size()
-         if(not ranges::equal(shape(), incoming_shape)) {
-            return false;
-         }
-         return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {
-            const auto& [i, low_high] = idx_low_high;
-            const auto& [low, high] = low_high;
-            auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
-            const auto& val = value.element(coordinates.begin(), coordinates.end());
-            return low <= val and high >= val;
-         });
-      }
-   }
+   bool _contains(const value_type& value) const { return base::_in_bounds(value, m_low, m_high); }
 };
 
 /// Deduction guides

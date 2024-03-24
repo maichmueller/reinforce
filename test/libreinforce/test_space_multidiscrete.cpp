@@ -97,6 +97,37 @@ TEST(Spaces, MultiDiscrete_reseeding)
    EXPECT_TRUE(xt::all(xt::equal(samples2, samples4)));
 }
 
+TEST(Spaces, MultiDiscrete_contains)
+{
+   auto start = xarray< int >{0, 0, -2};
+   auto end = xarray< int >{10, 5, 3};
+   auto space = MultiDiscreteSpace{start, end};
+   int n = 1000;
+   xarray< int >
+      contain_candidates = xt::vstack(std::tuple{
+                                         xt::random::randint(xt::svector{1, n}, start(0), end(0)),
+                                         xt::random::randint(xt::svector{1, n}, start(1), end(1)),
+                                         xt::random::randint(xt::svector{1, n}, start(2), end(2))
+                                      })
+                              .reshape({n / 2, 3, n / 2});
+   SPDLOG_DEBUG(fmt::format(
+      "Incorrect containment candidates array (wrong shape): {}\n{}",
+      contain_candidates.shape(),
+      contain_candidates
+   ));
+   /// candidates are missing one dimension to be part of this space
+   EXPECT_FALSE(space.contains(contain_candidates));
+   /// not within bounds
+   EXPECT_FALSE(space.contains(contain_candidates + xt::random::randint({1}, -100, 100)));
+   /// reshape to correct shape to become part of this space
+   SPDLOG_DEBUG(fmt::format(
+      "Correct containment candidates array: {}\n{}",
+      contain_candidates.reshape({3, -1}).shape(),
+      contain_candidates.reshape({3, -1})
+   ));
+   EXPECT_TRUE(space.contains(contain_candidates.reshape({3, -1})));
+}
+
 TEST(Spaces, MultiDiscrete_copy_construction)
 {
    auto start = xarray< int >{0, 0, -2};

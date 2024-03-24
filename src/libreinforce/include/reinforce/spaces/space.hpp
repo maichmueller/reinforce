@@ -134,12 +134,70 @@ class Space: public detail::rng_mixin {
    // mutable shape reference of the space
    auto& shape() { return m_shape; }
 
+   template < typename U, std::ranges::range Rng1, std::ranges::range Rng2 >
+   bool _in_bounds(const xarray< U >& value, const Rng1& low_inclusive, const Rng2& high_inclusive)
+      const;
+
   private:
    xt::svector< int > m_shape;
 
    constexpr const auto& self() const { return static_cast< const Derived& >(*this); }
    constexpr auto& self() { return static_cast< Derived& >(*this); }
 };
+
+template < typename T, typename Derived, typename MultiT >
+   requires std::is_same_v< T, MultiT > || detail::has_getitem_operator< MultiT >
+template < typename U, std::ranges::range Rng1, std::ranges::range Rng2 >
+bool Space< T, Derived, MultiT >::_in_bounds(
+   const xarray< U >& value,
+   const Rng1& low_inclusive,
+   const Rng2& high_inclusive
+) const
+{
+   const auto& incoming_shape = value.shape();
+   const auto& incoming_dim = incoming_shape.size();
+   const auto space_dim = shape().size();
+
+   if(incoming_dim < space_dim or space_dim + 1 < incoming_dim) {
+      return false;
+   }
+
+   auto enum_bounds_view = ranges::views::enumerate(
+      ranges::views::zip(low_inclusive, high_inclusive)
+   );
+   if(incoming_dim == space_dim + 1) {
+      // zip to cut off the last entry (batch dim) in incoming_shape
+      if(not ranges::all_of(ranges::views::zip(shape(), incoming_shape), [](auto pair) {
+            return std::cmp_equal(std::get< 0 >(pair), std::get< 1 >(pair));
+         })) {
+         return false;
+      }
+      return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {
+         const auto& [i, low_high] = idx_low_high;
+         const auto& [low, high] = low_high;
+         auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
+         const auto& vals = xt::strided_view(
+            value, std::invoke([&] {
+               xt::xstrided_slice_vector slice(coordinates.begin(), coordinates.end());
+               slice.emplace_back(xt::all());
+               return slice;
+            })
+         );
+         return xt::all(xt::greater_equal(vals, low) and xt::less_equal(vals, high));
+      });
+   }
+   // we now know that shape().size() == incoming_shape.size()
+   if(not ranges::equal(shape(), incoming_shape)) {
+      return false;
+   }
+   return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {
+      const auto& [i, low_high] = idx_low_high;
+      const auto& [low, high] = low_high;
+      auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
+      const auto& val = value.element(coordinates.begin(), coordinates.end());
+      return low <= val and high >= val;
+   });
+}
 
 }  // namespace force
 
