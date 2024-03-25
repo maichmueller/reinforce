@@ -164,8 +164,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
 template < typename SizeOrVectorT, typename Xarray >
    requires(std::convertible_to< SizeOrVectorT, size_t >
             or (detail::is_specialization_v< SizeOrVectorT, std::vector > and std::convertible_to< ranges::value_type_t< SizeOrVectorT >, size_t >)
-           )
-           and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
+           ) and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
 auto TextSpace::_sample(
    size_t nr_samples,
    const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple,

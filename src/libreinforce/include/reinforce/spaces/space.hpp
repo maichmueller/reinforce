@@ -181,11 +181,12 @@ bool Space< T, Derived, MultiT >::_isin_shape_and_bounds(
    BoundaryTag
 ) const
 {
-   if constexpr(detail::is_none_v< BoundaryTag, InclusiveTag, ExclusiveTag >) {
+   using namespace ranges;
+   using namespace detail;
+   if constexpr(is_none_v< BoundaryTag, InclusiveTag, ExclusiveTag >) {
       static_assert(
-         detail::is_any_v< std::tuple_element_t< 0, BoundaryTag >, InclusiveTag, ExclusiveTag >
-            and detail::
-               is_any_v< std::tuple_element_t< 1, BoundaryTag >, InclusiveTag, ExclusiveTag >,
+         is_any_v< std::tuple_element_t< 0, BoundaryTag >, InclusiveTag, ExclusiveTag >
+            and is_any_v< std::tuple_element_t< 1, BoundaryTag >, InclusiveTag, ExclusiveTag >,
          "Boundary Tag has to be either ExlcusiveTag, InclusiveTag, or a 2-arity pair-like of "
          "these."
       );
@@ -198,11 +199,10 @@ bool Space< T, Derived, MultiT >::_isin_shape_and_bounds(
       return false;
    }
 
-   auto enum_bounds_view = ranges::views::enumerate(ranges::views::zip(low_boundary, high_boundary)
-   );
+   auto enum_bounds_view = views::enumerate(views::zip(low_boundary, high_boundary));
    if(incoming_dim == space_dim + 1) {
       // zip to cut off the last entry (batch dim) in incoming_shape
-      if(not ranges::all_of(ranges::views::zip(shape(), incoming_shape), [](auto pair) {
+      if(not ranges::all_of(views::zip(shape(), incoming_shape), [](auto pair) {
             return std::cmp_equal(std::get< 0 >(pair), std::get< 1 >(pair));
          })) {
          return false;
@@ -262,7 +262,6 @@ bool Space< T, Derived, MultiT >::_isin_shape_and_bounds(
       };
       return compare(std::greater{}, std::greater_equal{}, val, low)
              and compare(std::less{}, std::less_equal{}, val, high);
-      return low <= val and val <= high;
    });
 }
 

@@ -168,8 +168,8 @@ class RangeAdaptor {
 // template < typename Iterator, typename Sentinel >
 // requires std::input_iterator< Iterator > and std::sentinel_for< Sentinel, Iterator >
 template < std::ranges::range Rng >
-RangeAdaptor(Rng& rng)
-   -> RangeAdaptor< std::ranges::iterator_t< Rng >, std::ranges::sentinel_t< Rng > >;
+RangeAdaptor(Rng& rng
+) -> RangeAdaptor< std::ranges::iterator_t< Rng >, std::ranges::sentinel_t< Rng > >;
 
 template < typename Iterator, typename Sentinel >
 class SizedRangeAdaptor: public RangeAdaptor< Iterator, Sentinel > {
@@ -222,9 +222,7 @@ inline constexpr bool is_convertible_without_narrowing_v = false;
 
 template < class T, class U >
 concept construct_without_narrowing = requires(U&& x) {
-   {
-      std::type_identity_t< T[] >{std::forward< U >(x)}
-   } -> std::same_as< T[1] >;
+   { std::type_identity_t< T[] >{std::forward< U >(x)} } -> std::same_as< T[1] >;
 };
 
 template < class From, class To >
@@ -332,9 +330,7 @@ struct deref_fn {
 
 template < typename ExpectedType, typename Range >
 concept expected_value_type = requires(Range rng) {
-   {
-      *(rng.begin())
-   } -> std::convertible_to< ExpectedType >;
+   { *(rng.begin()) } -> std::convertible_to< ExpectedType >;
 };
 
 struct CoordinateHasher {
