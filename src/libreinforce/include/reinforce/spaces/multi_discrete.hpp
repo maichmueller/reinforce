@@ -148,7 +148,10 @@ class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
       const std::vector< std::optional< xarray< bool > > >& mask_vec = {}
    ) const;
 
-   bool _contains(const value_type& value) const { return base::_in_bounds(value, m_start, m_end); }
+   bool _contains(const value_type& value) const
+   {
+      return base::_isin_shape_and_bounds(value, m_start, m_end);
+   }
 };
 
 /// Deduction guides

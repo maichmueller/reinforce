@@ -3,6 +3,7 @@
 
 #include <fmt/core.h>
 
+#include <concepts>
 #include <cstddef>
 #include <optional>
 #include <random>
@@ -33,7 +34,7 @@ concept has_getitem_operator = requires(T t, size_t idx) { t[idx]; };
 /// The specifics are made to work as closely as possible to the corresponding internals of the
 /// openai/gymnasium python class.
 template < typename T, typename Derived, typename MultiT = T >
-   requires std::is_same_v< T, MultiT > or detail::has_getitem_operator< MultiT >
+   requires(std::is_same_v< T, MultiT > or detail::has_getitem_operator< MultiT >)
 class Space: public detail::rng_mixin {
   public:
    // the type of values returned by sampling or containment queries
@@ -134,9 +135,33 @@ class Space: public detail::rng_mixin {
    // mutable shape reference of the space
    auto& shape() { return m_shape; }
 
-   template < typename U, std::ranges::range Rng1, std::ranges::range Rng2 >
-   bool _in_bounds(const xarray< U >& value, const Rng1& low_inclusive, const Rng2& high_inclusive)
-      const;
+   /// tags for boundary inclusion or exclusion
+   struct InclusiveTag {};
+   struct ExclusiveTag {};
+   /// @brief check whether an array of values aligns in terms of shape and is within the given
+   /// (incl/excl) boundaries.
+   ///
+   /// @tparam DType the data type of the incoming values. Determines whether the check will be made
+   /// on floats or ints.
+   /// @tparam Rng1 range type over lower boundary values
+   /// @tparam Rng2 range type over high boundary values
+   /// @param values the actual value array to check containment for
+   /// @param low_boundary range over lower boundaries. Has to align with the shape of the space.
+   /// @param high_boundary range over lower boundaries. Has to align with the shape of the space.
+   /// @return bool, whether all values are within the boundaries and the shape of the array aligns
+   /// with the shape of the space.
+   template <
+      typename DType,
+      std::ranges::range Rng1 = std::initializer_list< DType >,
+      std::ranges::range Rng2 = std::initializer_list< DType >,
+      typename BoundaryTag = InclusiveTag >
+      requires(std::floating_point< DType > or std::integral< DType >)
+   bool _isin_shape_and_bounds(
+      const xarray< DType >& values,
+      const Rng1& low_boundary,
+      const Rng2& high_boundary,
+      BoundaryTag /*boundary_tag*/ = {}
+   ) const;
 
   private:
    xt::svector< int > m_shape;
@@ -146,15 +171,26 @@ class Space: public detail::rng_mixin {
 };
 
 template < typename T, typename Derived, typename MultiT >
-   requires std::is_same_v< T, MultiT > || detail::has_getitem_operator< MultiT >
-template < typename U, std::ranges::range Rng1, std::ranges::range Rng2 >
-bool Space< T, Derived, MultiT >::_in_bounds(
-   const xarray< U >& value,
-   const Rng1& low_inclusive,
-   const Rng2& high_inclusive
+   requires(std::is_same_v< T, MultiT > or detail::has_getitem_operator< MultiT >)
+template < typename DType, std::ranges::range Rng1, std::ranges::range Rng2, typename BoundaryTag >
+   requires(std::floating_point< DType > or std::integral< DType >)
+bool Space< T, Derived, MultiT >::_isin_shape_and_bounds(
+   const xarray< DType >& values,
+   const Rng1& low_boundary,
+   const Rng2& high_boundary,
+   BoundaryTag
 ) const
 {
-   const auto& incoming_shape = value.shape();
+   if constexpr(detail::is_none_v< BoundaryTag, InclusiveTag, ExclusiveTag >) {
+      static_assert(
+         detail::is_any_v< std::tuple_element_t< 0, BoundaryTag >, InclusiveTag, ExclusiveTag >
+            and detail::
+               is_any_v< std::tuple_element_t< 1, BoundaryTag >, InclusiveTag, ExclusiveTag >,
+         "Boundary Tag has to be either ExlcusiveTag, InclusiveTag, or a 2-arity pair-like of "
+         "these."
+      );
+   }
+   const auto& incoming_shape = values.shape();
    const auto& incoming_dim = incoming_shape.size();
    const auto space_dim = shape().size();
 
@@ -162,8 +198,7 @@ bool Space< T, Derived, MultiT >::_in_bounds(
       return false;
    }
 
-   auto enum_bounds_view = ranges::views::enumerate(
-      ranges::views::zip(low_inclusive, high_inclusive)
+   auto enum_bounds_view = ranges::views::enumerate(ranges::views::zip(low_boundary, high_boundary)
    );
    if(incoming_dim == space_dim + 1) {
       // zip to cut off the last entry (batch dim) in incoming_shape
@@ -177,13 +212,30 @@ bool Space< T, Derived, MultiT >::_in_bounds(
          const auto& [low, high] = low_high;
          auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
          const auto& vals = xt::strided_view(
-            value, std::invoke([&] {
+            values, std::invoke([&] {
                xt::xstrided_slice_vector slice(coordinates.begin(), coordinates.end());
                slice.emplace_back(xt::all());
                return slice;
             })
          );
-         return xt::all(xt::greater_equal(vals, low) and xt::less_equal(vals, high));
+         constexpr auto compare =
+            []< typename Comp, typename CompEq >(Comp cmp, CompEq cmp_eq, auto&&... args) {
+               if constexpr(std::same_as< BoundaryTag, InclusiveTag >) {
+                  return cmp_eq(FWD(args)...);
+               } else if constexpr(std::same_as< BoundaryTag, ExclusiveTag >) {
+                  return cmp(FWD(args)...);
+               } else if constexpr(std::same_as<
+                                      std::tuple_element_t< 0, BoundaryTag >,
+                                      InclusiveTag >) {
+                  return cmp_eq(FWD(args)...);
+               } else {
+                  return cmp(FWD(args)...);
+               }
+            };
+         return xt::all(
+            compare(AS_LAMBDA(xt::greater), AS_LAMBDA(xt::greater_equal), vals, low)
+            and compare(AS_LAMBDA(xt::less), AS_LAMBDA(xt::less_equal), vals, high)
+         );
       });
    }
    // we now know that shape().size() == incoming_shape.size()
@@ -194,8 +246,23 @@ bool Space< T, Derived, MultiT >::_in_bounds(
       const auto& [i, low_high] = idx_low_high;
       const auto& [low, high] = low_high;
       auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
-      const auto& val = value.element(coordinates.begin(), coordinates.end());
-      return low <= val and high >= val;
+      const auto& val = values.element(coordinates.begin(), coordinates.end());
+      constexpr auto compare = []< typename Comp, typename CompEq >(
+                                  Comp cmp, CompEq cmp_eq, auto&&... args
+                               ) {
+         if constexpr(std::same_as< BoundaryTag, InclusiveTag >) {
+            return cmp_eq(FWD(args)...);
+         } else if constexpr(std::same_as< BoundaryTag, ExclusiveTag >) {
+            return cmp(FWD(args)...);
+         } else if constexpr(std::same_as< std::tuple_element_t< 0, BoundaryTag >, InclusiveTag >) {
+            return cmp_eq(FWD(args)...);
+         } else {
+            return cmp(FWD(args)...);
+         }
+      };
+      return compare(std::greater{}, std::greater_equal{}, val, low)
+             and compare(std::less{}, std::less_equal{}, val, high);
+      return low <= val and val <= high;
    });
 }
 

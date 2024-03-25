@@ -109,7 +109,7 @@ TEST(Spaces, MultiDiscrete_contains)
                                          xt::random::randint(xt::svector{1, n}, start(1), end(1)),
                                          xt::random::randint(xt::svector{1, n}, start(2), end(2))
                                       })
-                              .reshape({n / 2, 3, n / 2});
+                              .reshape({1, 3, n});
    SPDLOG_DEBUG(fmt::format(
       "Incorrect containment candidates array (wrong shape): {}\n{}",
       contain_candidates.shape(),
@@ -117,15 +117,19 @@ TEST(Spaces, MultiDiscrete_contains)
    ));
    /// candidates are missing one dimension to be part of this space
    EXPECT_FALSE(space.contains(contain_candidates));
-   /// not within bounds
-   EXPECT_FALSE(space.contains(contain_candidates + xt::random::randint({1}, -100, 100)));
    /// reshape to correct shape to become part of this space
+   auto reshaped_contain_candidates = contain_candidates.reshape({3, -1});
    SPDLOG_DEBUG(fmt::format(
       "Correct containment candidates array: {}\n{}",
-      contain_candidates.reshape({3, -1}).shape(),
-      contain_candidates.reshape({3, -1})
+      reshaped_contain_candidates.shape(),
+      reshaped_contain_candidates
    ));
-   EXPECT_TRUE(space.contains(contain_candidates.reshape({3, -1})));
+   EXPECT_TRUE(space.contains(reshaped_contain_candidates));
+   /// not within bounds
+   EXPECT_FALSE(space.contains(
+      reshaped_contain_candidates
+      + xt::random::randint(reshaped_contain_candidates.shape(), -100, 100)
+   ));
 }
 
 TEST(Spaces, MultiDiscrete_copy_construction)
@@ -138,7 +142,7 @@ TEST(Spaces, MultiDiscrete_copy_construction)
    // RNG state should still be aligned
    EXPECT_EQ(space_copy.sample(), space.sample());
    // now the copy has an advanced rng
-   space_copy.sample();
+   std::ignore = space_copy.sample();
    // the samples now should no longer be the same
    EXPECT_NE(space_copy.sample(), space.sample());
 }

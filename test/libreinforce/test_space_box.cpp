@@ -117,18 +117,33 @@ TEST(Spaces, Box_contains)
    const xarray< double > high{0, infinity<>, 51, std::numbers::e};
    BoxSpace space{low, high, low.shape(), SEED};
    int n = 1000;
-   xarray< double > contain_candidates = xt::vstack(std::tuple{
-      -xt::random::exponential(xt::svector{1, n}, 10.),
-      xt::random::exponential(xt::svector{1, n}, 100.),
-      xt::random::rand(xt::svector{1, n}, 50., 51.)
-   });
-   SPDLOG_DEBUG(fmt::format("Containment candidates array:\n{}", contain_candidates));
+   xarray< double > contain_candidates = xt::vstack(
+                                            std::tuple{
+                                               -xt::random::exponential(xt::svector{1, n}, 10.),
+                                               xt::random::exponential(xt::svector{1, n}, 100.),
+                                               xt::random::rand(xt::svector{1, n}, 50., 51.)
+                                            }
+   )
+                                            .reshape({1, 3, n});
+   SPDLOG_DEBUG(fmt::format(
+      "Incorrect containment candidates array: {}\n{}",
+      contain_candidates.shape(),
+      contain_candidates
+   ));
    /// candidates are missing one dimension to be part of this space
    EXPECT_FALSE(space.contains(contain_candidates));
-   /// add last dimension to candiates to become part of the spacel
-   contain_candidates = xt::vstack(
-      std::tuple{contain_candidates, xt::random::rand(xt::svector{1, n}, 1.1, std::numbers::e)}
-   );
+   /// add last dimension to candiates to become part of the space
+   contain_candidates = xt::stack(
+                           std::tuple{
+                              std::move(contain_candidates),
+                              xt::random::rand(xt::svector{1, 1, n}, 1.1, std::numbers::e)
+                           },
+                           1
+   )
+                           .reshape({4, -1});
+   SPDLOG_DEBUG(fmt::format(
+      "Correct containment candidates array: {}\n{}", contain_candidates.shape(), contain_candidates
+   ));
    EXPECT_TRUE(space.contains(contain_candidates));
 }
 

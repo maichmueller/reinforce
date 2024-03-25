@@ -125,7 +125,10 @@ class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
       const std::optional< xarray< bool > >& /*unused*/ = std::nullopt
    ) const;
 
-   bool _contains(const value_type& value) const { return base::_in_bounds(value, m_low, m_high); }
+   bool _contains(const value_type& value) const
+   {
+      return base::_isin_shape_and_bounds(value, m_low, m_high);
+   }
 };
 
 /// Deduction guides
