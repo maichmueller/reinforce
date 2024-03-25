@@ -145,6 +145,8 @@ class Space: public detail::rng_mixin {
    /// on floats or ints.
    /// @tparam Rng1 range type over lower boundary values
    /// @tparam Rng2 range type over high boundary values
+   /// @tparam BoundaryTag Tag for whether to include or exclude the boundaries. Alternatively as
+   /// pair-like type can have differing options for either end.
    /// @param values the actual value array to check containment for
    /// @param low_boundary range over lower boundaries. Has to align with the shape of the space.
    /// @param high_boundary range over lower boundaries. Has to align with the shape of the space.
@@ -247,8 +249,8 @@ bool Space< T, Derived, MultiT >::_isin_shape_and_bounds(
       const auto& [low, high] = low_high;
       auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
       const auto& val = values.element(coordinates.begin(), coordinates.end());
-      constexpr auto compare = []< typename Comp, typename CompEq >(
-                                  Comp cmp, CompEq cmp_eq, auto&&... args
+      constexpr auto compare = []< typename Cmp, typename CmpEq >(
+                                  Cmp cmp, CmpEq cmp_eq, auto&&... args
                                ) {
          if constexpr(std::same_as< BoundaryTag, InclusiveTag >) {
             return cmp_eq(FWD(args)...);

@@ -1,8 +1,8 @@
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <optional>
 #include <range/v3/numeric/accumulate.hpp>
-#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -149,7 +149,6 @@ TEST(Spaces, Text_contains)
             continue;
          }
          EXPECT_TRUE(space.contains(str));
-
       } while(std::ranges::prev_permutation(bitmask).found);
    };
    for(auto i : ranges::views::indices(0u, 6u)) {
