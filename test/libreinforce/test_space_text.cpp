@@ -1,6 +1,7 @@
 #include <spdlog/spdlog.h>
 
 #include <optional>
+#include <range/v3/numeric/accumulate.hpp>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -10,6 +11,7 @@
 #include "gtest/gtest.h"
 #include "pybind11/embed.h"
 #include "reinforce/spaces/text.hpp"
+#include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/math.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
@@ -114,8 +116,6 @@ TEST(Spaces, Text_sample_masked_lengths)
 TEST(Spaces, Text_reseeding)
 {
    constexpr size_t SEED = 6492374569235;
-   const xarray< double > low{-infinity<>, 0, -10};
-   const xarray< double > high{0, infinity<>, 10};
    auto space = TextSpace{{.max_length = 5, .characters = "AEIOU"}, SEED};
    size_t n = 1000;
    auto samples1 = space.sample(n);
@@ -130,6 +130,44 @@ TEST(Spaces, Text_reseeding)
    SPDLOG_DEBUG(fmt::format("Sample4:\n{}", samples4));
    EXPECT_TRUE(ranges::equal(samples1, samples3));
    EXPECT_TRUE(ranges::equal(samples2, samples4));
+}
+
+TEST(Spaces, Text_contains)
+{
+   auto space = TextSpace{{.max_length = 5, .min_length = 1, .characters = "AEIOU"}};
+
+   auto assert_combinations_of = [&, chars = space.characters()](size_t K) {
+      std::string bitmask(K, 1);  // K leading 1's
+      bitmask.resize(chars.size(), 0);  // N-K trailing 0's
+      do {
+         auto str = ranges::views::indices(0ul, chars.size())  //
+                    | ranges::views::filter(AS_CPTR_LAMBDA(bitmask.operator[]))  //
+                    | ranges::views::transform(AS_CPTR_LAMBDA(chars.operator[]))  //
+                    | ranges::to< std::string >;
+         SPDLOG_DEBUG(fmt::format("Test string: '{}'", str));
+         if(space.min_length() > 0 and str.size() == 0) {
+            continue;
+         }
+         EXPECT_TRUE(space.contains(str));
+
+      } while(std::ranges::prev_permutation(bitmask).found);
+   };
+   for(auto i : ranges::views::indices(0u, 6u)) {
+      assert_combinations_of(i);
+   }
+   /// wrong characters
+   EXPECT_FALSE(space.contains("aeiou"));
+   EXPECT_FALSE(space.contains("AEIOY"));
+   EXPECT_FALSE(space.contains("LMNOY"));
+   EXPECT_FALSE(space.contains("pk"));
+   EXPECT_FALSE(space.contains("frx"));
+   EXPECT_FALSE(space.contains("z"));
+   /// wrong size of string
+   EXPECT_FALSE(space.contains(""));
+   EXPECT_FALSE(space.contains("AEIOUU"));
+   EXPECT_FALSE(space.contains("AAEIOUU"));
+   EXPECT_FALSE(space.contains("AAEIOUU"));
+   EXPECT_FALSE(space.contains("AAAAAAAAAIOUU"));
 }
 
 TEST(Spaces, Text_copy_construction)
