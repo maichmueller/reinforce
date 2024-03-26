@@ -37,6 +37,7 @@ class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
   public:
    friend class Space;
    using base = Space;
+   using data_type = int8_t;
    using typename base::value_type;
    using typename base::multi_value_type;
    using base::shape;

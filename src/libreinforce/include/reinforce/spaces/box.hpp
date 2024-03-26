@@ -37,6 +37,7 @@ class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
   public:
    friend class Space< xarray< T >, BoxSpace >;
    using base = Space< xarray< T >, BoxSpace >;
+   using data_type = T;
    using typename base::value_type;
    using base::shape;
    using base::rng;

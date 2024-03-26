@@ -67,6 +67,7 @@ class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
   public:
    friend class Space< xarray< T >, MultiDiscreteSpace >;
    using base = Space< xarray< T >, MultiDiscreteSpace >;
+   using data_type = T;
    using typename base::value_type;
    using base::shape;
    using base::rng;

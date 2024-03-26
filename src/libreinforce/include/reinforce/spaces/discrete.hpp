@@ -23,6 +23,7 @@ class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
   public:
    friend class Space< xarray< T >, DiscreteSpace >;
    using base = Space< xarray< T >, DiscreteSpace >;
+   using data_type = T;
    using typename base::value_type;
    using base::rng;
    using base::shape;

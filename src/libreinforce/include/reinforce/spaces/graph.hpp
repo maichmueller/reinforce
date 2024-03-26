@@ -25,14 +25,14 @@ struct GraphInstance {
 template < typename NodeSpace, typename EdgeSpace >
 class GraphSpace:
     public Space<
-       GraphInstance< detail::value_t< NodeSpace >, detail::value_t< EdgeSpace > >,
+       GraphInstance< detail::dtype_t< NodeSpace >, detail::dtype_t< EdgeSpace > >,
        GraphSpace< NodeSpace, EdgeSpace > > {
   public:
    friend class Space<
-      GraphInstance< detail::value_t< NodeSpace >, detail::value_t< EdgeSpace > >,
+      GraphInstance< detail::dtype_t< NodeSpace >, detail::dtype_t< EdgeSpace > >,
       GraphSpace< NodeSpace, EdgeSpace > >;
    using base = Space<
-      GraphInstance< detail::value_t< NodeSpace >, detail::value_t< EdgeSpace > >,
+      GraphInstance< detail::dtype_t< NodeSpace >, detail::dtype_t< EdgeSpace > >,
       GraphSpace< NodeSpace, EdgeSpace > >;
    using typename base::value_type;
    using typename base::multi_value_type;

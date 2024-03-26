@@ -30,6 +30,7 @@ class TupleSpace:
       std::tuple< typename Spaces::value_type... >,
       TupleSpace,
       std::tuple< typename Spaces::multi_value_type... > >;
+   using data_type = std::tuple< typename Spaces::data_type... >;
    using typename base::value_type;
    using typename base::multi_value_type;
    using base::seed;

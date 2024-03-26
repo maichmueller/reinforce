@@ -54,6 +54,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
   public:
    friend class Space;
    using base = Space;
+   using data_type = std::string::value_type;
    using typename base::value_type;
    using typename base::multi_value_type;
    using base::shape;

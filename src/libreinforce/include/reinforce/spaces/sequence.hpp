@@ -67,6 +67,7 @@ class SequenceSpace:
       SequenceSpace,
       std::vector< typename FeatureSpace::multi_value_type > >;
    using feature_space_type = FeatureSpace;
+   using data_type = typename feature_space_type::data_type;
    using typename base::value_type;
    using typename base::multi_value_type;
    using base::seed;
