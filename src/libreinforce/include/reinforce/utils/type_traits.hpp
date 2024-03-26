@@ -91,7 +91,7 @@ template < typename T >
 using value_t = typename T::value_type;
 
 template < typename T >
-using data_t_t = typename T::data_type;
+using data_t = typename T::data_type;
 
 template < typename T, typename U >
 consteval bool same_as(const T&, const U&)

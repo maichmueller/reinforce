@@ -2,6 +2,7 @@
 #ifndef REINFORCE_GRAPH_HPP
 #define REINFORCE_GRAPH_HPP
 
+#include <cstddef>
 #include <optional>
 
 #include "reinforce/utils/xtensor_typedefs.hpp"
@@ -23,16 +24,19 @@ struct GraphInstance {
 };
 
 template < typename NodeSpace, typename EdgeSpace >
+   requires(detail::is_specialization_v< NodeSpace, BoxSpace >
+            or detail::is_specialization_v< NodeSpace, DiscreteSpace >)
+           and (detail::is_specialization_v< EdgeSpace, BoxSpace > or detail::is_specialization_v< EdgeSpace, DiscreteSpace >)
 class GraphSpace:
     public Space<
-       GraphInstance< detail::dtype_t< NodeSpace >, detail::dtype_t< EdgeSpace > >,
+       GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > >,
        GraphSpace< NodeSpace, EdgeSpace > > {
   public:
    friend class Space<
-      GraphInstance< detail::dtype_t< NodeSpace >, detail::dtype_t< EdgeSpace > >,
+      GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > >,
       GraphSpace< NodeSpace, EdgeSpace > >;
    using base = Space<
-      GraphInstance< detail::dtype_t< NodeSpace >, detail::dtype_t< EdgeSpace > >,
+      GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > >,
       GraphSpace< NodeSpace, EdgeSpace > >;
    using typename base::value_type;
    using typename base::multi_value_type;

@@ -6,6 +6,7 @@
 #include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 
+#include <concepts>
 #include <iterator>
 #include <optional>
 #include <random>
