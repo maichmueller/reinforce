@@ -99,6 +99,7 @@ TEST(Spaces, Sequence_Discrete_sample_masked)
    auto expected = xt::xarray< int >{0, 2, 4};
    for(const auto& sample : samples) {
       // assert that all samples lie in the masked range of possible values
+      SPDLOG_DEBUG(fmt::format("Sample: {}", sample));
       EXPECT_TRUE((xt::all(xt::isin(sample, expected))));
       // assert that not all samples values are the same (compare with settings above!)
       for(auto value : expected) {
