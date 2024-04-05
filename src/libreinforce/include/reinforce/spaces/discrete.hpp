@@ -55,11 +55,13 @@ class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
    T m_nr_values;
    T m_start;
 
-   value_type _sample() const { return _sample(size_t{1}); }
+   value_type _sample(std::nullopt_t = std::nullopt) const { return _sample(size_t{1}); }
 
    value_type _sample(const xarray< bool >& mask) const { return _sample(size_t{1}, mask); }
 
    value_type _sample(size_t nr_samples) const;
+
+   value_type _sample(size_t nr_samples, std::nullopt_t) const;
 
    value_type _sample(size_t nr_samples, const xarray< bool >& mask) const;
 
@@ -79,6 +81,12 @@ template < std::integral T >
 auto DiscreteSpace< T >::_sample(size_t nr_samples) const -> value_type
 {
    return xt::random::randint({nr_samples}, m_start, m_start + m_nr_values, rng());
+}
+
+template < std::integral T >
+auto DiscreteSpace< T >::_sample(size_t nr_samples, std::nullopt_t) const -> value_type
+{
+   return _sample(nr_samples);
 }
 
 template < std::integral T >

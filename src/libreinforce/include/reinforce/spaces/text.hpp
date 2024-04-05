@@ -140,7 +140,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    multi_value_type _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple)
       const;
 
-   multi_value_type _sample(size_t nr_samples) const
+   multi_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const
    {
       return _sample(internal_tag, nr_samples, {});
    }

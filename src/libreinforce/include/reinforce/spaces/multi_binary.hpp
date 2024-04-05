@@ -84,12 +84,17 @@ class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
    std::string repr() { return fmt::format("MultiBinary({})", shape()); }
 
   private:
-   multi_value_type _sample(size_t nr_samples, const std::optional< value_type >& mask = {}) const;
+   [[nodiscard]] xt::svector< int > samples_shape(size_t nr_samples) const;
 
-   value_type _sample(const std::optional< value_type >& mask = {}) const
+   [[nodiscard]] multi_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const;
+
+   [[nodiscard]] multi_value_type _sample(size_t nr_samples, const value_type& mask) const;
+
+   [[nodiscard]] multi_value_type _sample(std::nullopt_t = std::nullopt) const
    {
-      return _sample(1, mask);
+      return _sample(1);
    }
+   [[nodiscard]] multi_value_type _sample(const value_type& mask) const { return _sample(1, mask); }
 
    [[nodiscard]] bool _contains(const value_type& value) const
    {

@@ -140,7 +140,7 @@ class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
    value_type m_start;
    value_type m_end;
 
-   value_type _sample(const std::vector< std::optional< xarray< bool > > >& mask_vec = {}) const
+   [[nodiscard]] value_type _sample(std::nullopt_t = std::nullopt) const { return _sample(1); }
    {
       return _sample(1, mask_vec);
    }
@@ -149,6 +149,10 @@ class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
       size_t nr_samples,
       const std::vector< std::optional< xarray< bool > > >& mask_vec = {}
    ) const;
+   [[nodiscard]] value_type _sample(size_t nr_samples, std::nullopt_t) const
+   {
+      return _sample(nr_samples);
+   }
 
    bool _contains(const value_type& value) const
    {

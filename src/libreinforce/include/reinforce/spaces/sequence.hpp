@@ -133,7 +133,7 @@ class SequenceSpace:
    [[nodiscard]] multi_value_type
    _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple = {}) const;
 
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples) const
+   [[nodiscard]] multi_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const
    {
       return _sample(nr_samples, std::tuple{std::nullopt, std::nullopt});
    }
@@ -176,11 +176,7 @@ auto SequenceSpace< FeatureSpace >::_sample(
              | std::views::transform(
                 [&](auto nr_samples_concrete) -> typename feature_space_type::multi_value_type {
                    if(nr_samples_concrete > 0) {
-                      if constexpr(std::same_as< MaskT2, std::nullopt_t >) {
-                         return m_feature_space.sample(nr_samples_concrete);
-                      } else {
-                         return m_feature_space.sample(nr_samples_concrete, feature_mask);
-                      }
+                      return m_feature_space.sample(nr_samples_concrete, feature_mask);
                    }
                    if constexpr(detail::is_xarray<
                                    typename feature_space_type::multi_value_type >) {
