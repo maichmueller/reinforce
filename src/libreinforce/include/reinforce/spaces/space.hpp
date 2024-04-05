@@ -50,77 +50,126 @@ class Space: public detail::rng_mixin {
    {
    }
 
+   template < typename MaskType = std::nullopt_t, typename... OtherArgs >
+   value_type sample(internal_tag_t, MaskType mask_arg = std::nullopt, OtherArgs&... args) const
+   {
+      if constexpr(requires(Derived derived) { derived._sample(mask_arg, FWD(args)...); }) {
+         // derived has the necessary sample function, so call it
+         return derived()._sample(mask_arg, FWD(args)...);
+      } else if constexpr(mvt_is_container and requires(Derived derived) {
+                             derived._sample(1, mask_arg, FWD(args)...);
+                          }) {
+         // derived does not have a single sized sample function, but a multi-value-type sample
+         // function that returns an indexable container. We trust that element 0 is simply an
+         // element of value_type that corresponds with the first (and only) sample drawn.
+         return sample(1, mask_arg, FWD(args)...)[0];
+      } else {
+         // neither options apply so we now decide between throwing a runtime exception or letting
+         // the call overload resolution fail at compile time.
+         if constexpr(runtime_sample_throw) {
+            if constexpr(sizeof...(OtherArgs) > 0) {
+               throw detail::not_implemented_error(
+                  fmt::format("_sample({}, ...)", detail::type_name< MaskType >())
+               );
+            } else {
+               throw detail::not_implemented_error(
+                  fmt::format("_sample({})", detail::type_name< MaskType >())
+               );
+            }
+         } else {
+            return derived()._sample(mask_arg, FWD(args)...);
+         }
+      }
+   }
+
    // Randomly sample an element of this space
-   value_type sample() const
+   value_type sample() const { return sample(internal_tag); }
+
+   template < typename... OtherArgs >
+   value_type sample(std::nullopt_t, OtherArgs&&... extra_args) const
    {
-      if constexpr(requires(Derived self) { self._sample(); }) {
-         return self()._sample();
-      } else if constexpr(mvt_is_container) {
-         return sample(1)[0];
-      } else {
-         throw detail::not_implemented_error(fmt::format("_sample()"));
-      }
+      return sample(internal_tag, std::nullopt, FWD(extra_args)...);
    }
 
-   template < typename U >
-   value_type sample(const xarray< U >& mask) const
+   template < typename U, typename... OtherArgs >
+   value_type sample(const xarray< U >& mask, OtherArgs&&... extra_args) const
    {
-      if constexpr(requires(Derived self) { self._sample(mask); }) {
-         return self()._sample(mask);
-      } else if constexpr(mvt_is_container) {
-         return sample(1, mask)[0];
-      } else {
-         throw detail::not_implemented_error(
-            fmt::format("_sample({})", detail::type_name< decltype(mask) >())
-         );
-      }
+      return sample(internal_tag, mask, FWD(extra_args)...);
    }
 
-   template < typename U >
-   value_type sample(const std::vector< std::optional< xarray< U > > >& mask_vec) const
+   template < typename U, typename... OtherArgs >
+   value_type sample(
+      const std::vector< std::optional< xarray< U > > >& mask_vec,
+      OtherArgs&&... extra_args
+   ) const
    {
-      if constexpr(requires(Derived self) { self._sample(mask_vec); }) {
-         return self()._sample(mask_vec);
-      } else if constexpr(mvt_is_container) {
-         return sample(1, mask_vec)[0];
-      } else {
-         throw detail::not_implemented_error(
-            fmt::format("_sample({})", detail::type_name< decltype(mask_vec) >())
-         );
-      }
+      return sample(internal_tag, mask_vec, FWD(extra_args)...);
    }
 
-   template < typename... Args >
-   value_type sample(const std::tuple< Args... >& mask_tuple) const
+   template < typename... Args, typename... OtherArgs >
+   value_type sample(const std::tuple< Args... >& mask_tuple, OtherArgs&&... extra_args) const
    {
-      if constexpr(requires(Derived self) { self._sample(mask_tuple); }) {
-         return self()._sample(mask_tuple);
-      } else if constexpr(mvt_is_container) {
-         return sample(1, mask_tuple)[0];
-      } else {
-         throw detail::not_implemented_error(
-            fmt::format("_sample({})", detail::type_name< decltype(mask_tuple) >())
-         );
-      }
+      return sample(internal_tag, mask_tuple, FWD(extra_args)...);
    }
 
    multi_value_type sample(size_t nr) const
-      requires requires(Derived self) { self._sample(nr); }
+      requires requires(Derived derived) { derived._sample(nr); }
    {
-      return self()._sample(nr);
+      return derived()._sample(nr);
    }
 
-   template < typename U >
-   MASKED_SAMPLE_FUNC(size_t, nr, const xarray< U >&, mask);
+   template < typename T1, typename MaskType, typename... OtherArgs >
+   multi_value_type sample(internal_tag_t, T1 arg1, MaskType&& mask_arg, OtherArgs&&... args) const
+   {
+      if constexpr(not requires(Derived derived) {
+                      derived._sample(arg1, FWD(mask_arg), FWD(args)...);
+                   }) {
+         if constexpr(runtime_sample_throw) {
+            if constexpr(sizeof...(OtherArgs) > 0) {
+               throw detail::not_implemented_error(fmt::format(
+                  "_sample({}, {}, ...)", detail::type_name< T1 >(), detail::type_name< MaskType >()
+               ));
+            } else {
+               throw detail::not_implemented_error(fmt::format(
+                  "_sample({}, {})", detail::type_name< T1 >(), detail::type_name< MaskType >()
+               ));
+            }
+         } else {
+            derived()._sample(arg1, FWD(mask_arg), FWD(args)...);
+         }
+      } else {
+         return derived()._sample(arg1, FWD(mask_arg), FWD(args)...);
+      }
+   }
 
-   template < typename... Args >
-   MASKED_SAMPLE_FUNC(size_t, nr, const std::tuple< Args... >&, mask_tuple);
+   template < typename U, typename... ExtraArgs >
+   multi_value_type sample(size_t nr, const xarray< U >& mask, ExtraArgs&&... extra_args) const
+   {
+      return sample(internal_tag, nr, mask, FWD(extra_args)...);
+   }
+   template < typename... TupleArgs, typename... ExtraArgs >
+   multi_value_type
+   sample(size_t nr, const std::tuple< TupleArgs... >& mask_tuple, ExtraArgs&&... extra_args) const
+   {
+      return sample(internal_tag, nr, mask_tuple, FWD(extra_args)...);
+   }
+   template < typename U, typename... ExtraArgs >
+   multi_value_type sample(
+      size_t nr,
+      const std::vector< std::optional< xarray< U > > >& mask_vec,
+      ExtraArgs&&... extra_args
+   ) const
+   {
+      return sample(internal_tag, nr, mask_vec, FWD(extra_args)...);
+   }
 
-   template < typename U >
-   MASKED_SAMPLE_FUNC(size_t, nr, const std::vector< std::optional< xarray< U > > >&, mask_vec);
-
+   template < typename... ExtraArgs >
+   multi_value_type sample(size_t nr, std::nullopt_t, ExtraArgs&&... extra_args) const
+   {
+      return sample(internal_tag, nr, std::nullopt, FWD(extra_args)...);
+   }
    // Check if the value is a valid member of this space
-   bool contains(const value_type& value) const { return self()._contains(value); }
+   bool contains(const value_type& value) const { return derived()._contains(value); }
 
    // Checks whether this space can be flattened to a Box
    [[nodiscard]] bool is_flattenable() const { return false; }
@@ -167,8 +216,8 @@ class Space: public detail::rng_mixin {
   private:
    xt::svector< int > m_shape;
 
-   constexpr const auto& self() const { return static_cast< const Derived& >(*this); }
-   constexpr auto& self() { return static_cast< Derived& >(*this); }
+   constexpr const auto& derived() const { return static_cast< const Derived& >(*this); }
+   constexpr auto& derived() { return static_cast< Derived& >(*this); }
 };
 
 template < typename T, typename Derived, typename MultiT, bool runtime_sample_throw >
