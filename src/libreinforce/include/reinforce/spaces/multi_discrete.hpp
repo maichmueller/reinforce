@@ -61,6 +61,13 @@ auto build_xarray(Array&& arr)
    return new_xarray;
 }
 
+template < typename Rng >
+concept is_mask_range = std::ranges::sized_range< Rng >
+                        and std::same_as<
+                           std::ranges::range_value_t< Rng >,
+                           std::optional< xarray< bool > > >
+                        and has_getitem_operator< Rng >;
+
 }  // namespace detail
 
 template < std::integral T >
@@ -141,20 +148,24 @@ class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
    value_type m_end;
 
    [[nodiscard]] value_type _sample(std::nullopt_t = std::nullopt) const { return _sample(1); }
+
+   template < typename MaskRange = std::array< std::optional< xarray< bool > >, 0 > >
+      requires detail::is_mask_range< MaskRange >
+   [[nodiscard]] value_type _sample(const MaskRange& mask_range = {}) const
    {
-      return _sample(1, mask_vec);
+      return _sample(1, mask_range);
    }
 
-   value_type _sample(
-      size_t nr_samples,
-      const std::vector< std::optional< xarray< bool > > >& mask_vec = {}
-   ) const;
+   template < typename MaskRange = std::array< std::optional< xarray< bool > >, 0 > >
+      requires detail::is_mask_range< MaskRange >
+   [[nodiscard]] value_type _sample(size_t nr_samples, const MaskRange& mask_range = {}) const;
+
    [[nodiscard]] value_type _sample(size_t nr_samples, std::nullopt_t) const
    {
       return _sample(nr_samples);
    }
 
-   bool _contains(const value_type& value) const
+   [[nodiscard]] bool _contains(const value_type& value) const
    {
       return base::_isin_shape_and_bounds(value, m_start, m_end);
    }
@@ -224,10 +235,10 @@ MultiDiscreteSpace< T >::MultiDiscreteSpace(
 }
 
 template < std::integral T >
-auto MultiDiscreteSpace< T >::_sample(
-   size_t nr_samples,
-   const std::vector< std::optional< xarray< bool > > >& mask_vec
-) const -> value_type
+template < typename MaskRange >
+   requires detail::is_mask_range< MaskRange >
+auto MultiDiscreteSpace< T >::_sample(size_t nr_samples, const MaskRange& mask_range) const
+   -> value_type
 {
    if(nr_samples == 0) {
       throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
@@ -248,9 +259,9 @@ auto MultiDiscreteSpace< T >::_sample(
       index_stride.emplace_back(xt::all());
       SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
       auto draw_shape = xt::svector{nr_samples};
-      if(mask_vec.size() > i and mask_vec[i].has_value()) {
+      if(mask_range.size() > i and mask_range[i].has_value()) {
          xt::strided_view(samples, index_stride) = xt::random::choice(
-            xt::eval(xt::filter(xt::arange(start, end), *mask_vec[i])), nr_samples, true, rng()
+            xt::eval(xt::filter(xt::arange(start, end), *mask_range[i])), nr_samples, true, rng()
          );
       } else {
          xt::strided_view(samples, index_stride) = xt::random::randint(
