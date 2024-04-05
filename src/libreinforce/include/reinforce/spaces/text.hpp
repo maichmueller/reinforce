@@ -107,7 +107,8 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    xarray< char > m_chars = _default_chars();
    std::unordered_map< char, size_t > m_charmap = _default_charmap();
 
-   struct internal_tag {};
+   struct internal_tag_t {};
+   static constexpr internal_tag_t internal_tag;
 
    template < typename SizeOrVectorT = size_t, typename Xarray = xarray< int > >
       requires(std::convertible_to< SizeOrVectorT, size_t >
@@ -115,9 +116,9 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
               )
               and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
    multi_value_type _sample(
+      internal_tag_t,
       size_t nr_samples,
-      const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple,
-      internal_tag
+      const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple
    ) const;
 
    /// \brief Helper function to enable the passing of std::nullopt for mask elements
@@ -141,7 +142,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
 
    multi_value_type _sample(size_t nr_samples) const
    {
-      return _sample(nr_samples, {}, internal_tag{});
+      return _sample(internal_tag, nr_samples, {});
    }
 
    [[nodiscard]] bool _contains(const value_type& value) const
@@ -167,9 +168,9 @@ template < typename SizeOrVectorT, typename Xarray >
             or (detail::is_specialization_v< SizeOrVectorT, std::vector > and std::convertible_to< ranges::value_type_t< SizeOrVectorT >, size_t >)
            ) and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
 auto TextSpace::_sample(
+   internal_tag_t,
    size_t nr_samples,
-   const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple,
-   internal_tag
+   const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple
 ) const -> multi_value_type
 {
    if(nr_samples == 0) {
@@ -288,7 +289,7 @@ auto TextSpace::_sample(size_t nr_samples, const std::tuple< T1, T2 >& mask_tupl
       }
    };
    const auto& [m1, m2] = mask_tuple;
-   return _sample(nr_samples, std::tuple{to_ptr(m1, int_0), to_ptr(m2, int_1)}, internal_tag{});
+   return _sample(internal_tag, nr_samples, std::tuple{to_ptr(m1, int_0), to_ptr(m2, int_1)});
 }
 
 }  // namespace force

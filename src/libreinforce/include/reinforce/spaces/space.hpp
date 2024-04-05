@@ -12,15 +12,9 @@
 #include <vector>
 #include <xtensor/xarray.hpp>
 
+#include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
-
-#define MASKED_SAMPLE_FUNC(type1, arg1, type2, arg2)                \
-   multi_value_type sample(type1 arg1, type2 arg2) const            \
-      requires requires(Derived self) { self._sample(arg1, arg2); } \
-   {                                                                \
-      return self()._sample(arg1, arg2);                            \
-   }
 
 namespace force {
 
@@ -33,9 +27,14 @@ concept has_getitem_operator = requires(T t, size_t idx) { t[idx]; };
 ///
 /// The specifics are made to work as closely as possible to the corresponding internals of the
 /// openai/gymnasium python class.
-template < typename T, typename Derived, typename MultiT = T >
+template < typename T, typename Derived, typename MultiT = T, bool runtime_sample_throw = false >
    requires(std::is_same_v< T, MultiT > or detail::has_getitem_operator< MultiT >)
 class Space: public detail::rng_mixin {
+  private:
+   /// for tag dispatch within this class
+   struct internal_tag_t {};
+   static constexpr internal_tag_t internal_tag{};
+
   public:
    // the type of values returned by sampling or containment queries
    using value_type = T;
@@ -172,11 +171,11 @@ class Space: public detail::rng_mixin {
    constexpr auto& self() { return static_cast< Derived& >(*this); }
 };
 
-template < typename T, typename Derived, typename MultiT >
+template < typename T, typename Derived, typename MultiT, bool runtime_sample_throw >
    requires(std::is_same_v< T, MultiT > or detail::has_getitem_operator< MultiT >)
 template < typename DType, std::ranges::range Rng1, std::ranges::range Rng2, typename BoundaryTag >
    requires(std::floating_point< DType > or std::integral< DType >)
-bool Space< T, Derived, MultiT >::_isin_shape_and_bounds(
+bool Space< T, Derived, MultiT, runtime_sample_throw >::_isin_shape_and_bounds(
    const xarray< DType >& values,
    const Rng1& low_boundary,
    const Rng2& high_boundary,
