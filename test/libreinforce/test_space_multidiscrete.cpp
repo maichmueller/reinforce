@@ -2,6 +2,7 @@
 #include <pybind11/embed.h>
 #include <spdlog/spdlog.h>
 
+#include <tuple>
 #include <xtensor/xset_operation.hpp>
 
 #include "reinforce/spaces/multi_discrete.hpp"
@@ -136,7 +137,7 @@ TEST(Spaces, MultiDiscrete_copy_construction)
 {
    auto start = xarray< int >{0, 0, -2};
    auto end = xarray< int >{10, 5, 3};
-   MultiDiscreteSpace space{start, end};
+   MultiDiscreteSpace space{start, end, 42ul};
    auto space_copy = space;
    EXPECT_EQ(space_copy, space);
    // RNG state should still be aligned
