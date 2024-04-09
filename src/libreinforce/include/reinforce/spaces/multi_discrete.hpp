@@ -62,11 +62,10 @@ auto build_xarray(Array&& arr)
 }
 
 template < typename Rng >
-concept is_mask_range = std::ranges::sized_range< Rng >
+concept is_mask_range = std::ranges::range< Rng >
                         and std::same_as<
                            std::ranges::range_value_t< Rng >,
-                           std::optional< xarray< bool > > >
-                        and has_getitem_operator< Rng >;
+                           std::optional< xarray< bool > > >;
 
 }  // namespace detail
 
@@ -143,11 +142,14 @@ class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
       return fmt::format("MultiDiscrete({})", m_end);
    }
 
+   const auto& start() const { return m_start; }
+   const auto& end() const { return m_end; }
+
   private:
    value_type m_start;
    value_type m_end;
 
-   [[nodiscard]] value_type _sample(std::nullopt_t = std::nullopt) const { return _sample(1); }
+   [[nodiscard]] value_type _sample(std::nullopt_t /**/ = std::nullopt) const { return _sample(1); }
 
    template < typename MaskRange = std::array< std::optional< xarray< bool > >, 0 > >
       requires detail::is_mask_range< MaskRange >
@@ -240,36 +242,39 @@ template < typename MaskRange >
 auto MultiDiscreteSpace< T >::_sample(size_t nr_samples, const MaskRange& mask_range) const
    -> value_type
 {
+   using namespace ranges;
    if(nr_samples == 0) {
       throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
    }
-   xt::svector< int > samples_shape = shape();
-   samples_shape.push_back(static_cast< int >(nr_samples));
+   auto samples_shape = append(shape(), static_cast< int >(nr_samples));
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples_shape));
    xarray< T > samples = xt::empty< T >(std::move(samples_shape));
 
-   for(auto&& [i, bounds] : ranges::views::enumerate(ranges::views::zip(m_start, m_end))) {
-      auto&& [start, end] = bounds;
+   auto mask_iter = std::ranges::begin(mask_range), mask_iter_end = std::ranges::end(mask_range);
+   for(auto&& [i, bounds] : views::enumerate(views::zip(m_start, m_end))) {
+      auto&& [start, end] = FWD(bounds);
       // convert the flat index i to an indexing list for the given shape
       auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
       // add all entries of the variate's access in the shape
-      xt::xstrided_slice_vector index_stride(coordinates.begin(), coordinates.end());
       // add all the sampling indices as if samples[...,:] on a numpy array so that they can be
       // emplaced all at once
-      index_stride.emplace_back(xt::all());
+      auto index_stride = append(
+         xt::xstrided_slice_vector(coordinates.begin(), coordinates.end()), xt::all()
+      );
       SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
-      auto draw_shape = xt::svector{nr_samples};
-      if(mask_range.size() > i and mask_range[i].has_value()) {
+      if(mask_iter != mask_iter_end and mask_iter->has_value()) {
          xt::strided_view(samples, index_stride) = xt::random::choice(
-            xt::eval(xt::filter(xt::arange(start, end), *mask_range[i])), nr_samples, true, rng()
+            xt::eval(xt::filter(xt::arange(start, end), **mask_iter)), nr_samples, true, rng()
          );
       } else {
          xt::strided_view(samples, index_stride) = xt::random::randint(
-            draw_shape, start, end, rng()
+            xt::svector{nr_samples}, start, end, rng()
          );
       }
+      if(mask_iter != mask_iter_end) {
+         mask_iter = std::ranges::next(mask_iter);
+      }
    }
-
    return samples;
 }
 
