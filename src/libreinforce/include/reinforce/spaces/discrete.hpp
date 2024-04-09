@@ -9,6 +9,7 @@
 #include <optional>
 #include <random>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include <xtensor/xmath.hpp>
 #include <xtensor/xrandom.hpp>
@@ -43,7 +44,7 @@ class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
       return m_nr_values == rhs.m_nr_values && m_start == rhs.m_start;
    }
 
-   std::string repr()
+   [[nodiscard]] std::string repr() const
    {
       if(m_start != 0) {
          return fmt::format("Discrete({}, start={})", m_nr_values, m_start);
@@ -51,25 +52,34 @@ class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
       return fmt::format("Discrete({})", m_nr_values);
    }
 
+   auto start() const { return m_start; }
+   auto n() const { return m_nr_values; }
+
   private:
    T m_nr_values;
    T m_start;
 
-   value_type _sample(std::nullopt_t = std::nullopt) const { return _sample(size_t{1}); }
+   [[nodiscard]] value_type _sample(std::nullopt_t /*unused*/ = std::nullopt) const
+   {
+      return _sample(size_t{1});
+   }
 
-   value_type _sample(const xarray< bool >& mask) const { return _sample(size_t{1}, mask); }
+   [[nodiscard]] value_type _sample(const xarray< bool >& mask) const
+   {
+      return _sample(size_t{1}, mask);
+   }
 
-   value_type _sample(size_t nr_samples) const;
+   [[nodiscard]] value_type _sample(size_t nr_samples) const;
 
-   value_type _sample(size_t nr_samples, std::nullopt_t) const;
+   [[nodiscard]] value_type _sample(size_t nr_samples, std::nullopt_t) const;
 
-   value_type _sample(size_t nr_samples, const xarray< bool >& mask) const;
+   [[nodiscard]] value_type _sample(size_t nr_samples, const xarray< bool >& mask) const;
 
-   bool _contains(const detail::value_t< value_type >& value) const
+   [[nodiscard]] bool _contains(const detail::value_t< value_type >& value) const
    {
       return m_start <= value && value < m_start + m_nr_values;
    }
-   bool _contains(const value_type& value) const
+   [[nodiscard]] bool _contains(const value_type& value) const
    {
       return xt::all(
          xt::greater_equal(value, m_start) and xt::less_equal(value, m_start + m_nr_values)
@@ -84,7 +94,7 @@ auto DiscreteSpace< T >::_sample(size_t nr_samples) const -> value_type
 }
 
 template < std::integral T >
-auto DiscreteSpace< T >::_sample(size_t nr_samples, std::nullopt_t) const -> value_type
+auto DiscreteSpace< T >::_sample(size_t nr_samples, std::nullopt_t /*unused*/) const -> value_type
 {
    return _sample(nr_samples);
 }
