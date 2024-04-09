@@ -64,8 +64,8 @@ class Space: public detail::rng_mixin {
          // element of value_type that corresponds with the first (and only) sample drawn.
          return sample(1, mask_arg, FWD(args)...)[0];
       } else {
-         // neither options apply so we now decide between throwing a runtime exception or letting
-         // the call overload resolution fail at compile time.
+         // neither options apply so we now decide between throwing a runtime exception (for dynamic
+         // language support) or letting the call overload resolution fail at compile time.
          if constexpr(runtime_sample_throw) {
             if constexpr(sizeof...(OtherArgs) > 0) {
                throw detail::not_implemented_error(
@@ -77,6 +77,7 @@ class Space: public detail::rng_mixin {
                );
             }
          } else {
+            // trigger a compilation error
             return derived()._sample(mask_arg, FWD(args)...);
          }
       }

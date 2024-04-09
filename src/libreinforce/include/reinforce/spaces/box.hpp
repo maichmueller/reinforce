@@ -270,8 +270,9 @@ auto BoxSpace< T >::_sample(
       // convert the flat index i to an indexing list for the given shape
       auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
       // select the sampling indices (as if e.g. samples[x,y,:] on a numpy array) to emplace
-      xt::xstrided_slice_vector slice_vec(coordinates.begin(), coordinates.end());
-      slice_vec.emplace_back(xt::all());
+      auto slice_vec = append(
+         xt::xstrided_slice_vector(coordinates.begin(), coordinates.end()), xt::all()
+      );
       SPDLOG_DEBUG(fmt::format("Slice: {}", slice_vec));
       auto entry_view = xt::strided_view(samples, slice_vec);
       auto draw_shape = xt::svector{nr_samples};
