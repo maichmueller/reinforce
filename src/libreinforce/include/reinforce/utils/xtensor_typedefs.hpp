@@ -1,6 +1,7 @@
 #ifndef REINFORCE_XTENSOR_TYPEDEFS_HPP
 #define REINFORCE_XTENSOR_TYPEDEFS_HPP
 
+#include <cstddef>
 #include <xtensor-python/pyarray.hpp>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xfixed.hpp>

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <reinforce/utils/views_extension.hpp>
 
 #include "reinforce/utils/xtensor_typedefs.hpp"
 

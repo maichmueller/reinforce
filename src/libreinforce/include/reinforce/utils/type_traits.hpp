@@ -91,6 +91,9 @@ template < typename T >
 using value_t = typename T::value_type;
 
 template < typename T >
+using multi_value_t = typename T::multi_value_type;
+
+template < typename T >
 using data_t = typename T::data_type;
 
 template < typename T, typename U >

@@ -2,6 +2,8 @@
 #ifndef REINFORCE_GRIDWORLD_TCC
 #define REINFORCE_GRIDWORLD_TCC
 
+#include <reinforce/utils/views_extension.hpp>
+
 #include "gridworld.hpp"
 
 namespace force {

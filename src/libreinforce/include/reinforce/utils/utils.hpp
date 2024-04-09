@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <concepts>
 #include <cstddef>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -28,7 +29,89 @@
 #include "macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
 
+namespace force {
+
+auto copy(auto item)
+{
+   return item;
+}
+
+template < typename T, typename U >
+decltype(auto) operator+(xt::svector< T >&& container, xt::svector< U >&& container2)
+{
+   for(auto&& elem : std::move(container2)) {
+      container.push_back(static_cast< T >(FWD(elem)));
+   }
+   return std::move(container);
+}
+
+template < typename Container, typename T >
+   requires std::is_const_v< std::remove_reference_t< Container > >
+auto append(Container&& container, T&& elem)
+{
+   auto tmp = container;
+   tmp.push_back(FWD(elem));
+   return tmp;
+}
+
+template < typename Container, typename T >
+decltype(auto) append(Container&& container, T&& elem)
+{
+   container.push_back(FWD(elem));
+   return FWD(container);
+}
+
+template < typename Container, typename T >
+   requires std::is_const_v< std::remove_reference_t< Container > >
+auto prepend(Container&& container, T&& elem)
+{
+   auto tmp = container;
+   tmp.insert(container.begin(), FWD(elem));
+   return tmp;
+}
+}  // namespace force
+
+template < typename Container, typename T >
+decltype(auto) prepend(Container&& container, T&& elem)
+{
+   container.insert(container.begin(), FWD(elem));
+   return FWD(container);
+}  // namespace force
+
 namespace force::detail {
+
+template < typename KeyT = size_t, typename KeyCompare = std::less< KeyT > >
+class Counter {
+  public:
+   using map_type = std::map< KeyT, size_t, KeyCompare >;
+   using value_type = typename map_type::value_type;
+   using mapped_type = typename map_type::mapped_type;
+   using key_type = typename map_type::key_type;
+   using key_compare = typename map_type::key_compare;
+   using allocator_type = typename map_type::allocator_type;
+
+   template < std::ranges::range Rng >
+   explicit Counter(Rng&& rng)
+   {
+      static_assert(
+         std::convertible_to< std::ranges::range_value_t< std::remove_cvref_t< Rng > >, KeyT >,
+         "Range needs to hold value types that are convertible to the key type."
+      );
+      for(const auto& elem : rng) {
+         ++m_map[static_cast< KeyT >(elem)];
+      }
+   }
+
+   [[nodiscard]] const auto& map() const { return m_map; }
+
+   [[nodiscard]] auto begin() { return m_map.begin(); }
+   [[nodiscard]] auto end() { return m_map.end(); }
+   [[nodiscard]] auto begin() const { return m_map.begin(); }
+   [[nodiscard]] auto end() const { return m_map.end(); }
+
+  private:
+   map_type m_map = {};
+};
 
 template < size_t N >
 struct StringLiteral {
@@ -266,68 +349,6 @@ using dereffed_t = decltype(deref(std::declval< T >()));
 template < typename T >
 using raw_dereffed_t = raw_t< decltype(deref(std::declval< T >())) >;
 
-template < ranges::range Range >
-class deref_view: public ranges::view_base {
-  public:
-   struct iterator;
-   deref_view() = default;
-   deref_view(ranges::range auto&& base) : m_base(base) {}
-
-   iterator begin() { return ranges::begin(m_base); }
-   iterator end() { return ranges::end(m_base); }
-
-  private:
-   Range m_base;
-};
-
-template < ranges::range Range >
-struct deref_view< Range >::iterator {
-   using base = ranges::iterator_t< Range >;
-   using value_type = std::remove_cvref_t< decltype(deref(*(std::declval< Range >().begin()))) >;
-   using difference_type = ranges::range_difference_t< Range >;
-
-   iterator() = default;
-
-   iterator(const base& b) : m_base{b} {}
-
-   iterator operator++(int)
-   {
-      auto tmp = *this;
-      ++*this;
-      return tmp;
-   }
-
-   iterator& operator++()
-   {
-      ++m_base;
-      return *this;
-   }
-
-   decltype(auto) operator*() const { return deref(*m_base); }
-
-   bool operator==(iterator const& rhs) const { return m_base == rhs.m_base; }
-
-  private:
-   base m_base;
-};
-
-template < ranges::range Range >
-deref_view(Range&&) -> deref_view< ranges::cpp20::views::all_t< Range > >;
-
-struct deref_fn {
-   template < typename Rng >
-   auto operator()(Rng&& rng) const
-   {
-      return deref_view{ranges::views::all(std::forward< Rng >(rng))};
-   }
-
-   template < typename Rng >
-   friend auto operator|(Rng&& rng, deref_fn const&)
-   {
-      return deref_view{ranges::views::all(std::forward< Rng >(rng))};
-   }
-};
-
 template < typename ExpectedType, typename Range >
 concept expected_value_type = requires(Range rng) {
    { *(rng.begin()) } -> std::convertible_to< ExpectedType >;
@@ -345,11 +366,5 @@ struct CoordinateHasher {
 };
 
 }  // namespace force::detail
-
-namespace ranges::views {
-
-constexpr ::force::detail::deref_fn deref{};
-
-}  // namespace ranges::views
 
 #endif  // REINFORCE_UTILS_HPP
