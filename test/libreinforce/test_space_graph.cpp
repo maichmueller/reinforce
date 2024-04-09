@@ -13,6 +13,7 @@ using namespace force;
 
 TEST(Spaces, Graph_Discrete_Discrete_construction)
 {
+   EXPECT_NO_THROW((GraphSpace{DiscreteSpace{10, 0}}));
    EXPECT_NO_THROW((GraphSpace{DiscreteSpace{10, 0}, DiscreteSpace{5, 0}}));
-   // EXPECT_NO_THROW((GraphSpace{}));
+   EXPECT_NO_THROW((GraphSpace{DiscreteSpace{10, 0}, DiscreteSpace{5, 0}, 45466}));
 }
