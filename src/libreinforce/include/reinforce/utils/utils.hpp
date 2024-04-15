@@ -37,21 +37,21 @@ auto copy(auto item)
 }
 
 template < typename T, typename U >
-decltype(auto) operator+(xt::svector< T >&& container, xt::svector< U >&& container2)
+decltype(auto) extend(xt::svector< T > base, xt::svector< U >& extension)
 {
-   for(auto&& elem : std::move(container2)) {
-      container.push_back(static_cast< T >(FWD(elem)));
+   for(const auto& elem : extension) {
+      base.push_back(static_cast< T >(elem));
    }
-   return std::move(container);
+   return base;
 }
 
-template < typename Container, typename T >
-   requires std::is_const_v< std::remove_reference_t< Container > >
-auto append(Container&& container, T&& elem)
+template < typename T, typename U >
+decltype(auto) extend(xt::svector< T > base, xt::svector< U >&& extension)
 {
-   auto tmp = container;
-   tmp.push_back(FWD(elem));
-   return tmp;
+   for(auto&& elem : std::move(extension)) {
+      base.push_back(static_cast< T >(FWD(elem)));
+   }
+   return base;
 }
 
 template < typename Container, typename T >
@@ -63,19 +63,27 @@ decltype(auto) append(Container&& container, T&& elem)
 
 template < typename Container, typename T >
    requires std::is_const_v< std::remove_reference_t< Container > >
-auto prepend(Container&& container, T&& elem)
+auto append(Container&& container, T&& elem)
 {
    auto tmp = container;
-   tmp.insert(container.begin(), FWD(elem));
-   return tmp;
+   return append(tmp, FWD(elem));
 }
-}  // namespace force
 
 template < typename Container, typename T >
 decltype(auto) prepend(Container&& container, T&& elem)
 {
    container.insert(container.begin(), FWD(elem));
    return FWD(container);
+}
+
+template < typename Container, typename T >
+   requires std::is_const_v< std::remove_reference_t< Container > >
+auto prepend(Container&& container, T&& elem)
+{
+   auto tmp = container;
+   return prepend(tmp, FWD(elem));
+}
+
 }  // namespace force
 
 namespace force::detail {
@@ -217,11 +225,6 @@ consteval bool always_false(T)
 {
    return false;
 }
-
-struct not_implemented_error: public std::logic_error {
-   not_implemented_error(std::string_view func_name)
-       : std::logic_error(fmt::format("Function {} not implemented.", func_name)){};
-};
 
 template < typename Iterator, typename Sentinel >
 // requires std::input_iterator< Iterator > and std::sentinel_for< Sentinel, Iterator >
