@@ -94,6 +94,15 @@ class Space: public detail::rng_mixin {
    }
 
    template < typename U, typename... OtherArgs >
+   value_type sample(std::optional< U > mask, OtherArgs&&... extra_args) const
+   {
+      if(mask.has_value()) {
+         return sample(internal_tag, *mask, FWD(extra_args)...);
+      }
+      return sample(internal_tag, std::nullopt, FWD(extra_args)...);
+   }
+
+   template < typename U, typename... OtherArgs >
    value_type sample(const xarray< U >& mask, OtherArgs&&... extra_args) const
    {
       return sample(internal_tag, mask, FWD(extra_args)...);
@@ -170,6 +179,16 @@ class Space: public detail::rng_mixin {
    {
       return sample(internal_tag, nr, std::nullopt, FWD(extra_args)...);
    }
+
+   template < typename U, typename... ExtraArgs >
+   value_type sample(size_t nr, std::optional< U > mask, ExtraArgs&&... extra_args) const
+   {
+      if(mask.has_value()) {
+         return sample(internal_tag, nr, *mask, FWD(extra_args)...);
+      }
+      return sample(internal_tag, nr, std::nullopt, FWD(extra_args)...);
+   }
+
    // Check if the value is a valid member of this space
    bool contains(const value_type& value) const { return derived()._contains(value); }
 
