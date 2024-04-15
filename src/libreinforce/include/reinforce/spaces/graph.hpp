@@ -92,20 +92,21 @@ class GraphSpace:
    NodeSpace m_node_space;
    std::optional< EdgeSpace > m_edge_space;
 
-   //   value_type _sample(
-   //      std::nullopt_t = std::nullopt,
-   //      size_t num_nodes = 10,
-   //      std::optional< size_t > num_edges = std::nullopt
-   //   ) const
-   //   {
-   //      return _sample(std::tuple{std::nullopt, std::nullopt}, num_nodes, num_edges);
-   //   }
+   value_type _sample(
+      std::nullopt_t = std::nullopt,
+      size_t num_nodes = 10,
+      std::optional< size_t > num_edges = std::nullopt
+   ) const
+   {
+      return _sample(std::tuple{std::nullopt, std::nullopt}, num_nodes, num_edges);
+   }
 
-   //   template < typename node_mask_t = std::nullopt_t, typename edge_mask_t = std::nullopt_t >
-   //   value_type _sample(
-   //      const std::tuple< node_mask_t, edge_mask_t >& mask = std::tuple{std::nullopt,
-   //      std::nullopt}, size_t num_nodes = 10, std::optional< size_t > num_edges = std::nullopt
-   //   ) const;
+   template < typename node_mask_t = std::nullopt_t, typename edge_mask_t = std::nullopt_t >
+   value_type _sample(
+      const std::tuple< node_mask_t, edge_mask_t >& mask = std::tuple{std::nullopt, std::nullopt},
+      size_t num_nodes = 10,
+      std::optional< size_t > num_edges = std::nullopt
+   ) const;
 
    template <
       typename node_mask_t = std::nullopt_t,
@@ -136,16 +137,27 @@ class GraphSpace:
    }
 };
 
-// template < typename NodeSpace, typename EdgeSpace >
-//    requires graph_space_concept< NodeSpace, EdgeSpace >
-// template < typename node_mask_t, typename edge_mask_t >
-// GraphSpace< NodeSpace, EdgeSpace >::value_type GraphSpace< NodeSpace, EdgeSpace >::_sample(
-//    const std::tuple< node_mask_t, edge_mask_t >& mask,
-//    size_t num_nodes,
-//    std::optional< size_t > num_edges
-//) const
-//{
-// }
+template < typename NodeSpace, typename EdgeSpace >
+   requires graph_space_concept< NodeSpace, EdgeSpace >
+template < typename node_mask_t, typename edge_mask_t >
+GraphSpace< NodeSpace, EdgeSpace >::value_type GraphSpace< NodeSpace, EdgeSpace >::_sample(
+   const std::tuple< node_mask_t, edge_mask_t >& mask,
+   size_t num_nodes,
+   std::optional< size_t > num_edges
+) const
+{
+   const auto& [node_space_mask, edge_space_mask] = mask;
+
+   const bool has_edge_space = m_edge_space.has_value();
+
+   return value_type{
+      .nodes = m_node_space.sample(num_nodes, node_space_mask),
+      .edges = has_edge_space and num_edges.has_value()
+                  ? m_edge_space->sample(*num_edges, edge_space_mask)
+                  : detail::value_t< EdgeSpace >::from_shape({0}),
+      .edge_links = _sample_edge_links(num_nodes, num_edges.value_or(0))
+   };
+}
 
 template < typename NodeSpace, typename EdgeSpace >
    requires graph_space_concept< NodeSpace, EdgeSpace >
@@ -187,13 +199,13 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
       }
    });
    xarray< size_t > num_edges_arr = std::invoke([&] {
-      xarray< size_t > out = xt::empty< size_t >({nr_samples});
+      xarray< size_t > out;
       if(num_edges.has_value()) {
          if(not has_edge_space) {
             SPDLOG_WARN(
                fmt::format("The number of edges is set, but the edge space is None.", num_edges)
             );
-            out = 0;
+            out = xt::zeros< size_t >({nr_samples});
          } else {
             if constexpr(std::ranges::range<
                             detail::value_t< detail::raw_t< optional_size_or_range_t > > >) {
@@ -202,17 +214,20 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
                      "`num_edges` parameter needs to be greater than 0 for every sample."
                   );
                }
-            }
-            static_assert(
-               std::integral< detail::value_t< detail::raw_t< optional_size_or_range_t > > >,
-               "If not a range, the num_edges parameter needs to be of integral size type."
-            );
-            if(std::cmp_greater(*num_edges, 0)) {
-               throw std::invalid_argument("`num_edges` parameter needs to be greater than 0.");
+            } else {
+               static_assert(
+                  std::integral< detail::value_t< detail::raw_t< optional_size_or_range_t > > >,
+                  "If not a range, the num_edges parameter needs to be of integral size type."
+               );
+               if(std::cmp_greater(*num_edges, 0)) {
+                  throw std::invalid_argument("`num_edges` parameter needs to be greater than 0.");
+               }
+               out = xt::ones< size_t >({nr_samples}) * (*num_edges);
             }
          }
       } else {
          if constexpr(std::ranges::forward_range< detail::raw_t< size_or_forwardrange_t > >) {
+            out = xt::empty< size_t >({nr_samples});
             for(auto [i, n_nodes] :
                 ranges::views::enumerate(num_nodes | ranges::views::cast< size_t >)) {
                // as per gymnasium doc:
@@ -224,20 +239,21 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
          } else {
             static_assert(
                std::integral< detail::raw_t< size_or_forwardrange_t > >,
-               "If not a forward range, the num_nodes parameter needs to be an integral size type."
+               "If not a forward range, the num_nodes parameter needs to be an integral size "
+               "type."
             );
             if(std::cmp_greater(num_nodes, 1)) {
                out = xt::random::randint(
                   {nr_samples}, size_t{0}, static_cast< size_t >(num_nodes), rng()
                );
             } else {
-               out = size_t{0};
+               out = xt::zeros< size_t >({nr_samples});
             }
          }
       }
       return out;
    });
-   FORCE_DEBUG_ASSERT(std::ranges::size(num_nodes_view) == num_edges_arr.size());
+   FORCE_DEBUG_ASSERT(num_edges_arr.size() == std::ranges::size(num_nodes_view));
    size_t total_nr_node_samples = ranges::accumulate(num_nodes_view, size_t{0}, std::plus{});
    size_t total_nr_edge_samples = xt::sum(num_edges_arr).unchecked(0);
    auto sampled_nodes = m_node_space.sample(total_nr_node_samples, node_space_mask);
@@ -250,7 +266,7 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
          .nodes = std::move(sampled_nodes),
          .edges = std::move(sampled_edges),
          .edge_links = _sample_edge_links(
-            *std::ranges::begin(num_nodes_view), has_edge_space and num_edges_arr.unchecked(0)
+            *std::ranges::begin(num_nodes_view), has_edge_space * num_edges_arr.unchecked(0)
          )
       }};
    } else {
