@@ -12,6 +12,7 @@
 #include <vector>
 #include <xtensor/xarray.hpp>
 
+#include "reinforce/utils/exceptions.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
@@ -68,11 +69,11 @@ class Space: public detail::rng_mixin {
          // language support) or letting the call overload resolution fail at compile time.
          if constexpr(runtime_sample_throw) {
             if constexpr(sizeof...(OtherArgs) > 0) {
-               throw detail::not_implemented_error(
+               throw not_implemented_error(
                   fmt::format("_sample({}, ...)", detail::type_name< MaskType >())
                );
             } else {
-               throw detail::not_implemented_error(
+               throw not_implemented_error(
                   fmt::format("_sample({})", detail::type_name< MaskType >())
                );
             }
@@ -127,11 +128,11 @@ class Space: public detail::rng_mixin {
                    }) {
          if constexpr(runtime_sample_throw) {
             if constexpr(sizeof...(OtherArgs) > 0) {
-               throw detail::not_implemented_error(fmt::format(
+               throw not_implemented_error(fmt::format(
                   "_sample({}, {}, ...)", detail::type_name< T1 >(), detail::type_name< MaskType >()
                ));
             } else {
-               throw detail::not_implemented_error(fmt::format(
+               throw not_implemented_error(fmt::format(
                   "_sample({}, {})", detail::type_name< T1 >(), detail::type_name< MaskType >()
                ));
             }
