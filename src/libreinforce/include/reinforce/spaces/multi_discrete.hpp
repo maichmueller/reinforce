@@ -134,7 +134,7 @@ class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
       return xt::all(xt::equal(m_start, rhs.m_start)) and xt::all(xt::equal(m_end, rhs.m_end));
    }
 
-   std::string repr()
+   std::string repr() const
    {
       if(xt::any(xt::not_equal(m_start, 0))) {
          return fmt::format("MultiDiscrete({}, start={})", m_end, m_start);

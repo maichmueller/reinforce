@@ -90,7 +90,7 @@ class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
 template < std::integral T >
 auto DiscreteSpace< T >::_sample(size_t nr_samples) const -> value_type
 {
-   return xt::random::randint({nr_samples}, m_start, m_start + m_nr_values, rng());
+   return xt::random::randint< T >({nr_samples}, m_start, m_start + m_nr_values, rng());
 }
 
 template < std::integral T >

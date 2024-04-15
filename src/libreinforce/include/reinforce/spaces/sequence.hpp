@@ -113,10 +113,12 @@ class SequenceSpace:
 
    bool operator==(const SequenceSpace& rhs) const = default;
 
-   std::string repr() { return fmt::format("Sequence({}, stack=true)", m_feature_space); }
+   [[nodiscard]] std::string repr() const
+   {
+      return fmt::format("Sequence({}, stack=true)", m_feature_space);
+   }
 
    auto& feature_space() const { return m_feature_space; }
-   auto& feature_space() { return m_feature_space; }
 
   private:
    FeatureSpace m_feature_space;
