@@ -3,6 +3,7 @@
 
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include "fmt/format.h"
 #include "fmt/std.h"
@@ -15,7 +16,7 @@ inline std::string to_string(const T& value) = delete;
 template <>
 inline std::string to_string(const ::std::nullopt_t&)
 {
-   return "std::nullopt";
+   return "None";
 }
 
 template < typename To >
