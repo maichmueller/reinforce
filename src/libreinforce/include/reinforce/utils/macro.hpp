@@ -27,4 +27,11 @@
       [&](auto&&... args) -> decltype(auto) { return func(FWD(args)...); }
 #endif  // AS_PRFCT_CPTR_LAMBDA
 
+#ifndef FORCE_DEBUG_ASSERT
+   #define FORCE_DEBUG_ASSERT(expression)                                             \
+      if(not (expression)) {                                                          \
+         throw force_library_error{"Expression " #expression " evaluated to false."}; \
+      }
+#endif
+
 #endif  // REINFORCE_MACRO_HPP
