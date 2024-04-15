@@ -146,7 +146,7 @@ struct fmt::formatter< xt::xrange_adaptor< A, B, C > > {
    auto format(const xt::xrange_adaptor< A, B, C >& range, FormatContext& ctx) const
    {
       return fmt::format_to(
-         ctx.out(), "xrange<start={},stop={},step={}>", range.start(), range.stop(), range.step()
+         ctx.out(), "xrange(start={},stop={},step={})", range.start(), range.stop(), range.step()
       );
    }
    static constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
@@ -158,7 +158,7 @@ struct fmt::formatter< xt::xrange< T > > {
    template < typename FormatContext >
    auto format(const xt::xrange< T >& range, FormatContext& ctx) const
    {
-      return fmt::format_to(ctx.out(), "xrange<start={},size={}>", range(0), range.size());
+      return fmt::format_to(ctx.out(), "xrange(start={},size={})", range(0), range.size());
    }
    static constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 };
@@ -171,7 +171,7 @@ struct fmt::formatter< xt::xstepped_range< T > > {
    {
       return fmt::format_to(
          ctx.out(),
-         "xstepped_range<start={},size={},step_size={}>",
+         "xstepped_range(start={},size={},step_size={})",
          range(0),
          range.size(),
          range.step_size()
@@ -208,6 +208,12 @@ struct fmt::formatter< xt::xstrided_slice< T > > {
       struct fmt::formatter< xt::xarray< T > >: fmt::ostream_formatter {}
 #endif
 
+#ifndef XTENSOR_FORMATTER
+   #define XTENSOR_FORMATTER(T, DIMS) \
+      template <>                     \
+      struct fmt::formatter< xt::tensor< T, DIMS > >: fmt::ostream_formatter {}
+#endif
+
 #ifndef XSTACKTENSOR_FORMATTER
    #define XSTACKTENSOR_FORMATTER(T, ...)                                         \
       template <>                                                                 \
@@ -215,6 +221,7 @@ struct fmt::formatter< xt::xstrided_slice< T > > {
           fmt::ostream_formatter {}
 #endif
 
+XARRY_FORMATTER(bool);
 XARRY_FORMATTER(double);
 XARRY_FORMATTER(float);
 XARRY_FORMATTER(long);
@@ -223,6 +230,8 @@ XARRY_FORMATTER(long long);
 XARRY_FORMATTER(unsigned long long);
 XARRY_FORMATTER(int);
 XARRY_FORMATTER(unsigned int);
+XARRY_FORMATTER(short);
+XARRY_FORMATTER(unsigned short);
 XARRY_FORMATTER(char);
 XARRY_FORMATTER(signed char);
 XARRY_FORMATTER(unsigned char);
