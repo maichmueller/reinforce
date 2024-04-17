@@ -221,9 +221,46 @@ constexpr auto tuple_slice(Tuple&& tuple, std::index_sequence< Ints... >)
 }
 
 template < typename T >
+constexpr bool always_false_v = std::false_type::value;
+
+template < typename T >
 consteval bool always_false(T)
 {
    return false;
+}
+
+template < class T >
+bool holds_value(const T& opt_value) noexcept
+{
+   if constexpr(detail::is_specialization_v< T, std::optional >) {
+      return opt_value.has_value();
+   } else if constexpr(detail::is_specialization_v< T, std::unique_ptr >
+                       or detail::is_specialization_v< T, std::shared_ptr >) {
+      return holds_value(opt_value.get());
+   } else if constexpr(std::is_pointer_v< T >) {
+      return opt_value == nullptr;
+   } else if constexpr(std::same_as< T, std::nullopt_t >) {
+      return false;
+   } else {
+      return true;
+   }
+}
+
+template < class T >
+decltype(auto) access_value(T&& opt_value) noexcept
+{
+   using value_type = raw_t< T >;
+   if constexpr(detail::any_of<
+                   detail::is_specialization_v< value_type, std::unique_ptr >,
+                   detail::is_specialization_v< value_type, std::shared_ptr >,
+                   detail::is_specialization_v< value_type, std::reference_wrapper > >) {
+      return access_value(FWD(opt_value).get());
+   } else if constexpr(std::is_pointer_v< value_type >
+                       or detail::is_specialization_v< value_type, std::optional >) {
+      return *FWD(opt_value);
+   } else {
+      return FWD(opt_value);
+   }
 }
 
 template < typename Iterator, typename Sentinel >

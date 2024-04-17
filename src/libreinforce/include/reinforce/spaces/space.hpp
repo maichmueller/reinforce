@@ -129,7 +129,7 @@ class Space: public detail::rng_mixin {
       return derived()._sample(nr);
    }
 
-   template < typename T1, typename MaskType, typename... OtherArgs >
+   template < std::integral T1, typename MaskType, typename... OtherArgs >
    multi_value_type sample(internal_tag_t, T1 arg1, MaskType&& mask_arg, OtherArgs&&... args) const
    {
       if constexpr(not requires(Derived derived) {

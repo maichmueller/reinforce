@@ -1,4 +1,3 @@
-
 #ifndef REINFORCE_MACRO_HPP
 #define REINFORCE_MACRO_HPP
 
@@ -28,10 +27,21 @@
 #endif  // AS_PRFCT_CPTR_LAMBDA
 
 #ifndef FORCE_DEBUG_ASSERT
-   #define FORCE_DEBUG_ASSERT(expression)                                             \
-      if(not (expression)) {                                                          \
-         throw force_library_error{"Expression " #expression " evaluated to false."}; \
-      }
+   #ifndef NDEBUG
+      #define FORCE_DEBUG_ASSERT(expression)                                             \
+         if(not (expression)) {                                                          \
+            throw force_library_error{"Expression " #expression " evaluated to false."}; \
+         }
+      #define FORCE_DEBUG_ASSERT_MSG(expression, msg)                                      \
+         if(not (expression)) {                                                            \
+            throw force_library_error{                                                     \
+               fmt::format("Expression " #expression " evaluated to false. Info: {}", msg) \
+            };                                                                             \
+         }
+   #else
+      #define FORCE_DEBUG_ASSERT(...)
+      #define FORCE_DEBUG_ASSERT_MSG(...)
+   #endif
 #endif
 
 #endif  // REINFORCE_MACRO_HPP
