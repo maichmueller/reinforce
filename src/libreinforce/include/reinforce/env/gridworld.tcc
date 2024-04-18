@@ -236,14 +236,14 @@ void Gridworld< dim >::_enter_rewards(
    const auto& states = _states< state_type >();
    if(states.size() == 0) {
       SPDLOG_DEBUG(fmt::format(
-         "State type ({}) has an empty associated array. Not entering any values to reward map.",
-         static_cast< int >(state_type),
+         "State type ({}) has an empty associated array. Not adding any values to reward map.",
+         state_type,
          states
       ));
       return;
    }
    SPDLOG_DEBUG(fmt::format(
-      "State type's ({}) associated array: \n{}", static_cast< int >(state_type), states
+      "State type's ({}) associated array: \n{}", state_type, states
    ));
    const auto reward_setter = [&](auto access_functor) {
       // iterate over axis 0 (the state index) to get a slice over state coordinates

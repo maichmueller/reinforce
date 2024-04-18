@@ -211,7 +211,7 @@ struct fmt::formatter< xt::xstrided_slice< T > > {
 #ifndef XTENSOR_FORMATTER
    #define XTENSOR_FORMATTER(T, DIMS) \
       template <>                     \
-      struct fmt::formatter< xt::tensor< T, DIMS > >: fmt::ostream_formatter {}
+      struct fmt::formatter< xt::xtensor< T, DIMS > >: fmt::ostream_formatter {}
 #endif
 
 #ifndef XSTACKTENSOR_FORMATTER

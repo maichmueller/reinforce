@@ -19,17 +19,17 @@ TEST(Spaces, Graph_Discrete_Discrete_construction)
    EXPECT_NO_THROW((GraphSpace{DiscreteSpace{10, 0}, DiscreteSpace{5, 0}, 45466}));
 }
 
-#define verify_samples(space, samples, num_nodes)                                           \
-   SPDLOG_DEBUG(fmt::format("Samples:\n{}", fmt::join(samples, "\n")));                     \
-   for(const auto& [sample_, n_nodes_expected] : ranges::views::zip(samples, num_nodes)) {  \
-      EXPECT_EQ(sample_.nodes.size(), n_nodes_expected);                                    \
-      EXPECT_TRUE(xt::all(xt::greater_equal(sample_.nodes, space.node_space().start())));   \
-      EXPECT_TRUE(xt::all(                                                                  \
-         xt::less_equal(sample_.nodes, space.node_space().start() + space.node_space().n()) \
-      ));                                                                                   \
-      EXPECT_EQ(sample_.edges.size(), 0);                                                   \
-      EXPECT_EQ(sample_.edge_links.size(), 0);                                              \
-   }                                                                                        \
+#define verify_samples(space, samples, num_nodes)                                             \
+   SPDLOG_DEBUG(fmt::format("Samples:\n{}", fmt::join(samples, "\n")));                       \
+   for(const auto& [sample_, n_nodes_expected] : ranges::views::zip(samples, num_nodes)) {    \
+      EXPECT_EQ(sample_.nodes.size(), n_nodes_expected);                                      \
+      EXPECT_TRUE(xt::all(xt::greater_equal(sample_.nodes, (space).node_space().start())));   \
+      EXPECT_TRUE(xt::all(                                                                    \
+         xt::less_equal(sample_.nodes, space.node_space().start() + (space).node_space().n()) \
+      ));                                                                                     \
+      EXPECT_EQ(sample_.edges.size(), 0);                                                     \
+      EXPECT_EQ(sample_.edge_links.size(), 0);                                                \
+   }                                                                                          \
    (void) 0
 
 TEST(Spaces, Graph_Discrete_None_sample)
@@ -56,18 +56,18 @@ TEST(Spaces, Graph_Discrete_None_sample)
    }
 }
 
-#define verify_samples_with_edges(space, samples, num_nodes, num_edges)                     \
-   SPDLOG_DEBUG(fmt::format("Samples:\n{}", fmt::join(samples, "\n")));                     \
-   for(const auto& [sample_, n_nodes_expected, n_edges_expected] :                          \
-       ranges::views::zip(samples, num_nodes, num_edges)) {                                 \
-      EXPECT_EQ(sample_.nodes.size(), n_nodes_expected);                                    \
-      EXPECT_TRUE(xt::all(xt::greater_equal(sample_.nodes, space.node_space().start())));   \
-      EXPECT_TRUE(xt::all(                                                                  \
-         xt::less_equal(sample_.nodes, space.node_space().start() + space.node_space().n()) \
-      ));                                                                                   \
-      EXPECT_EQ(sample_.edges.size(), n_edges_expected);                                    \
-      EXPECT_EQ(sample_.edge_links.shape()[0], n_edges_expected);                           \
-   }                                                                                        \
+#define verify_samples_with_edges(space, samples, num_nodes, num_edges)                       \
+   SPDLOG_DEBUG(fmt::format("Samples:\n{}", fmt::join(samples, "\n")));                       \
+   for(const auto& [sample_, n_nodes_expected, n_edges_expected] :                            \
+       ranges::views::zip(samples, num_nodes, num_edges)) {                                   \
+      EXPECT_EQ(sample_.nodes.size(), n_nodes_expected);                                      \
+      EXPECT_TRUE(xt::all(xt::greater_equal(sample_.nodes, (space).node_space().start())));   \
+      EXPECT_TRUE(xt::all(                                                                    \
+         xt::less_equal(sample_.nodes, space.node_space().start() + (space).node_space().n()) \
+      ));                                                                                     \
+      EXPECT_EQ(sample_.edges.size(), n_edges_expected);                                      \
+      EXPECT_EQ(sample_.edge_links.shape()[0], n_edges_expected);                             \
+   }                                                                                          \
    (void) 0
 
 TEST(Spaces, Graph_Discrete_Discrete_sample)

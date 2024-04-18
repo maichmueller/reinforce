@@ -11,6 +11,7 @@ static_assert(false, "No logging level set. Please define the macro 'SPDLOG_ACTI
 #include <frozen/unordered_map.h>
 #include <spdlog/spdlog.h>
 
+#include <cstddef>
 #include <optional>
 #include <range/v3/all.hpp>
 #include <valarray>
