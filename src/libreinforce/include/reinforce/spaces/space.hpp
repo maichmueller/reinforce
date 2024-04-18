@@ -193,9 +193,16 @@ class Space: public detail::rng_mixin {
    bool contains(const value_type& value) const { return derived()._contains(value); }
 
    // Checks whether this space can be flattened to a Box
-   [[nodiscard]] bool is_flattenable() const { return false; }
+   [[nodiscard]] bool is_flattenable() const
+   {
+      if constexpr(requires(const Derived derived) { derived._is_flattenable(); }) {
+         return derived()._is_flattenable();
+      } else {
+         return false;
+      }
+   }
 
-   bool operator==(const Space& rhs) const = default;
+   bool operator<=>(const Space& rhs) const = default;
 
    // Return the shape of the space
    auto& shape() const { return m_shape; }

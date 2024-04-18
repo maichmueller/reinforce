@@ -97,6 +97,12 @@ class GraphSpace:
    NodeSpace m_node_space;
    std::optional< EdgeSpace > m_edge_space;
 
+   bool _contains(const value_type& value) const
+   {
+      return m_node_space.contains(value.nodes)
+             and (m_edge_space.has_value() ? m_edge_space->contains(value.edges) : true);
+   }
+
    value_type _sample(
       std::nullopt_t = std::nullopt,
       size_t num_nodes = 10,
@@ -156,12 +162,9 @@ GraphSpace< NodeSpace, EdgeSpace >::value_type GraphSpace< NodeSpace, EdgeSpace 
 ) const
 {
    const auto& [node_space_mask, edge_space_mask] = mask;
-
-   const bool has_edge_space = m_edge_space.has_value();
-
    return value_type{
       .nodes = m_node_space.sample(num_nodes, node_space_mask),
-      .edges = has_edge_space and num_edges.has_value()
+      .edges = m_edge_space.has_value() and num_edges.has_value()
                   ? m_edge_space->sample(*num_edges, edge_space_mask)
                   : detail::value_t< EdgeSpace >::from_shape({0}),
       .edge_links = _sample_edge_links(num_nodes, num_edges.value_or(0))
