@@ -1,4 +1,6 @@
+#include <numbers>
 #include <stdexcept>
+#include <tuple>
 
 #include "gtest/gtest.h"
 #include "pybind11/embed.h"
@@ -39,8 +41,8 @@ TEST(Spaces, Box_multivariates_sample)
    auto samples = box.sample(10000);
    fmt::print("Samples:\n{}", samples);
    for(auto i : ranges::views::iota(0, 3)) {
-      EXPECT_TRUE(xt::all(xt::view(samples, i, xt::all()) >= low(i)));
-      EXPECT_TRUE(xt::all(xt::view(samples, i, xt::all()) <= high(i)));
+      EXPECT_TRUE(xt::all(xt::view(samples, xt::all(), i) >= low(i)));
+      EXPECT_TRUE(xt::all(xt::view(samples, xt::all(), i) <= high(i)));
    }
    for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
       samples = box.sample();
@@ -60,15 +62,19 @@ TEST(Spaces, Box_2D_multivariates_sample)
    fmt::print("Samples:\n{}", samples);
    for(auto [i, j] :
        ranges::views::cartesian_product(ranges::views::iota(0, 2), ranges::views::iota(0, 3))) {
-      EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) >= low(i, j)));
-      EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) <= high(i, j)));
+      //      SPDLOG_DEBUG(fmt::format(
+      //         "Low: {}, High: {}, values: {}", low(i, j), high(i, j), xt::view(samples,
+      //         xt::all(), i, j)
+      //      ));
+      EXPECT_TRUE(xt::all(xt::view(samples, xt::all(), i, j) >= low(i, j)));
+      EXPECT_TRUE(xt::all(xt::view(samples, xt::all(), i, j) <= high(i, j)));
    }
    for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
       samples = box.sample();
       for(auto [i, j] :
           ranges::views::cartesian_product(ranges::views::iota(0, 2), ranges::views::iota(0, 3))) {
-         EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) >= low(i, j)));
-         EXPECT_TRUE(xt::all(xt::view(samples, i, j, xt::all()) <= high(i, j)));
+         EXPECT_GE(samples(i, j), low(i, j));
+         EXPECT_LE(samples(i, j), high(i, j));
       }
    }
 }
@@ -119,12 +125,12 @@ TEST(Spaces, Box_contains)
    int n = 1000;
    xarray< double > contain_candidates = xt::vstack(
                                             std::tuple{
-                                               -xt::random::exponential(xt::svector{1, n}, 10.),
-                                               xt::random::exponential(xt::svector{1, n}, 100.),
-                                               xt::random::rand(xt::svector{1, n}, 50., 51.)
+                                               -xt::random::exponential(xt::svector{n, 1}, 10.),
+                                               xt::random::exponential(xt::svector{n, 1}, 100.),
+                                               xt::random::rand(xt::svector{n, 1}, 50., 51.)
                                             }
    )
-                                            .reshape({1, 3, n});
+                                            .reshape({n, 1, 3});
    SPDLOG_DEBUG(fmt::format(
       "Incorrect containment candidates array: {}\n{}",
       contain_candidates.shape(),
@@ -136,7 +142,7 @@ TEST(Spaces, Box_contains)
    contain_candidates = xt::stack(
                            std::tuple{
                               std::move(contain_candidates),
-                              xt::random::rand(xt::svector{1, 1, n}, 1.1, std::numbers::e)
+                              xt::random::rand(xt::svector{n, 1, 1}, 1.1, std::numbers::e)
                            },
                            1
    )

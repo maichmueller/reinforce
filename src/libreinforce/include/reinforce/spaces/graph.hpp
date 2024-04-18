@@ -335,12 +335,12 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
 
          samples.emplace_back(value_type{
             .nodes = xt::strided_view(
-               sampled_nodes, {xt::ellipsis(), xt::range(start_nodes, node_offset)}
+               sampled_nodes, {xt::range(start_nodes, node_offset), xt::ellipsis()}
             ),
             .edges = std::invoke([&]() -> detail::multi_value_t< EdgeSpace > {
                if(has_edge_space) {
                   return xt::strided_view(
-                     sampled_edges, {xt::ellipsis(), xt::range(start_edges, edge_offset)}
+                     sampled_edges, {xt::range(start_edges, edge_offset), xt::ellipsis()}
                   );
                } else {
                   return detail::multi_value_t< EdgeSpace >::from_shape({0});

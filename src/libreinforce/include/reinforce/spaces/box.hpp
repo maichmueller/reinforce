@@ -14,6 +14,7 @@
 #include <random>
 #include <range/v3/all.hpp>
 #include <stdexcept>
+#include <string_view>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -259,10 +260,8 @@ auto BoxSpace< T >::_sample(
    const std::optional< xarray< bool > >& /*unused*/
 ) const -> value_type
 {
-   xt::svector< int > samples_shape = shape();
-   samples_shape.push_back(static_cast< int >(nr_samples));
-   SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples_shape));
-   xarray< T > samples = xt::empty< T >(std::move(samples_shape));
+   xarray< T > samples = xt::empty< T >(prepend(shape(), static_cast< int >(nr_samples)));
+   SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
 
    for(auto&& [i, bounds] :
        ranges::views::enumerate(ranges::views::zip(m_bounded_below, m_bounded_above))) {
@@ -270,7 +269,7 @@ auto BoxSpace< T >::_sample(
       // convert the flat index i to an indexing list for the given shape
       auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
       // select the sampling indices (as if e.g. samples[x,y,:] on a numpy array) to emplace
-      auto slice_vec = append(
+      auto slice_vec = prepend(
          xt::xstrided_slice_vector(coordinates.begin(), coordinates.end()), xt::all()
       );
       SPDLOG_DEBUG(fmt::format("Slice: {}", slice_vec));

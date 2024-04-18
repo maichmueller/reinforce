@@ -63,7 +63,7 @@ TEST(Spaces, Sequence_Box_sample)
       all_length_0 &= sample_arr.size() == 0;
       for(auto coord : ranges::views::iota(0, 3)) {
          if(sample_arr.size() > 0) {
-            auto sample_view = xt::view(sample_arr, coord, xt::all());
+            auto sample_view = xt::view(sample_arr, xt::all(), coord);
             SPDLOG_DEBUG(fmt::format("Sample {} view:\n{}", idx, sample_view));
             EXPECT_TRUE(xt::all(sample_view >= box_low(coord)));
             EXPECT_TRUE(xt::all(sample_view <= box_high(coord)));
@@ -79,8 +79,8 @@ TEST(Spaces, Sequence_Box_sample)
       for(auto i : ranges::views::iota(0, 3)) {
          if(new_samples.size() > 0) {
             SPDLOG_DEBUG(fmt::format("Sample {}:\n{}", i, new_samples));
-            EXPECT_TRUE(xt::all(xt::view(new_samples, i) >= box_low(i)));
-            EXPECT_TRUE(xt::all(xt::view(new_samples, i) <= box_high(i)));
+            EXPECT_GE(new_samples(i), box_low(i));
+            EXPECT_LE(new_samples(i), box_high(i));
          } else {
             SPDLOG_DEBUG(fmt::format("Sample {}: EMPTY", i));
          }

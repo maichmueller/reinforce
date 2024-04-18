@@ -290,11 +290,8 @@ bool Space< T, Derived, MultiT, runtime_sample_throw >::_isin_shape_and_bounds(
          const auto& [low, high] = low_high;
          auto coordinates = xt::unravel_index(static_cast< int >(i), shape());
          const auto& vals = xt::strided_view(
-            values, std::invoke([&] {
-               xt::xstrided_slice_vector slice(coordinates.begin(), coordinates.end());
-               slice.emplace_back(xt::all());
-               return slice;
-            })
+            values,
+            prepend(xt::xstrided_slice_vector(coordinates.begin(), coordinates.end()), xt::all())
          );
          constexpr auto compare =
             []< typename Comp, typename CompEq >(Comp cmp, CompEq cmp_eq, auto&&... args) {

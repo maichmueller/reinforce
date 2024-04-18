@@ -54,8 +54,8 @@ TEST(Spaces, Tuple_Discrete_Box_sample)
    SPDLOG_DEBUG(fmt::format("Box Samples:\n{}", box_samples));
 
    for(auto i : ranges::views::iota(0, 3)) {
-      EXPECT_TRUE(xt::all(xt::view(box_samples, i, xt::all()) >= box_low(i)));
-      EXPECT_TRUE(xt::all(xt::view(box_samples, i, xt::all()) <= box_high(i)));
+      EXPECT_TRUE(xt::all(xt::view(box_samples, xt::all(), i) >= box_low(i)));
+      EXPECT_TRUE(xt::all(xt::view(box_samples, xt::all(), i) <= box_high(i)));
    }
    EXPECT_TRUE(xt::all(disc_samples >= start_discrete));
    EXPECT_TRUE(xt::all(disc_samples < start_discrete + n_discrete));
@@ -67,8 +67,8 @@ TEST(Spaces, Tuple_Discrete_Box_sample)
       EXPECT_TRUE(xt::all(new_disc_samples < start_discrete + n_discrete));
 
       for(auto i : ranges::views::iota(0, 3)) {
-         EXPECT_TRUE(xt::all(xt::view(new_box_samples, i) >= box_low(i)));
-         EXPECT_TRUE(xt::all(xt::view(new_box_samples, i) <= box_high(i)));
+         EXPECT_GE(new_box_samples(i), box_low(i));
+         EXPECT_LE(new_box_samples(i), box_high(i));
       }
    }
 }
