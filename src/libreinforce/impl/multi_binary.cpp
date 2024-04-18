@@ -1,13 +1,16 @@
 #include "reinforce/spaces/multi_binary.hpp"
 
+#include <cstddef>
 #include <optional>
 
 namespace force {
 
 xt::svector< int > MultiBinarySpace::samples_shape(size_t nr_samples) const
 {
-   xt::svector< int > out = shape();
-   out.push_back(static_cast< int >(nr_samples));
+   auto out = shape();
+   if(nr_samples > 1) {
+      prepend(out, static_cast< int >(nr_samples));
+   }
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", out));
    return out;
 }
@@ -40,10 +43,10 @@ auto MultiBinarySpace::_sample(size_t nr_samples, const value_type& mask) const 
       // convert the flat index i to an indexing list for the given shape
       auto coordinates = xt::unravel_index(i, shape());
       auto mask_value = mask.element(coordinates.begin(), coordinates.end());
-      // add all entries of the variate's access in the shape
       xt::xstrided_slice_vector index_stride(coordinates.begin(), coordinates.end());
-      // add all the sampling indices so that they can be emplaced all at once
-      index_stride.emplace_back(xt::all());
+      if(nr_samples > 1) {
+         prepend(index_stride, xt::all());
+      }
       SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
       if(mask_value < 2) {
          xt::strided_view(samples, index_stride) = mask_value;

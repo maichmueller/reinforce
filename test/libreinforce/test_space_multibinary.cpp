@@ -22,16 +22,17 @@ TEST(Spaces, MultiBinary_constructor)
 TEST(Spaces, MultiBinary_sample)
 {
    auto space = MultiBinarySpace{xt::svector{2, 3}};
-   auto samples = space.sample(10000);
+   constexpr int n_samples = 10000;
+   auto samples = space.sample(n_samples);
    SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
    EXPECT_TRUE(xt::all(xt::isin(samples, {0, 1})));
    EXPECT_FALSE(xt::all(xt::equal(samples, 0)));
    EXPECT_FALSE(xt::all(xt::equal(samples, 1)));
-   EXPECT_TRUE(ranges::equal(samples.shape(), xt::svector{2, 3, 10000}));
+   EXPECT_TRUE(ranges::equal(samples.shape(), xt::svector{n_samples, 2, 3}));
    for([[maybe_unused]] auto _ : ranges::views::iota(0, 1000)) {
       samples = space.sample();
       EXPECT_TRUE(xt::all(xt::isin(samples, {0, 1})));
-      EXPECT_TRUE(ranges::equal(samples.shape(), xt::svector{2, 3, 1}));
+      EXPECT_TRUE(ranges::equal(samples.shape(), xt::svector{2, 3}));
    }
 }
 
@@ -41,25 +42,26 @@ TEST(Spaces, MultiBinary_sample_masked)
    // wrong mask specified
    EXPECT_THROW(space.sample(xt::xarray< int8_t >{{0, 0, 3}, {-1, 2, 2}}), std::invalid_argument);
    // valid mask
+   constexpr int n_samples = 10000;
    xt::xarray< int8_t > mask = {{0, 0, 2}, {1, 2, 2}};
-   auto samples = space.sample(10000, mask);
+   auto samples = space.sample(n_samples, mask);
    SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
-   EXPECT_TRUE(ranges::equal(samples.shape(), xt::svector{2, 3, 10000}));
+   EXPECT_TRUE(ranges::equal(samples.shape(), xt::svector{n_samples, 2, 3}));
 
    EXPECT_TRUE(xt::all(xt::isin(samples, {0, 1})));
    // the entries that should be set to 0
-   EXPECT_TRUE(xt::all(xt::equal(xt::view(samples, 0, 0, xt::all()), 0)));
-   EXPECT_TRUE(xt::all(xt::equal(xt::view(samples, 0, 1, xt::all()), 0)));
+   EXPECT_TRUE(xt::all(xt::equal(xt::view(samples, xt::all(), 0, 0), 0)));
+   EXPECT_TRUE(xt::all(xt::equal(xt::view(samples, xt::all(), 0, 1), 0)));
    // entries that should be set to 1
-   EXPECT_TRUE(xt::all(xt::equal(xt::view(samples, 1, 0, xt::all()), 1)));
-   // entires which should sample normally
-   EXPECT_TRUE(xt::all(xt::isin(xt::view(samples, 0, 2, xt::all()), {0, 1})));
-   EXPECT_TRUE(xt::all(xt::isin(xt::view(samples, 1, 1, xt::all()), {0, 1})));
-   EXPECT_TRUE(xt::all(xt::isin(xt::view(samples, 1, 2, xt::all()), {0, 1})));
+   EXPECT_TRUE(xt::all(xt::equal(xt::view(samples, xt::all(), 1, 0), 1)));
+   // entrees which should sample normally
+   EXPECT_TRUE(xt::all(xt::isin(xt::view(samples, xt::all(), 0, 2), {0, 1})));
+   EXPECT_TRUE(xt::all(xt::isin(xt::view(samples, xt::all(), 1, 1), {0, 1})));
+   EXPECT_TRUE(xt::all(xt::isin(xt::view(samples, xt::all(), 1, 2), {0, 1})));
    for([[maybe_unused]] auto _ : ranges::views::iota(0, 1000)) {
       samples = space.sample();
       EXPECT_TRUE(xt::all(xt::isin(samples, {0, 1})));
-      EXPECT_TRUE(ranges::equal(samples.shape(), xt::svector{2, 3, 1}));
+      EXPECT_TRUE(ranges::equal(samples.shape(), xt::svector{2, 3}));
    }
 }
 
