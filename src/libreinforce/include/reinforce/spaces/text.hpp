@@ -44,7 +44,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    ///
    ///   TextSpace space{5, 56356739}
    ///   TextSpace space{{.max_length = 5}, 56356739}
-   ///   TextSpace space{{.max_length = 5, .char_set="AEIOU"}, 56356739}
+   ///   TextSpace space{{.max_length = 5, .characters = "AEIOU"}, 56356739}
    struct Options {
       size_t max_length;
       size_t min_length = 1;
@@ -72,7 +72,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    }
    template < std::convertible_to< size_t > T >
    explicit TextSpace(T max_len, std::optional< size_t > seed = std::nullopt)
-       : TextSpace(Options{.max_length = static_cast< size_t >(max_len)}, seed)
+       : TextSpace(Options{.max_length = static_cast< size_t >(max_len), .characters = {}}, seed)
    {
    }
 
@@ -92,11 +92,12 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    {
       auto handle = m_charmap.find(chr);
       bool is_contained = handle != m_charmap.end();
-      return -1 * not is_contained + static_cast< long >(handle->second) * is_contained;
+      return -1 * static_cast< long >(not is_contained)
+             + static_cast< long >(handle->second) * static_cast< long >(is_contained);
    }
 
-   auto max_length() const { return m_max_length; }
-   auto min_length() const { return m_min_length; }
+   [[nodiscard]] auto max_length() const { return m_max_length; }
+   [[nodiscard]] auto min_length() const { return m_min_length; }
 
   private:
    constexpr static char
