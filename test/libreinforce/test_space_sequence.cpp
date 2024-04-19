@@ -132,9 +132,9 @@ TEST(Spaces, Sequence_MultiDiscrete_sample_masked)
    };
    for(const auto& sample : samples) {
       auto md_view = std::array{
-         xt::strided_view(sample, {0, xt::all()}),
-         xt::strided_view(sample, {1, xt::all()}),
-         xt::strided_view(sample, {2, xt::all()})
+         xt::strided_view(sample, {xt::all(), 0}),
+         xt::strided_view(sample, {xt::all(), 1}),
+         xt::strided_view(sample, {xt::all(), 2})
       };
       for(auto [view, expected] : ranges::views::zip(md_view, expected_ranges)) {
          // assert that all samples lie in the masked range of possible values
@@ -151,16 +151,16 @@ TEST(Spaces, Sequence_MultiDiscrete_sample_masked)
 
       SPDLOG_DEBUG(fmt::format("Sample:\n{}", sample));
 
-      EXPECT_TRUE(xt::all(sample >= start.reshape({3, 1})));
-      EXPECT_TRUE(xt::all(sample < end.reshape({3, 1})));
+      EXPECT_TRUE(xt::all(sample >= start.reshape({1, 3})));
+      EXPECT_TRUE(xt::all(sample < end.reshape({1, 3})));
 
-      EXPECT_GE(sample(0, 0), 5);
-      EXPECT_LE(sample(0, 0), 9);
-      EXPECT_GE(sample(1, 0), 0);
-      EXPECT_LE(sample(1, 0), 4);
-      EXPECT_GE(sample(2, 0), -3);
-      EXPECT_NE(sample(2, 0), -2);
-      EXPECT_LE(sample(2, 0), 1);
+      EXPECT_GE(sample(0), 5);
+      EXPECT_LE(sample(0), 9);
+      EXPECT_GE(sample(1), 0);
+      EXPECT_LE(sample(1), 4);
+      EXPECT_GE(sample(2), -3);
+      EXPECT_NE(sample(2), -2);
+      EXPECT_LE(sample(2), 1);
    }
 }
 

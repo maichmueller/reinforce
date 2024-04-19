@@ -279,10 +279,8 @@ bool Space< T, Derived, MultiT, runtime_sample_throw >::_isin_shape_and_bounds(
 
    auto enum_bounds_view = views::enumerate(views::zip(low_boundary, high_boundary));
    if(incoming_dim == space_dim + 1) {
-      // zip to cut off the last entry (batch dim) in incoming_shape
-      if(not ranges::all_of(views::zip(shape(), incoming_shape), [](auto pair) {
-            return std::cmp_equal(std::get< 0 >(pair), std::get< 1 >(pair));
-         })) {
+      // first dim assumed a batch size
+      if(not ranges::equal(shape(), incoming_shape | ranges::views::drop(1))) {
          return false;
       }
       return ranges::any_of(enum_bounds_view, [&](const auto& idx_low_high) {

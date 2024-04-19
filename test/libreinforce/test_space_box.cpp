@@ -123,11 +123,11 @@ TEST(Spaces, Box_contains)
    const xarray< double > high{0, infinity<>, 51, std::numbers::e};
    BoxSpace space{low, high, low.shape(), SEED};
    int n = 1000;
-   xarray< double > contain_candidates = xt::vstack(
+   xarray< double > contain_candidates = xt::hstack(
                                             std::tuple{
                                                -xt::random::exponential(xt::svector{n, 1}, 10.),
                                                xt::random::exponential(xt::svector{n, 1}, 100.),
-                                               xt::random::rand(xt::svector{n, 1}, 50., 51.)
+                                               xt::random::rand(xt::svector{n, 1}, low(2), high(2))
                                             }
    )
                                             .reshape({n, 1, 3});
@@ -139,14 +139,14 @@ TEST(Spaces, Box_contains)
    /// candidates are missing one dimension to be part of this space
    EXPECT_FALSE(space.contains(contain_candidates));
    /// add last dimension to candiates to become part of the space
-   contain_candidates = xt::stack(
-                           std::tuple{
+   contain_candidates = xt::concatenate(
+                           xt::xtuple(
                               std::move(contain_candidates),
-                              xt::random::rand(xt::svector{n, 1, 1}, 1.1, std::numbers::e)
-                           },
-                           1
+                              xt::random::rand(xt::svector{n, 1, 1}, low(3), high(3))
+                           ),
+                           2
    )
-                           .reshape({4, -1});
+                           .reshape({-1, 4});
    SPDLOG_DEBUG(fmt::format(
       "Correct containment candidates array: {}\n{}", contain_candidates.shape(), contain_candidates
    ));

@@ -95,9 +95,9 @@ TEST(Spaces, Tuple_Discrete_MultiDiscrete_sample_masked)
    SPDLOG_DEBUG(fmt::format("Multi Discrete Samples:\n{}", multi_disc_samples));
 
    auto md_view = std::array{
-      xt::strided_view(multi_disc_samples, {0, xt::all()}),
-      xt::strided_view(multi_disc_samples, {1, xt::all()}),
-      xt::strided_view(multi_disc_samples, {2, xt::all()})
+      xt::strided_view(multi_disc_samples, {xt::all(), 0}),
+      xt::strided_view(multi_disc_samples, {xt::all(), 1}),
+      xt::strided_view(multi_disc_samples, {xt::all(), 2})
    };
    auto expected_ranges = std::array{
       xt::xarray< int >{5, 6, 7, 8, 9},
@@ -122,13 +122,13 @@ TEST(Spaces, Tuple_Discrete_MultiDiscrete_sample_masked)
       EXPECT_TRUE(xt::all(new_disc_samples >= start_discrete));
       EXPECT_TRUE(xt::all(new_disc_samples < start_discrete + n_discrete));
 
-      EXPECT_GE(new_multi_disc_samples(0, 0), 5);
-      EXPECT_LE(new_multi_disc_samples(0, 0), 9);
-      EXPECT_GE(new_multi_disc_samples(1, 0), 0);
-      EXPECT_LE(new_multi_disc_samples(1, 0), 4);
-      EXPECT_GE(new_multi_disc_samples(2, 0), -3);
-      EXPECT_NE(new_multi_disc_samples(2, 0), -2);
-      EXPECT_LE(new_multi_disc_samples(2, 0), 1);
+      EXPECT_GE(new_multi_disc_samples(0), 5);
+      EXPECT_LE(new_multi_disc_samples(0), 9);
+      EXPECT_GE(new_multi_disc_samples(1), 0);
+      EXPECT_LE(new_multi_disc_samples(1), 4);
+      EXPECT_GE(new_multi_disc_samples(2), -3);
+      EXPECT_NE(new_multi_disc_samples(2), -2);
+      EXPECT_LE(new_multi_disc_samples(2), 1);
    }
 }
 

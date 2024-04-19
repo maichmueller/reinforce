@@ -30,15 +30,14 @@ TEST(Spaces, MultiDiscrete_sample)
    constexpr auto n_samples = 1000;
    auto samples = space.sample(n_samples);
    SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
-   EXPECT_TRUE(xt::all(samples >= xt::expand_dims(start, 2)));
-   EXPECT_TRUE(xt::all(samples < xt::expand_dims(end, 2)));
+   EXPECT_TRUE(xt::all(samples >= xt::expand_dims(start, 0)));
+   EXPECT_TRUE(xt::all(samples < xt::expand_dims(end, 0)));
 
    for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
       samples = space.sample();
-      auto samples_squeezed = xt::squeeze(samples, static_cast< size_t >(-1));
-      SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples_squeezed));
-      EXPECT_TRUE(xt::all(samples_squeezed >= start));
-      EXPECT_TRUE(xt::all(samples_squeezed < end));
+      SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
+      EXPECT_TRUE(xt::all(samples >= start));
+      EXPECT_TRUE(xt::all(samples < end));
    }
 }
 
@@ -56,24 +55,24 @@ TEST(Spaces, MultiDiscrete_sample_masked)
    auto samples = space.sample(n_samples, mask);
    SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
    EXPECT_TRUE((
-      xt::all(xt::isin(xt::strided_view(samples, {0, xt::all()}), xt::xarray< int >{5, 6, 7, 8, 9}))
+      xt::all(xt::isin(xt::strided_view(samples, {xt::all(), 0}), xt::xarray< int >{5, 6, 7, 8, 9}))
    ));
    EXPECT_TRUE((
-      xt::all(xt::isin(xt::strided_view(samples, {1, xt::all()}), xt::xarray< int >{0, 1, 2, 3, 4}))
+      xt::all(xt::isin(xt::strided_view(samples, {xt::all(), 1}), xt::xarray< int >{0, 1, 2, 3, 4}))
    ));
    EXPECT_TRUE(
-      (xt::all(xt::isin(xt::strided_view(samples, {2, xt::all()}), xt::xarray< int >{-1, 0, 1})))
+      (xt::all(xt::isin(xt::strided_view(samples, {xt::all(), 2}), xt::xarray< int >{-1, 0, 1})))
    );
 
    for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
       samples = space.sample(mask);
       SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
-      EXPECT_GE(samples(0, 0), 5);
-      EXPECT_LE(samples(0, 0), 9);
-      EXPECT_GE(samples(1, 0), 0);
-      EXPECT_LE(samples(1, 0), 4);
-      EXPECT_GE(samples(2, 0), -1);
-      EXPECT_LE(samples(2, 0), 1);
+      EXPECT_GE(samples(0), 5);
+      EXPECT_LE(samples(0), 9);
+      EXPECT_GE(samples(1), 0);
+      EXPECT_LE(samples(1), 4);
+      EXPECT_GE(samples(2), -1);
+      EXPECT_LE(samples(2), 1);
    }
 }
 
@@ -105,12 +104,12 @@ TEST(Spaces, MultiDiscrete_contains)
    auto space = MultiDiscreteSpace{start, end};
    int n = 1000;
    xarray< int >
-      contain_candidates = xt::vstack(std::tuple{
-                                         xt::random::randint(xt::svector{1, n}, start(0), end(0)),
-                                         xt::random::randint(xt::svector{1, n}, start(1), end(1)),
-                                         xt::random::randint(xt::svector{1, n}, start(2), end(2))
+      contain_candidates = xt::hstack(std::tuple{
+                                         xt::random::randint(xt::svector{n, 1}, start(0), end(0)),
+                                         xt::random::randint(xt::svector{n, 1}, start(1), end(1)),
+                                         xt::random::randint(xt::svector{n, 1}, start(2), end(2))
                                       })
-                              .reshape({1, 3, n});
+                              .reshape({n, 1, 3});
    SPDLOG_DEBUG(fmt::format(
       "Incorrect containment candidates array (wrong shape): {}\n{}",
       contain_candidates.shape(),
@@ -119,7 +118,7 @@ TEST(Spaces, MultiDiscrete_contains)
    /// candidates are missing one dimension to be part of this space
    EXPECT_FALSE(space.contains(contain_candidates));
    /// reshape to correct shape to become part of this space
-   auto reshaped_contain_candidates = contain_candidates.reshape({3, -1});
+   auto reshaped_contain_candidates = contain_candidates.reshape({-1, 3});
    SPDLOG_DEBUG(fmt::format(
       "Correct containment candidates array: {}\n{}",
       reshaped_contain_candidates.shape(),
