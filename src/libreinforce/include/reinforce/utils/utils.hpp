@@ -246,23 +246,6 @@ bool holds_value(const T& opt_value) noexcept
    }
 }
 
-template < class T >
-decltype(auto) access_value(T&& opt_value) noexcept
-{
-   using value_type = raw_t< T >;
-   if constexpr(detail::any_of<
-                   detail::is_specialization_v< value_type, std::unique_ptr >,
-                   detail::is_specialization_v< value_type, std::shared_ptr >,
-                   detail::is_specialization_v< value_type, std::reference_wrapper > >) {
-      return access_value(FWD(opt_value).get());
-   } else if constexpr(std::is_pointer_v< value_type >
-                       or detail::is_specialization_v< value_type, std::optional >) {
-      return *FWD(opt_value);
-   } else {
-      return FWD(opt_value);
-   }
-}
-
 template < typename Iterator, typename Sentinel >
 // requires std::input_iterator< Iterator > and std::sentinel_for< Sentinel, Iterator >
 class RangeAdaptor {
@@ -360,27 +343,21 @@ decltype(auto) deref(T&& t)
 }
 
 template < typename T >
-   requires std::is_pointer_v< std::remove_cvref_t< T > >
-            or is_specialization_v< std::remove_cvref_t< T >, std::reference_wrapper >
+   requires std::is_pointer_v< raw_t< T > >
+            or is_specialization_v< raw_t< T >, std::reference_wrapper >
+            or is_specialization_v< raw_t< T >, std::optional >
+            or is_specialization_v< raw_t< T >, std::shared_ptr >
+            or is_specialization_v< raw_t< T >, std::unique_ptr >
+            or std::input_or_output_iterator< raw_t< T > >
 decltype(auto) deref(T&& t)
 {
-   if constexpr(is_specialization_v< std::remove_cvref_t< T >, std::reference_wrapper >) {
-      return FWD(t).get();
-   } else {
+   if constexpr(std::is_pointer_v< raw_t< T > >  //
+                or std::input_or_output_iterator< raw_t< T > >
+                or is_specialization_v< raw_t< T >, std::optional >) {
       return *FWD(t);
+   } else {
+      return deref(FWD(t).get());
    }
-}
-
-template < typename T >
-// clang-format off
-   requires(
-      is_specialization_v< std::remove_cvref_t< T >, std::shared_ptr >
-      or is_specialization_v< std::remove_cvref_t< T >, std::unique_ptr >
-   )
-decltype(auto)  // clang-format on
-deref(T&& t)
-{
-   return *FWD(t);
 }
 
 template < typename T >

@@ -150,6 +150,13 @@ class GraphSpace:
       }
       return xt::random::randint< size_t >({num_edges, 2ul}, size_t{0}, num_nodes, rng());
    }
+
+   template < typename num_nodes_view_t, typename optional_size_or_forwardrange_t >
+   auto _convert_to_edges_array(
+      size_t nr_samples,
+      const num_nodes_view_t& num_nodes_view,
+      const optional_size_or_forwardrange_t& num_edges
+   ) const;
 };
 
 template < typename NodeSpace, typename EdgeSpace >
@@ -219,81 +226,13 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
          return std::pair{num_nodes | views::cast< size_t >, size};
       }
    });
-   xarray< size_t > num_edges_arr = std::invoke([&] {
-      xarray< size_t > out;
-      if(detail::holds_value(num_edges)) {
-         using contained_value = raw_t< decltype(access_value(num_edges)) >;
-         if(not has_edge_space) {
-            SPDLOG_WARN(fmt::format(
-               "The number of edges is set, but the edge space is None.", access_value(num_edges)
-            ));
-            out = xt::zeros< size_t >({nr_samples});
-         } else {
-            if constexpr(std::ranges::forward_range< contained_value >) {
-               out = xarray< size_t >::from_shape({nr_samples});
-               size_t count = 0;
-               for(const auto& [i, val] :
-                   views::enumerate(access_value(num_edges) | views::cast< size_t >)) {
-                  ++count;
-                  if(std::cmp_less(val, 1)) {
-                     throw std::invalid_argument(
-                        "`num_edges` parameter needs to be greater than 0 for every sample."
-                     );
-                  }
-                  out.unchecked(i) = val;
-               }
-               if(count != nr_samples) {
-                  throw std::invalid_argument(fmt::format(
-                     "`num_edges` parameter range and `nr_samples` view do not match in size. {} "
-                     "vs. {}.",
-                     count,
-                     nr_samples
-                  ));
-               }
-            } else {
-               static_assert(
-                  std::integral< contained_value >,
-                  "If not a range, the num_edges parameter needs to be of integral size type."
-               );
-               if(auto value = access_value(num_edges); std::cmp_less(value, 0)) {
-                  throw std::invalid_argument(fmt::format(
-                     "'num_edges' parameter needs to be greater than 0. Actual: {}", value
-                  ));
-               }
-               out = xt::ones< size_t >({nr_samples}) * (access_value(num_edges));
-            }
-         }
-      } else {
-         if constexpr(std::ranges::forward_range< detail::raw_t< size_or_forwardrange_t > >) {
-            out = xt::empty< size_t >({nr_samples});
-            for(auto [i, n_nodes] : views::enumerate(num_nodes_view | views::cast< size_t >)) {
-               // as per gymnasium doc:
-               // max number of edges is `n*(n-1)` with self connections and two-way is allowed
-               auto& entry = out.unchecked(i);
-               entry = xt::random::randint({1}, size_t{0}, n_nodes * (n_nodes - 1), rng())
-                          .unchecked(0);
-            }
-         } else {
-            static_assert(
-               std::integral< detail::raw_t< size_or_forwardrange_t > >,
-               "If not a forward range, the num_nodes parameter needs to be an integral size "
-               "type."
-            );
-            if(std::cmp_greater(num_nodes, 1)) {
-               out = xt::random::randint(
-                  {nr_samples}, size_t{0}, static_cast< size_t >(num_nodes), rng()
-               );
-            } else {
-               out = xt::zeros< size_t >({nr_samples});
-            }
-         }
-      }
-      return out;
-   });
+   xarray< size_t > num_edges_arr = _convert_to_edges_array(nr_samples, num_nodes_view, num_edges);
    FORCE_DEBUG_ASSERT_MSG(
-      num_edges_arr.size() == std::ranges::size(num_nodes_view),
+      num_edges_arr.size() == std::ranges::size(num_nodes_view)
+         and num_edges_arr.size() == nr_samples,
       fmt::format(
-         "num_edges_arr.size() = {}, std::ranges::size(num_nodes_view) = {}",
+         "nr_samples = {}, num_edges_arr.size() = {}, std::ranges::size(num_nodes_view) = {}",
+         nr_samples,
          num_edges_arr.size(),
          std::ranges::size(num_nodes_view)
       )
@@ -310,7 +249,7 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
          .nodes = std::move(sampled_nodes),
          .edges = std::move(sampled_edges),
          .edge_links = _sample_edge_links(
-            *std::ranges::begin(num_nodes_view), has_edge_space * num_edges_arr.unchecked(0)
+            deref(std::ranges::begin(num_nodes_view)), has_edge_space * num_edges_arr.unchecked(0)
          )
       }};
    } else {
@@ -352,6 +291,81 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
       }
       return samples;
    }
+}
+
+template < typename NodeSpace, typename EdgeSpace >
+   requires graph_space_concept< NodeSpace, EdgeSpace >
+template < typename num_nodes_view_t, typename optional_size_or_forwardrange_t >
+auto GraphSpace< NodeSpace, EdgeSpace >::_convert_to_edges_array(
+   size_t nr_samples,
+   const num_nodes_view_t& num_nodes_view,
+   const optional_size_or_forwardrange_t& num_edges
+) const
+{
+   using namespace detail;
+   using namespace ranges;
+   xarray< size_t > out;
+   if(holds_value(num_edges)) {
+      using contained_value = raw_t< decltype(deref(num_edges)) >;
+      if(not m_edge_space.has_value()) {
+         SPDLOG_WARN(
+            fmt::format("The number of edges is set, but the edge space is None.", deref(num_edges))
+         );
+         out = xt::zeros< size_t >({nr_samples});
+      } else {
+         if constexpr(std::ranges::forward_range< contained_value >) {
+            out = xarray< size_t >::from_shape({nr_samples});
+            size_t count = 0;
+            for(const auto& [i, val] : views::enumerate(deref(num_edges) | views::cast< size_t >)) {
+               ++count;
+               if(std::cmp_less(val, 1)) {
+                  throw std::invalid_argument(
+                     "`num_edges` parameter needs to be greater than 0 for every sample."
+                  );
+               }
+               out.unchecked(i) = val;
+            }
+            if(count != nr_samples) {
+               throw std::invalid_argument(fmt::format(
+                  "`num_edges` parameter range and `nr_samples` view do not match in size. {} "
+                  "vs. {}.",
+                  count,
+                  nr_samples
+               ));
+            }
+         } else {
+            static_assert(
+               std::integral< contained_value >,
+               "If not a range, the num_edges parameter needs to be of integral size type."
+            );
+            if(auto value = deref(num_edges); std::cmp_less(value, 0)) {
+               throw std::invalid_argument(
+                  fmt::format("'num_edges' parameter needs to be greater than 0. Actual: {}", value)
+               );
+            }
+            out = xt::ones< size_t >({nr_samples}) * (deref(num_edges));
+         }
+      }
+   } else {
+      if constexpr(is_specialization_v< num_nodes_view_t, repeat_view >) {
+         auto num_nodes = deref(std::ranges::begin(num_nodes_view));
+         if(std::cmp_greater(num_nodes, 1)) {
+            out = xt::random::randint({nr_samples}, size_t{0}, num_nodes, rng());
+         } else {
+            out = xt::zeros< size_t >({nr_samples});
+         }
+      } else {
+         out = xt::empty< size_t >({nr_samples});
+         for(auto [i, n_nodes] : views::enumerate(num_nodes_view)) {
+            // as per gymnasium doc:
+            // max number of edges is `n*(n-1)` with self connections and two-way is allowed
+            auto& entry = out.unchecked(i);
+            entry = xt::random::randint({1}, size_t{0}, n_nodes * (n_nodes - 1), rng())
+                       .unchecked(0);
+         }
+      }
+   }
+   return out;
 }
 
 }  // namespace force
