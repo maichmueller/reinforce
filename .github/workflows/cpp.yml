@@ -59,7 +59,7 @@ jobs:
           cache-name: cache-llvm-files
         with:
           path: ~/llvm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/workflows/build-matrix.json','**/workflows/cpp.yml') }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ matrix.config.compiler_version }}-${{ hashFiles('**/workflows/build-matrix.json','**/workflows/cpp.yml') }}
 
 
       - name: Install LLVM and Clang
@@ -69,6 +69,15 @@ jobs:
           version: ${{ matrix.config.compiler_version }}
           directory: ~/llvm
           env: 'true'
+
+      - name: Debug matrix.config.cc
+        shell: bash
+        run: |
+          echo "matrix.config.cc = ${{ matrix.config.cc }}"
+          snd_cond=$(${{ matrix.config.cc }} == "gcc")
+          fst_cond=$(${{ runner.os }} == "Linux")
+          echo "1st_condition = $fst_cond"
+          echo "2nd_condition = $snd_cond"
 
       - name: Set up GCC
         if: ${{ runner.os }} == "Linux" && ${{ matrix.config.cc }} == "gcc"
