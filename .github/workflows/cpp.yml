@@ -74,10 +74,9 @@ jobs:
         shell: bash
         run: |
           echo "matrix.config.cc = ${{ matrix.config.cc }}"
-          snd_cond=$(${{ matrix.config.cc }} == "gcc")
-          fst_cond=$(${{ runner.os }} == "Linux")
-          echo "1st_condition = $fst_cond"
-          echo "2nd_condition = $snd_cond"
+          echo "runner.os = ${{ runner.os }}"
+          echo "1st_condition = $(${{ runner.os }} == 'Linux')"
+          echo "2nd_condition = $(${{ matrix.config.cc }} == 'gcc')"
 
       - name: Set up GCC
         if: ${{ runner.os }} == "Linux" && ${{ matrix.config.cc }} == "gcc"
