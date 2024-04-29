@@ -60,7 +60,6 @@ jobs:
         with:
           path: ~/llvm
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ matrix.config.compiler_version }}-${{ hashFiles('**/workflows/build-matrix.json','**/workflows/cpp.yml') }}
-
       - name: Install LLVM and Clang
         if: "${{ runner.os }}" == "Linux" && "${{ matrix.config.cc }}" == "clang"
         uses: KyleMayes/install-llvm-action@v2
