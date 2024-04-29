@@ -106,10 +106,13 @@ class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
          return false;
       }
       return ranges::all_of(
-                ranges::views::zip(shape(), incoming_shape),
+                ranges::views::zip(
+                   shape(),
+                   incoming_shape | ranges::views::drop(size_t{space_dim + 1 == incoming_dim})
+                ),
                 [](auto pair) { return std::cmp_equal(std::get< 0 >(pair), std::get< 1 >(pair)); }
-             )  // zip cuts off last dim (batch dim) if necessary
-             and xt::all(xt::less_equal(value, 1) or xt::greater_equal(value, 0));
+             )
+             and xt::all(xt::less_equal(value, 1) and xt::greater_equal(value, 0));
    }
 };
 

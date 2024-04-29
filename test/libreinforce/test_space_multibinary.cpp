@@ -89,11 +89,11 @@ TEST(Spaces, MultiBinary_contains)
    auto space = MultiBinarySpace{xt::svector{2, 2}};
    int n = 1000;
    xarray< int > contain_candidates = xt::vstack(std::tuple{
-                                                    xt::random::randint(xt::svector{1, n}, 0, 2),
-                                                    xt::random::randint(xt::svector{1, n}, 0, 2),
-                                                    xt::random::randint(xt::svector{1, n}, 0, 2)
+                                                    xt::random::randint(xt::svector{n, 1}, 0, 2),
+                                                    xt::random::randint(xt::svector{n, 1}, 0, 2),
+                                                    xt::random::randint(xt::svector{n, 1}, 0, 2)
                                                  })
-                                         .reshape({1, 3, -1});
+                                         .reshape({-1, 1, 3});
    SPDLOG_DEBUG(fmt::format(
       "Incorrect containment candidates array: {}\n{}",
       contain_candidates.shape(),
@@ -105,15 +105,44 @@ TEST(Spaces, MultiBinary_contains)
    contain_candidates = xt::concatenate(
                            std::tuple{
                               std::move(contain_candidates),
-                              xt::random::randint(xt::svector{1, 1, n}, 0, 2)
+                              xt::random::randint(xt::svector{n, 1, 1}, 0, 2)
                            },
-                           1
+                           2
    )
-                           .reshape({2, 2, -1});
+                           .reshape({-1, 2, 2});
    SPDLOG_DEBUG(fmt::format(
       "Correct containment candidates array: {}\n{}", contain_candidates.shape(), contain_candidates
    ));
    EXPECT_TRUE(space.contains(contain_candidates));
+   /// candidates now are not in the correct range
+   contain_candidates = xt::concatenate(
+                           std::tuple{
+                              std::move(contain_candidates),
+                              xt::random::randint(xt::svector{n, 2, 2}, 0, 10)
+                           },
+                           0
+   )
+                           .reshape({-1, 2, 2});
+   SPDLOG_DEBUG(fmt::format(
+      "Incorrect containment candidates array: {}\n{}",
+      contain_candidates.shape(),
+      contain_candidates
+   ));
+   EXPECT_FALSE(space.contains(contain_candidates));
+   contain_candidates = xt::vstack(std::tuple{
+                                      xt::random::randint(xt::svector{1, n}, 0, 2),
+                                      xt::random::randint(xt::svector{1, n}, 0, 2),
+                                      xt::random::randint(xt::svector{1, n}, 0, 2)
+                                   })
+                           .reshape({1, 3, -1});
+
+   /// candidates have batch dim at the back, not the front.
+   SPDLOG_DEBUG(fmt::format(
+      "Incorrect containment candidates array: {}\n{}",
+      contain_candidates.shape(),
+      contain_candidates
+   ));
+   EXPECT_FALSE(space.contains(contain_candidates));
 }
 
 TEST(Spaces, MultiBinary_copy_construction)
