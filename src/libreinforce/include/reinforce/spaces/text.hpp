@@ -82,7 +82,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
              and m_chars.size() == rhs.m_chars.size() and xt::all(xt::in1d(m_chars, rhs.m_chars));
    }
 
-   std::string repr()
+   [[nodiscard]] std::string repr() const
    {
       return fmt::format("Text({}, {}, characters={})", m_min_length, m_max_length, m_chars);
    }

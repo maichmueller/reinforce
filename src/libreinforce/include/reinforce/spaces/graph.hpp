@@ -90,6 +90,13 @@ class GraphSpace:
    {
    }
 
+   bool operator==(const GraphSpace& rhs) const = default;
+
+   [[nodiscard]] std::string repr() const
+   {
+      return fmt::format("Graph({}, {})", m_node_space, m_edge_space);
+   }
+
    const auto& node_space() const { return m_node_space; }
    const auto& edge_space() const { return m_edge_space; }
 

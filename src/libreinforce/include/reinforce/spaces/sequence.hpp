@@ -76,7 +76,7 @@ class SequenceSpace:
 
    template < std::convertible_to< std::optional< size_t > > Int = std::nullopt_t >
       requires(not std::floating_point< Int >)
-   SequenceSpace(FeatureSpace space, Int seed_ = std::nullopt)
+   explicit SequenceSpace(FeatureSpace space, Int seed_ = std::nullopt)
        : base(xt::svector< int >(), seed_), m_feature_space(std::move(space))
    {
       m_feature_space.seed(seed());
@@ -122,7 +122,8 @@ class SequenceSpace:
 
   private:
    FeatureSpace m_feature_space;
-   double m_geometric_prob = 0.25;
+   static constexpr double DEFAULT_GEOMETRIC_PROBABILITY = 0.25;
+   double m_geometric_prob = DEFAULT_GEOMETRIC_PROBABILITY;
 
    template < typename MaskT1 = std::nullopt_t, typename MaskT2 = std::nullopt_t >
    // requires(

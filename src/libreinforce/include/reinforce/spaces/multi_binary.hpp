@@ -76,12 +76,9 @@ class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
    {
    }
 
-   bool operator==(const MultiBinarySpace& rhs) const
-   {
-      return ranges::equal(shape(), rhs.shape());
-   }
+   bool operator==(const MultiBinarySpace& rhs) const = default;
 
-   std::string repr() { return fmt::format("MultiBinary({})", shape()); }
+   [[nodiscard]] std::string repr() const { return fmt::format("MultiBinary({})", shape()); }
 
   private:
    [[nodiscard]] xt::svector< int > samples_shape(size_t nr_samples) const;

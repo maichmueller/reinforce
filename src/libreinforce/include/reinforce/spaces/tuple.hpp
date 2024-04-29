@@ -164,7 +164,7 @@ class TupleSpace:
       );
    }
 
-   std::string repr()
+   [[nodiscard]] std::string repr() const
    {
       return fmt::format(
          "Tuple({})",
