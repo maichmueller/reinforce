@@ -143,6 +143,18 @@ TEST(Spaces, MultiBinary_contains)
       contain_candidates
    ));
    EXPECT_FALSE(space.contains(contain_candidates));
+   contain_candidates = xt::random::randint(xt::svector{2, 2}, 0, 2);
+   SPDLOG_DEBUG(fmt::format(
+      "Correct containment candidates array: {}\n{}", contain_candidates.shape(), contain_candidates
+   ));
+   EXPECT_TRUE(space.contains(contain_candidates));
+   contain_candidates = xt::random::randint(xt::svector{2, 2}, 0, 10);
+   SPDLOG_DEBUG(fmt::format(
+      "Incorrect containment candidates array: {}\n{}",
+      contain_candidates.shape(),
+      contain_candidates
+   ));
+   EXPECT_FALSE(space.contains(contain_candidates));
 }
 
 TEST(Spaces, MultiBinary_copy_construction)

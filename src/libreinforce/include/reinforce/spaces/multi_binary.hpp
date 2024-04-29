@@ -109,7 +109,7 @@ class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
                 ),
                 [](auto pair) { return std::cmp_equal(std::get< 0 >(pair), std::get< 1 >(pair)); }
              )
-             and xt::all(xt::less_equal(value, 1) and xt::greater_equal(value, 0));
+             and xt::all(xt::equal(value, 1) or xt::equal(value, 0));
    }
 };
 
