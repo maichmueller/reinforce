@@ -58,7 +58,7 @@ jobs:
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}-${{ hashFiles('**/workflows/cpp.yml') }}
 
       - name: Install LLVM and Clang
-        if: ${{ runner.os }} == 'Linux' && ${{ matrix.config.cc }} == 'clang'
+        if: ${{ runner.os == 'Linux' && matrix.config.cc == 'clang' }}
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: ${{ matrix.config.compiler_version }}
@@ -72,8 +72,9 @@ jobs:
           echo "runner.os = ${{ runner.os }}"
           echo "1st_condition = ${{ runner.os == 'Linux' }}"
           echo "2nd_condition = ${{ matrix.config.cc == 'gcc' }}"
+          
       - name: Set up GCC
-        if: ${{ runner.os }} == Linux && ${{ matrix.config.cc }} == gcc
+        if: ${{ runner.os == 'Linux' && matrix.config.cc == 'gcc' }}
         uses: egor-tensin/setup-gcc@v1
         with:
           version: ${{ matrix.config.compiler_version }}
@@ -86,7 +87,7 @@ jobs:
           python3 -m pip install conan numpy
 
       - name: Source profile
-        if: ${{ runner.os }} == 'Linux'
+        if: ${{ runner.os == 'Linux' }}
         shell: bash
         run: source ~/.profile
 
