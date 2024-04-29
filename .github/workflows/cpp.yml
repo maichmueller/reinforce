@@ -58,20 +58,12 @@ jobs:
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}-${{ hashFiles('**/workflows/cpp.yml') }}
 
       - name: Install LLVM and Clang
-        if: ${{ runner.os == 'Linux' && matrix.config.cc == 'clang' }}
+        if: ${{ steps.cache-llvm.outputs.cache-hit != 'true' && runner.os == 'Linux' && matrix.config.cc == 'clang' }}
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: ${{ matrix.config.compiler_version }}
           directory: ~/llvm
           env: 'true'
-
-      - name: Debug matrix.config.cc
-        shell: bash
-        run: |
-          echo "matrix.config.cc = ${{ matrix.config.cc }}"
-          echo "runner.os = ${{ runner.os }}"
-          echo "1st_condition = ${{ runner.os == 'Linux' }}"
-          echo "2nd_condition = ${{ matrix.config.cc == 'gcc' }}"
 
       - name: Set up GCC
         if: ${{ runner.os == 'Linux' && matrix.config.cc == 'gcc' }}
@@ -81,10 +73,12 @@ jobs:
           platform: x64
 
       - name: Install conan & numpy
+        id: conan
         shell: bash
         run: |
           python3 -m pip install --upgrade pip setuptools
           python3 -m pip install conan numpy
+          echo "::set-output CONAN_HOME=~/.conan2-${{ runner.os }}-${{ matrix.config.build_type }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}"
 
       - name: Source profile
         if: ${{ runner.os == 'Linux' }}
@@ -102,12 +96,22 @@ jobs:
         with:
           arch: amd64
 
+      - name: Cache Conan Dependencies Install
+        id: cache-conan-deps
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-conan-deps
+        with:
+          path: ~/llvm
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ matrix.config.build_type }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}-${{ hashFiles('**/configure.sh') }}
+
       - name: Configure CMake
         shell: bash
         env:
           CC: ${{ matrix.config.cc }}
           CXX: ${{ matrix.config.cxx }}
         run: >
+          export CONAN_HOME=${{ steps.conan.outputs.CONAN_HOME }} && 
           cmake
           -S .
           -B ./build
