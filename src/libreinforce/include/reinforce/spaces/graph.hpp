@@ -158,8 +158,11 @@ class GraphSpace:
       return xt::random::randint< size_t >({num_edges, 2ul}, size_t{0}, num_nodes, rng());
    }
 
+   template < typename size_or_forwardrange_t >
+   auto _make_num_nodes_view(size_t nr_samples, const size_or_forwardrange_t& num_nodes) const;
+
    template < typename num_nodes_view_t, typename optional_size_or_forwardrange_t >
-   auto _convert_to_edges_array(
+   auto _make_num_edges_array(
       size_t nr_samples,
       const num_nodes_view_t& num_nodes_view,
       const optional_size_or_forwardrange_t& num_edges
@@ -212,28 +215,10 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
    const auto& [node_space_mask, edge_space_mask] = mask;
    // build the numbers of edges array out of the possible parameter combinations of
    // `num_nodes` and `num_edges`
-   auto [num_nodes_view, num_nodes_view_size] = std::invoke([&] {
-      if constexpr(std::integral< raw_t< size_or_forwardrange_t > >) {
-         if(std::unsigned_integral< raw_t< size_or_forwardrange_t > > and num_nodes < 0) {
-            throw std::invalid_argument("`num_nodes` has to be greater than 0.");
-         }
-         return std::pair{
-            views::repeat_n(static_cast< size_t >(num_nodes), static_cast< long >(nr_samples)),
-            nr_samples
-         };
-      } else {
-         auto size = std::ranges::size(num_nodes);
-         if(size != nr_samples) {
-            throw std::invalid_argument(fmt::format(
-               "`num_nodes` range length ({}) does not match `nr_samples` to draw ({})",
-               num_nodes.size(),
-               nr_samples
-            ));
-         }
-         return std::pair{num_nodes | views::cast< size_t >, size};
-      }
-   });
-   xarray< size_t > num_edges_arr = _convert_to_edges_array(nr_samples, num_nodes_view, num_edges);
+   auto [num_nodes_view, num_nodes_view_size] = _make_num_nodes_view(nr_samples, FWD(num_nodes));
+   xarray< size_t > num_edges_arr = _make_num_edges_array(
+      nr_samples, num_nodes_view, FWD(num_edges)
+   );
    FORCE_DEBUG_ASSERT_MSG(
       num_edges_arr.size() == std::ranges::size(num_nodes_view)
          and num_edges_arr.size() == nr_samples,
@@ -265,17 +250,16 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
       auto node_space_nr_elements_per_sample = ranges::accumulate(
          m_node_space.shape(), size_t{1}, std::multiplies{}
       );
-      auto edge_space_nr_elements_per_sample = has_edge_space ? ranges::accumulate(
-                                                                   m_node_space.shape(),
-                                                                   size_t{1},
-                                                                   std::multiplies{}
-                                                                )
-                                                              : 0;
+      auto edge_space_nr_elems_per_sample = std::invoke([&] {
+         if(not has_edge_space)
+            return size_t{0};
+         return ranges::accumulate(m_node_space.shape(), size_t{1}, std::multiplies{});
+      });
 
       auto [node_offset, edge_offset] = std::array{0ul, 0ul};
       for(auto [n_nodes, n_edges] : views::zip(num_nodes_view, num_edges_arr)) {
          size_t node_slice_size = n_nodes * node_space_nr_elements_per_sample;
-         size_t edge_slice_size = n_edges * edge_space_nr_elements_per_sample;
+         size_t edge_slice_size = n_edges * edge_space_nr_elems_per_sample;
          auto start_nodes = std::exchange(node_offset, node_offset + node_slice_size);
          auto start_edges = std::exchange(edge_offset, edge_offset + edge_slice_size);
 
@@ -302,8 +286,39 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
 
 template < typename NodeSpace, typename EdgeSpace >
    requires graph_space_concept< NodeSpace, EdgeSpace >
+template < typename size_or_forwardrange_t >
+auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_nodes_view(
+   size_t nr_samples,
+   const size_or_forwardrange_t& num_nodes
+) const
+{
+   using namespace detail;
+   using namespace ranges;
+   if constexpr(std::integral< raw_t< size_or_forwardrange_t > >) {
+      if(std::unsigned_integral< raw_t< size_or_forwardrange_t > > and num_nodes < 0) {
+         throw std::invalid_argument("`num_nodes` has to be greater than 0.");
+      }
+      return std::pair{
+         views::repeat_n(static_cast< size_t >(num_nodes), static_cast< long >(nr_samples)),
+         nr_samples
+      };
+   } else {
+      auto size = std::ranges::size(num_nodes);
+      if(size != nr_samples) {
+         throw std::invalid_argument(fmt::format(
+            "`num_nodes` range length ({}) does not match `nr_samples` to draw ({})",
+            num_nodes.size(),
+            nr_samples
+         ));
+      }
+      return std::pair{num_nodes | views::cast< size_t >, size};
+   }
+}
+
+template < typename NodeSpace, typename EdgeSpace >
+   requires graph_space_concept< NodeSpace, EdgeSpace >
 template < typename num_nodes_view_t, typename optional_size_or_forwardrange_t >
-auto GraphSpace< NodeSpace, EdgeSpace >::_convert_to_edges_array(
+auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_edges_array(
    size_t nr_samples,
    const num_nodes_view_t& num_nodes_view,
    const optional_size_or_forwardrange_t& num_edges
