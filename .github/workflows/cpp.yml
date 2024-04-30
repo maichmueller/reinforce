@@ -130,7 +130,7 @@ jobs:
       - name: Run REINFORCE Tests
         shell: bash
         run: >
-          GTEST_OUTPUT=xml:gtest-report-${{ jobs.build-test-install.name }}.xml
+          GTEST_OUTPUT=xml:gtest-report-${{ matrix.config.os }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}.xml
           GTEST_COLOR=1
           ctest -R Test_reinforce_tests_all
           --test-dir ./build
@@ -142,7 +142,7 @@ jobs:
         if: success()
         with:
           name: gtest-results
-          path: ./build/**/gtest-report-${{ jobs.build-test-install.name }}.xml
+          path: ./build/**/gtest-report-${{ matrix.config.os }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}.xml
           retention-days: 1
 
   publish-gtest-results:
