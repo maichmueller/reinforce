@@ -78,7 +78,7 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip setuptools
           python3 -m pip install conan numpy
-          echo "::set-output CONAN_HOME=~/.conan2-${{ runner.os }}-${{ matrix.config.build_type }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}"
+          echo "CONAN_HOME=~/.conan2-${{ runner.os }}-${{ matrix.config.build_type }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}" >> $GITHUB_OUTPUT
 
       - name: Source profile
         if: ${{ runner.os == 'Linux' }}
@@ -102,8 +102,8 @@ jobs:
         env:
           cache-name: cache-conan-deps
         with:
-          path: ~/llvm
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ matrix.config.build_type }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}-${{ hashFiles('**/configure.sh') }}
+          path: ${{ steps.conan.outputs.CONAN_HOME }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ matrix.config.build_type }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}-${{ hashFiles('**/conandata.yml') }}-${{ hashFiles('**/conanfile.py') }}
 
       - name: Configure CMake
         shell: bash
