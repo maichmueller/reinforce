@@ -54,7 +54,7 @@ jobs:
         env:
           cache-name: cache-llvm-files
         with:
-          path: ~/llvm
+          path: $HOME/llvm
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}-${{ hashFiles('**/workflows/cpp.yml') }}
 
       - name: Install LLVM and Clang
@@ -62,7 +62,7 @@ jobs:
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: ${{ matrix.config.compiler_version }}
-          directory: ~/llvm
+          directory: $HOME/llvm
           env: 'true'
 
       - name: Set up GCC
@@ -78,12 +78,12 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip setuptools
           python3 -m pip install conan numpy
-          echo "CONAN_HOME=~/.conan2-${{ runner.os }}-${{ matrix.config.build_type }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}" >> $GITHUB_OUTPUT
+          echo "CONAN_HOME=$HOME/.conan2-${{ runner.os }}-${{ matrix.config.build_type }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}" >> $GITHUB_OUTPUT
 
       - name: Source profile
         if: ${{ runner.os == 'Linux' }}
         shell: bash
-        run: source ~/.profile
+        run: source $HOME/.profile
 
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v1.14
