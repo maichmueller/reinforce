@@ -142,7 +142,7 @@ jobs:
         if: success()
         with:
           name: gtest-results
-          path: ./build/**/gtest-report-${{ github.jobs.build-test-install.name }}.xml
+          path: ./build/**/gtest-report-${{ github.jobs[github.job].name }}.xml
           retention-days: 1
 
   publish-gtest-results:
