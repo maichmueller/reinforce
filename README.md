@@ -79,25 +79,25 @@ fmt::println(
 <td>
 
 ```python
-import numpy as np
 import gymnasium as gym
+import numpy as np
 
-# high and low boundaries for samples
-# of shape (2,3). We have that
-# low[i,j] <= samples[:, i,j] <= high[i,j]
-low = np.array([[-np.inf, 0, -4],
-                [4, 16, 64]],
-               dtype=float)
-high = np.array([[np.inf, 2, -2],
-                 [8, 32, np.inf]],
-                dtype=float);
+
+
+
+
+
+low = np.array([[-np.inf, 0., -4.],
+                [4., 16., 64.]])
+high = np.array([[np.inf, 2., -2.],
+                 [8., 32., np.inf]])
 space = gym.spaces.Box(low, high)
 
 with np.printoptions(precision=2):
-    # sample either a single sample
+
     print(f"Sample:\n{space.sample()}")
 
-    # or a batch of samples
+
     print(f"Sample batch:\n{np.vstack([
       space.sample().reshape(1, 2, 3)
       for _ in range(100)
