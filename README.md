@@ -39,7 +39,7 @@ last drop of performance out of their training routines.
 
 ## Examples
 
-### Comparison: Sampling From Box in...
+### Sampling From Box Space.
 
 <table>
 <tr>
@@ -50,13 +50,14 @@ last drop of performance out of their training routines.
 <td>
 
 ```cpp
-#include <reinforce/spaces/box.hpp>  // the box space
-#include <reinforce/utils/math.hpp>  // util definitions like infinity
+#include <reinforce/spaces/box.hpp>
+#include <reinforce/utils/math.hpp>
 
 using namespace force;
 
-// define high and low boundaries for your multivariate samples. 
-// It holds that  low[i,j] <= samples[:, i,j] <= high[i,j]
+// high and low boundaries for samples 
+// of shape (2,3). We have that 
+// low[i,j] <= samples[:, i,j] <= high[i,j]
 xarray< double > low {{-inf<>,  0,    -4},
                       {     4, 16,    64}};
 xarray< double > high{{ inf<>,  2,    -2},
@@ -68,7 +69,10 @@ xt::print_options::set_precision(1);
 fmt::println("Sample:\n{}", space.sample());
 
 // or a batch of samples
-fmt::println("Sample batch:\n{}", space.sample(10000));
+fmt::println(
+  "Batch:\n{}", 
+  space.sample(100)
+);
 ```
 
 </td>
@@ -78,8 +82,9 @@ fmt::println("Sample batch:\n{}", space.sample(10000));
 import numpy as np
 import gymnasium as gym
 
-# define high and low boundaries for your multivariate samples. 
-# It holds that  low[i,j] <= samples[:, i,j] <= high[i,j]
+# high and low boundaries for samples
+# of shape (2,3). We have that
+# low[i,j] <= samples[:, i,j] <= high[i,j]
 low = np.array([[-np.inf, 0, -4],
                 [4, 16, 64]],
                dtype=float)
@@ -93,9 +98,10 @@ with np.printoptions(precision=2):
     print(f"Sample:\n{space.sample()}")
 
     # or a batch of samples
-    print(f"Sample batch:\n{np.vstack(
-        [space.sample().reshape(1, 2, 3) for _ in range(10000)]
-    )}")
+    print(f"Sample batch:\n{np.vstack([
+      space.sample().reshape(1, 2, 3)
+      for _ in range(100)
+    ])}")
 ```
 
 </td>
