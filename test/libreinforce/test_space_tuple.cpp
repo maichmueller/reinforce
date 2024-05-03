@@ -16,8 +16,8 @@ using namespace force;
 
 TEST(Spaces, Tuple_Discrete_Box_constructor)
 {
-   const xarray< double > box_low{-infinity<>, 0, -10};
-   const xarray< double > box_high{0, infinity<>, 10};
+   const xarray< double > box_low{-inf<>, 0, -10};
+   const xarray< double > box_high{0, inf<>, 10};
    constexpr auto start_discrete = 5;
    constexpr auto n_discrete = 5;
    EXPECT_NO_THROW(
@@ -43,8 +43,8 @@ TEST(Spaces, Tuple_Discrete_Box_constructor)
 
 TEST(Spaces, Tuple_Discrete_Box_sample)
 {
-   const xarray< double > box_low{-infinity<>, 0, -10};
-   const xarray< double > box_high{0, infinity<>, 10};
+   const xarray< double > box_low{-inf<>, 0, -10};
+   const xarray< double > box_high{0, inf<>, 10};
    constexpr auto start_discrete = 5;
    constexpr auto n_discrete = 5;
    auto space = TupleSpace{DiscreteSpace{n_discrete, start_discrete}, BoxSpace{box_low, box_high}};

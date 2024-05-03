@@ -23,8 +23,8 @@ TEST(Spaces, Sequence_Discrete_construction)
 
 TEST(Spaces, Sequence_Box_construction)
 {
-   const xarray< double > box_low{-infinity<>, 0, -10};
-   const xarray< double > box_high{0, infinity<>, 10};
+   const xarray< double > box_low{-inf<>, 0, -10};
+   const xarray< double > box_high{0, inf<>, 10};
    EXPECT_NO_THROW((SequenceSpace{BoxSpace{box_low, box_high}}));
    EXPECT_NO_THROW((SequenceSpace{BoxSpace{box_low, box_high}, 42}));
 }
@@ -51,8 +51,8 @@ TEST(Spaces, Sequence_Discrete_sample)
 
 TEST(Spaces, Sequence_Box_sample)
 {
-   const xarray< double > box_low{-infinity<>, 0, -10};
-   const xarray< double > box_high{0, infinity<>, 10};
+   const xarray< double > box_low{-inf<>, 0, -10};
+   const xarray< double > box_high{0, inf<>, 10};
    auto space = SequenceSpace{BoxSpace{box_low, box_high}, 3737};
    constexpr auto n_samples = 10;
    auto samples = space.sample(n_samples);

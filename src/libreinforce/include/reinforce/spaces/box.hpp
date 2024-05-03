@@ -120,14 +120,16 @@ class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
    xarray< bool > m_bounded_below;
    xarray< bool > m_bounded_above;
 
-   value_type _sample(const std::optional< xarray< bool > >& /*unused*/ = std::nullopt) const;
+   [[nodiscard]] value_type _sample(
+      const std::optional< xarray< bool > >& /*unused*/ = std::nullopt
+   ) const;
 
-   value_type _sample(
+   [[nodiscard]] value_type _sample(
       size_t nr_samples,
       const std::optional< xarray< bool > >& /*unused*/ = std::nullopt
    ) const;
 
-   bool _contains(const value_type& value) const
+   [[nodiscard]] bool _contains(const value_type& value) const
    {
       return base::_isin_shape_and_bounds(value, m_low, m_high);
    }
@@ -201,6 +203,13 @@ BoxSpace< T >::BoxSpace(
          return bounds;
       })
    ));
+   if(ranges::any_of(ranges::views::zip(m_high, m_low), [](auto&& pair) {
+         return std::get< 0 >(pair) < std::get< 1 >(pair);
+      })) {
+      throw std::invalid_argument(
+         "Some value-positions in 'low' are greater than their corresponding 'high' values."
+      );
+   }
 }
 
 template < typename T >

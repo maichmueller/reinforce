@@ -2,12 +2,13 @@
 #define REINFORCE_MATH_HPP
 
 #include <cstdlib>
+#include <limits>
 #include <tuple>
 
 namespace force {
 
 template < typename T = double >
-constexpr auto infinity = std::numeric_limits< T >::infinity();
+constexpr auto inf = std::numeric_limits< T >::infinity();
 
 namespace detail {
 

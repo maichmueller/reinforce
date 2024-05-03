@@ -21,8 +21,8 @@ TEST(Spaces, Box_singlevariate_constructor)
 
 TEST(Spaces, Box_multivariates_constructor)
 {
-   const xarray< double > low{-infinity<>, 0, -10};
-   const xarray< double > high{0, infinity<>, 10};
+   const xarray< double > low{-inf<>, 0, -10};
+   const xarray< double > high{0, inf<>, 10};
    EXPECT_NO_THROW((BoxSpace{low, high}));
    EXPECT_NO_THROW((BoxSpace{low, high, xt::svector< int >{}}));
    EXPECT_NO_THROW((BoxSpace{low, high, xt::svector{3}}));
@@ -35,8 +35,8 @@ TEST(Spaces, Box_multivariates_constructor)
 
 TEST(Spaces, Box_multivariates_sample)
 {
-   const xarray< double > low{-infinity<>, 0, -10};
-   const xarray< double > high{0, infinity<>, 10};
+   const xarray< double > low{-inf<>, 0, -10};
+   const xarray< double > high{0, inf<>, 10};
    auto box = BoxSpace< double >{low, high};
    auto samples = box.sample(10000);
    fmt::print("Samples:\n{}", samples);
@@ -55,8 +55,8 @@ TEST(Spaces, Box_multivariates_sample)
 
 TEST(Spaces, Box_2D_multivariates_sample)
 {
-   const xarray< double > low{{-infinity<>, 0, -1}, {-infinity<>, 4, 1}};
-   const xarray< double > high{{3, infinity<>, 0}, {7, 5, 11}};
+   const xarray< double > low{{-inf<>, 0, -1}, {-inf<>, 4, 1}};
+   const xarray< double > high{{3, inf<>, 0}, {7, 5, 11}};
    auto box = BoxSpace{low, high};
    auto samples = box.sample(10000);
    fmt::print("Samples:\n{}", samples);
@@ -81,13 +81,13 @@ TEST(Spaces, Box_2D_multivariates_sample)
 
 TEST(Spaces, Box_bounds)
 {
-   const xarray< double > low{{-infinity<>, 0, -1}, {-infinity<>, 4, 1}};
-   const xarray< double > high{{3, infinity<>, 0}, {7, 5, 11}};
+   const xarray< double > low{{-inf<>, 0, -1}, {-inf<>, 4, 1}};
+   const xarray< double > high{{3, inf<>, 0}, {7, 5, 11}};
    auto box = BoxSpace< double >{low, high};
-   EXPECT_EQ((std::pair{-infinity<>, 3.}), box.bounds({0, 0}));
-   EXPECT_EQ((std::pair{0., infinity<>}), box.bounds({0, 1}));
+   EXPECT_EQ((std::pair{-inf<>, 3.}), box.bounds({0, 0}));
+   EXPECT_EQ((std::pair{0., inf<>}), box.bounds({0, 1}));
    EXPECT_EQ((std::pair{-1., 0.}), box.bounds({0, 2}));
-   EXPECT_EQ((std::pair{-infinity<>, 7.}), box.bounds({1, 0}));
+   EXPECT_EQ((std::pair{-inf<>, 7.}), box.bounds({1, 0}));
    EXPECT_EQ((std::pair{4., 5.}), box.bounds({1, 1}));
    EXPECT_EQ((std::pair{1., 11.}), box.bounds({1, 2}));
 
@@ -98,8 +98,8 @@ TEST(Spaces, Box_bounds)
 TEST(Spaces, Box_reseeding)
 {
    constexpr size_t SEED = 6492374569235;
-   const xarray< double > low{-infinity<>, 0, -10};
-   const xarray< double > high{0, infinity<>, 10};
+   const xarray< double > low{-inf<>, 0, -10};
+   const xarray< double > high{0, inf<>, 10};
    BoxSpace space{low, high, low.shape(), SEED};
    size_t n = 1000;
    auto samples1 = space.sample(n);
@@ -119,8 +119,8 @@ TEST(Spaces, Box_reseeding)
 TEST(Spaces, Box_contains)
 {
    constexpr size_t SEED = 6492374569235;
-   const xarray< double > low{-infinity<>, 0, 50, 1.1};
-   const xarray< double > high{0, infinity<>, 51, std::numbers::e};
+   const xarray< double > low{-inf<>, 0, 50, 1.1};
+   const xarray< double > high{0, inf<>, 51, std::numbers::e};
    BoxSpace space{low, high, low.shape(), SEED};
    int n = 1000;
    xarray< double > contain_candidates = xt::hstack(
@@ -155,8 +155,8 @@ TEST(Spaces, Box_contains)
 
 TEST(Spaces, Box_copy_construction)
 {
-   const xarray< double > low{-infinity<>, 0, -10};
-   const xarray< double > high{0, infinity<>, 10};
+   const xarray< double > low{-inf<>, 0, -10};
+   const xarray< double > high{0, inf<>, 10};
    BoxSpace< double > space{low, high};
    auto space_copy = space;
    EXPECT_EQ(space_copy, space);
