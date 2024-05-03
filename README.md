@@ -110,7 +110,7 @@ with np.printoptions(precision=2):
 <tr>
 <td>
 
-```
+```cpp
 Sample:
 {{  1.3,   0.1,  -3. },
  {  6.9,  22.6,  64.4}}
@@ -139,7 +139,7 @@ Sample batch:
 </td>
 <td>
 
-```
+```cpp
 Sample:
 [[-1.2  1.6 -2.1]
  [ 5.6 28.1 64.9]]
