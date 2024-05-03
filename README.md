@@ -98,7 +98,7 @@ with np.printoptions(precision=2):
     print(f"Sample:\n{space.sample()}")
 
 
-    print(f"Sample batch:\n{np.vstack([
+    print(f"Batch:\n{np.vstack([
       space.sample().reshape(1, 2, 3)
       for _ in range(100)
     ])}")
@@ -114,7 +114,7 @@ with np.printoptions(precision=2):
 Sample:
 {{  1.3,   0.1,  -3. },
  {  6.9,  22.6,  64.4}}
-Sample batch:
+Batch:
 {{{ -1.6,   0.6,  -2.3},
   {  7.8,  29.3,  64.7}},
   
@@ -143,7 +143,7 @@ Sample batch:
 Sample:
 [[-1.2  1.6 -2.1]
  [ 5.6 28.1 64.9]]
-Sample batch:
+Batch:
 [[[ 0.4  1.5 -3.4]
   [ 7.7 29.1 64.3]]
 
