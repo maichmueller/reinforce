@@ -79,7 +79,7 @@ fmt::println(
 <td>
 
 ```python
-import gymnasium as gym
+from gymnasium import spaces
 import numpy as np
 
 
@@ -91,7 +91,7 @@ low = np.array([[-np.inf, 0., -4.],
                 [4., 16., 64.]])
 high = np.array([[np.inf, 2., -2.],
                  [8., 32., np.inf]])
-space = gym.spaces.Box(low, high)
+space = spaces.Box(low, high)
 
 with np.printoptions(precision=2):
 
