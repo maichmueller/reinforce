@@ -93,7 +93,7 @@ high = np.array([[np.inf, 2., -2.],
                  [8., 32., np.inf]])
 space = spaces.Box(low, high)
 
-with np.printoptions(precision=2):
+with np.printoptions(precision=1):
 
     print(f"Sample:\n{space.sample()}")
 
