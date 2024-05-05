@@ -65,6 +65,9 @@ jobs:
           directory: $HOME/llvm
           env: 'true'
 
+      - name: Set up Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
       - name: Set up GCC
         if: ${{ runner.os == 'Linux' && matrix.config.cc == 'gcc' }}
         uses: egor-tensin/setup-gcc@v1
@@ -112,15 +115,15 @@ jobs:
           CXX: ${{ matrix.config.cxx }}
         run: >
           export CONAN_HOME=${{ steps.conan.outputs.CONAN_HOME }} && 
-          cmake
-          -S .
-          -B ./build
+          ./configure.sh
+          --output=./build
           -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES="conan_provider.cmake"
           -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }}
           -DWARNINGS_AS_ERRORS:BOOL=OFF
           -DUSE_PYBIND11_FINDPYTHON:BOOL=ON
           -DENABLE_CACHE:BOOL=OFF
           -DENABLE_BUILD_SANDBOX:BOOL=OFF
+          -DENABLE_PCH:BOOL=OFF 
 
       - name: Build REINFORCE Library
         shell: bash
