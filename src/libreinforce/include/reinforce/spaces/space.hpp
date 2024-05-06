@@ -194,7 +194,14 @@ class Space: public detail::rng_mixin {
    }
 
    // Check if the value is a valid member of this space
-   bool contains(const value_type& value) const { return derived()._contains(value); }
+   template < typename T >
+   bool contains(const T& value) const
+   {
+      if constexpr(std::convertible_to< T, value_type >) {
+         return derived()._contains(value);
+      }
+      return false;
+   }
 
    // Checks whether this space can be flattened to a Box
    [[nodiscard]] bool is_flattenable() const
