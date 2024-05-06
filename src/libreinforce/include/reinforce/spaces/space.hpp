@@ -28,8 +28,12 @@ concept has_getitem_operator = requires(T t, size_t idx) { t[idx]; };
 ///
 /// The specifics are made to work as closely as possible to the corresponding internals of the
 /// openai/gymnasium python class.
-template < typename T, typename Derived, typename MultiT = T, bool runtime_sample_throw = false >
-   requires(std::is_same_v< T, MultiT > or detail::has_getitem_operator< MultiT >)
+template <
+   typename Value,
+   typename Derived,
+   typename MultiValue = Value,
+   bool runtime_sample_throw = false >
+   requires(std::is_same_v< Value, MultiValue > or detail::has_getitem_operator< MultiValue >)
 class Space: public detail::rng_mixin {
   private:
    /// for tag dispatch within this class
@@ -38,13 +42,13 @@ class Space: public detail::rng_mixin {
 
   public:
    // the type of values returned by sampling or containment queries
-   using value_type = T;
+   using value_type = Value;
    // the type of values returned by multiple-sampling (i.e. sample-size > 1) queries and
    // containment queries for multiple elements at once
-   using multi_value_type = MultiT;
+   using multi_value_type = MultiValue;
 
    constexpr static bool mvt_is_container = not std::is_same_v< multi_value_type, value_type >
-                                            and detail::has_getitem_operator< MultiT >;
+                                            and detail::has_getitem_operator< MultiValue >;
 
    explicit Space(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
        : rng_mixin(seed), m_shape(std::move(shape))
