@@ -7,6 +7,7 @@
 #include "reinforce/spaces/graph.hpp"
 #include "reinforce/spaces/multi_binary.hpp"
 #include "reinforce/spaces/multi_discrete.hpp"
+#include "reinforce/spaces/oneof.hpp"
 #include "reinforce/spaces/sequence.hpp"
 #include "reinforce/spaces/space.hpp"
 #include "reinforce/spaces/text.hpp"
