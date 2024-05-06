@@ -72,7 +72,7 @@ class GraphSpace:
       GraphSpace< NodeSpace, EdgeSpace >,
       std::vector< GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > > > >;
    using typename base::value_type;
-   using typename base::multi_value_type;
+   using typename base::batch_value_type;
    using base::seed;
    using base::shape;
    using base::rng;
@@ -137,7 +137,7 @@ class GraphSpace:
                 and detail::integral_or_forwardrange<
                    detail::value_t< detail::raw_t< optional_size_or_forwardrange_t > > >)
                or detail::integral_or_forwardrange< detail::raw_t< optional_size_or_forwardrange_t > >)
-   multi_value_type _sample(
+   batch_value_type _sample(
       size_t nr_samples,
       const std::tuple< node_mask_t, edge_mask_t >& mask,
       size_or_range_t&& num_nodes = 10,
@@ -206,7 +206,7 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
    const std::tuple< node_mask_t, edge_mask_t >& mask,
    size_or_forwardrange_t&& num_nodes,
    optional_size_or_forwardrange_t&& num_edges
-) const -> multi_value_type
+) const -> batch_value_type
 {
    using namespace detail;
    using namespace ranges;
@@ -234,7 +234,7 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
    auto sampled_nodes = m_node_space.sample(total_nr_node_samples, node_space_mask);
    auto sampled_edges = has_edge_space
                            ? m_edge_space->sample(total_nr_edge_samples, edge_space_mask)
-                           : detail::multi_value_t< EdgeSpace >::from_shape({0});
+                           : detail::batch_value_t< EdgeSpace >::from_shape({0});
 
    if(nr_samples == 1) {
       return std::vector{value_type{
@@ -245,7 +245,7 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
          )
       }};
    } else {
-      multi_value_type samples;
+      batch_value_type samples;
       samples.reserve(nr_samples);
       auto node_space_nr_elements_per_sample = ranges::accumulate(
          m_node_space.shape(), size_t{1}, std::multiplies{}
@@ -267,13 +267,13 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
             .nodes = xt::strided_view(
                sampled_nodes, {xt::range(start_nodes, node_offset), xt::ellipsis()}
             ),
-            .edges = std::invoke([&]() -> detail::multi_value_t< EdgeSpace > {
+            .edges = std::invoke([&]() -> detail::batch_value_t< EdgeSpace > {
                if(has_edge_space) {
                   return xt::strided_view(
                      sampled_edges, {xt::range(start_edges, edge_offset), xt::ellipsis()}
                   );
                } else {
-                  return detail::multi_value_t< EdgeSpace >::from_shape({0});
+                  return detail::batch_value_t< EdgeSpace >::from_shape({0});
                }
             }),
             .edge_links = has_edge_space ? _sample_edge_links(n_nodes, n_edges)

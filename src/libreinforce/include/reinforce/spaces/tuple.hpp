@@ -20,19 +20,19 @@ class TupleSpace:
     public Space<
        std::tuple< typename Spaces::value_type... >,
        TupleSpace< Spaces... >,
-       std::tuple< typename Spaces::multi_value_type... > > {
+       std::tuple< typename Spaces::batch_value_type... > > {
   public:
    friend class Space<
       std::tuple< typename Spaces::value_type... >,
       TupleSpace,
-      std::tuple< typename Spaces::multi_value_type... > >;
+      std::tuple< typename Spaces::batch_value_type... > >;
    using base = Space<
       std::tuple< typename Spaces::value_type... >,
       TupleSpace,
-      std::tuple< typename Spaces::multi_value_type... > >;
+      std::tuple< typename Spaces::batch_value_type... > >;
    using data_type = std::tuple< typename Spaces::data_type... >;
    using typename base::value_type;
-   using typename base::multi_value_type;
+   using typename base::batch_value_type;
    using base::seed;
    using base::shape;
    using base::rng;
@@ -119,7 +119,7 @@ class TupleSpace:
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
                and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples, MaskTuple&& mask_tuple) const
+   [[nodiscard]] batch_value_type _sample(size_t nr_samples, MaskTuple&& mask_tuple) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
@@ -133,12 +133,12 @@ class TupleSpace:
 
    template < typename... MaskTs >
       requires(sizeof...(MaskTs) == sizeof...(Spaces))
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples, MaskTs&&... masks) const
+   [[nodiscard]] batch_value_type _sample(size_t nr_samples, MaskTs&&... masks) const
    {
       return sample(nr_samples, std::tuple{FWD(masks)...});
    }
 
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples) const
+   [[nodiscard]] batch_value_type _sample(size_t nr_samples) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {

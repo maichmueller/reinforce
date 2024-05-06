@@ -39,7 +39,7 @@ class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
    using base = Space;
    using data_type = int8_t;
    using typename base::value_type;
-   using typename base::multi_value_type;
+   using typename base::batch_value_type;
    using base::shape;
    using base::rng;
 
@@ -83,15 +83,15 @@ class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
   private:
    [[nodiscard]] xt::svector< int > samples_shape(size_t nr_samples) const;
 
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const;
+   [[nodiscard]] batch_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const;
 
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples, const value_type& mask) const;
+   [[nodiscard]] batch_value_type _sample(size_t nr_samples, const value_type& mask) const;
 
-   [[nodiscard]] multi_value_type _sample(std::nullopt_t = std::nullopt) const
+   [[nodiscard]] batch_value_type _sample(std::nullopt_t = std::nullopt) const
    {
       return _sample(1);
    }
-   [[nodiscard]] multi_value_type _sample(const value_type& mask) const { return _sample(1, mask); }
+   [[nodiscard]] batch_value_type _sample(const value_type& mask) const { return _sample(1, mask); }
 
    [[nodiscard]] bool _contains(const value_type& value) const
    {

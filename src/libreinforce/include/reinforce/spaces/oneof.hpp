@@ -20,19 +20,19 @@ class OneOf:
     public Space<
        std::pair< size_t, std::variant< detail::value_t< Spaces >... > >,
        OneOf< std::variant< detail::value_t< Spaces >... > >,
-       std::pair< size_t, std::variant< detail::multi_value_t< Spaces >... > > > {
+       std::pair< size_t, std::variant< detail::batch_value_t< Spaces >... > > > {
   public:
    friend class Space<
       std::pair< size_t, std::variant< detail::value_t< Spaces >... > >,
       OneOf< std::variant< detail::value_t< Spaces >... > >,
-      std::pair< size_t, std::variant< detail::multi_value_t< Spaces >... > > >;
+      std::pair< size_t, std::variant< detail::batch_value_t< Spaces >... > > >;
    using base = Space<
       std::pair< size_t, std::variant< detail::value_t< Spaces >... > >,
       OneOf< std::variant< detail::value_t< Spaces >... > >,
-      std::pair< size_t, std::variant< detail::multi_value_t< Spaces >... > > >;
+      std::pair< size_t, std::variant< detail::batch_value_t< Spaces >... > > >;
    using data_type = std::variant< typename Spaces::data_type... >;
    using typename base::value_type;
-   using typename base::multi_value_type;
+   using typename base::batch_value_type;
    using base::seed;
    using base::shape;
    using base::rng;
@@ -119,7 +119,7 @@ class OneOf:
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
                and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples, MaskTuple&& mask_tuple) const
+   [[nodiscard]] batch_value_type _sample(size_t nr_samples, MaskTuple&& mask_tuple) const
    {
       auto space_with_mask_tuple = zip_tuples(m_spaces, FWD(mask_tuple));
       size_t space_idx = xt::random::randint({1}, 0, sizeof...(Spaces), rng()).unchecked(0);
@@ -138,12 +138,12 @@ class OneOf:
 
    template < typename... MaskTs >
       requires(sizeof...(MaskTs) == sizeof...(Spaces))
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples, MaskTs&&... masks) const
+   [[nodiscard]] batch_value_type _sample(size_t nr_samples, MaskTs&&... masks) const
    {
       return sample(nr_samples, std::tuple{FWD(masks)...});
    }
 
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples) const
+   [[nodiscard]] batch_value_type _sample(size_t nr_samples) const
    {
       size_t space_idx = xt::random::randint({1}, 0, sizeof...(Spaces), rng()).unchecked(0);
       return {space_idx, visit_at_unchecked(m_spaces, space_idx, [=](const auto& space) {
@@ -195,7 +195,6 @@ class OneOf:
          return space.contains(value_of_space);
       });
    }
-}
 };
 
 }  // namespace force

@@ -31,9 +31,9 @@ concept has_getitem_operator = requires(T t, size_t idx) { t[idx]; };
 template <
    typename Value,
    typename Derived,
-   typename MultiValue = Value,
+   typename BatchValue = Value,
    bool runtime_sample_throw = false >
-   requires(std::is_same_v< Value, MultiValue > or detail::has_getitem_operator< MultiValue >)
+   requires(std::is_same_v< Value, BatchValue > or detail::has_getitem_operator< BatchValue >)
 class Space: public detail::rng_mixin {
   private:
    /// for tag dispatch within this class
@@ -45,10 +45,10 @@ class Space: public detail::rng_mixin {
    using value_type = Value;
    // the type of values returned by multiple-sampling (i.e. sample-size > 1) queries and
    // containment queries for multiple elements at once
-   using multi_value_type = MultiValue;
+   using batch_value_type = BatchValue;
 
-   constexpr static bool mvt_is_container = not std::is_same_v< multi_value_type, value_type >
-                                            and detail::has_getitem_operator< MultiValue >;
+   constexpr static bool mvt_is_container = not std::is_same_v< batch_value_type, value_type >
+                                            and detail::has_getitem_operator< BatchValue >;
 
    explicit Space(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
        : rng_mixin(seed), m_shape(std::move(shape))
@@ -127,14 +127,14 @@ class Space: public detail::rng_mixin {
       return sample(internal_tag, mask_tuple, FWD(extra_args)...);
    }
 
-   multi_value_type sample(size_t nr) const
+   batch_value_type sample(size_t nr) const
       requires requires(Derived derived) { derived._sample(nr); }
    {
       return derived()._sample(nr);
    }
 
    template < std::integral T1, typename MaskType, typename... OtherArgs >
-   multi_value_type sample(internal_tag_t, T1 arg1, MaskType&& mask_arg, OtherArgs&&... args) const
+   batch_value_type sample(internal_tag_t, T1 arg1, MaskType&& mask_arg, OtherArgs&&... args) const
    {
       if constexpr(not requires(Derived derived) {
                       derived._sample(arg1, FWD(mask_arg), FWD(args)...);
@@ -158,18 +158,18 @@ class Space: public detail::rng_mixin {
    }
 
    template < typename U, typename... ExtraArgs >
-   multi_value_type sample(size_t nr, const xarray< U >& mask, ExtraArgs&&... extra_args) const
+   batch_value_type sample(size_t nr, const xarray< U >& mask, ExtraArgs&&... extra_args) const
    {
       return sample(internal_tag, nr, mask, FWD(extra_args)...);
    }
    template < typename... TupleArgs, typename... ExtraArgs >
-   multi_value_type
+   batch_value_type
    sample(size_t nr, const std::tuple< TupleArgs... >& mask_tuple, ExtraArgs&&... extra_args) const
    {
       return sample(internal_tag, nr, mask_tuple, FWD(extra_args)...);
    }
    template < typename U, typename... ExtraArgs >
-   multi_value_type sample(
+   batch_value_type sample(
       size_t nr,
       const std::vector< std::optional< xarray< U > > >& mask_vec,
       ExtraArgs&&... extra_args
@@ -179,7 +179,7 @@ class Space: public detail::rng_mixin {
    }
 
    template < typename... ExtraArgs >
-   multi_value_type sample(size_t nr, std::nullopt_t, ExtraArgs&&... extra_args) const
+   batch_value_type sample(size_t nr, std::nullopt_t, ExtraArgs&&... extra_args) const
    {
       return sample(internal_tag, nr, std::nullopt, FWD(extra_args)...);
    }

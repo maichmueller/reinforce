@@ -56,7 +56,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    using base = Space;
    using data_type = std::string::value_type;
    using typename base::value_type;
-   using typename base::multi_value_type;
+   using typename base::batch_value_type;
    using base::shape;
    using base::rng;
 
@@ -116,7 +116,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
                or (detail::is_specialization_v< SizeOrVectorT, std::vector > and std::convertible_to< ranges::value_type_t< SizeOrVectorT >, size_t >)
               )
               and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
-   multi_value_type _sample(
+   batch_value_type _sample(
       internal_tag_t,
       size_t nr_samples,
       const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple
@@ -138,10 +138,10 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    /// \param mask_tuple the mask tuple with generics contained in them. The only restriction is
    /// that not both generic types are std::optionals at the same time. \return
    template < typename MaskT1, typename MaskT2 >
-   multi_value_type _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple)
+   batch_value_type _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple)
       const;
 
-   multi_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const
+   batch_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const
    {
       return _sample(internal_tag, nr_samples, {});
    }
@@ -172,7 +172,7 @@ auto TextSpace::_sample(
    internal_tag_t,
    size_t nr_samples,
    const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple
-) const -> multi_value_type
+) const -> batch_value_type
 {
    if(nr_samples == 0) {
       throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
@@ -276,7 +276,7 @@ xarray< size_t > TextSpace::_compute_lengths(size_t nr_samples, const SizeOrVect
 
 template < typename T1, typename T2 >
 auto TextSpace::_sample(size_t nr_samples, const std::tuple< T1, T2 >& mask_tuple) const
-   -> multi_value_type
+   -> batch_value_type
 {
    constexpr auto int_0 = std::integral_constant< int, 0 >{};
    constexpr auto int_1 = std::integral_constant< int, 1 >{};

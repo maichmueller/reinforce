@@ -54,22 +54,22 @@ class SequenceSpace:
     public Space<
        detail::vector_if_not_xarray_t< typename FeatureSpace::value_type >,
        SequenceSpace< FeatureSpace >,
-       std::vector< typename FeatureSpace::multi_value_type > > {
+       std::vector< typename FeatureSpace::batch_value_type > > {
    struct internal_tag {};
 
   public:
    friend class Space<
       detail::vector_if_not_xarray_t< typename FeatureSpace::value_type >,
       SequenceSpace,
-      std::vector< typename FeatureSpace::multi_value_type > >;
+      std::vector< typename FeatureSpace::batch_value_type > >;
    using base = Space<
       detail::vector_if_not_xarray_t< typename FeatureSpace::value_type >,
       SequenceSpace,
-      std::vector< typename FeatureSpace::multi_value_type > >;
+      std::vector< typename FeatureSpace::batch_value_type > >;
    using feature_space_type = FeatureSpace;
    using data_type = typename feature_space_type::data_type;
    using typename base::value_type;
-   using typename base::multi_value_type;
+   using typename base::batch_value_type;
    using base::seed;
    using base::shape;
    using base::rng;
@@ -133,10 +133,10 @@ class SequenceSpace:
    //    >, size_t > or (std::ranges::range< detail::raw_t< MaskT1 > > and std::convertible_to<
    //    ranges::value_type_t< detail::raw_t< MaskT1 > >, size_t >))
    // )
-   [[nodiscard]] multi_value_type
+   [[nodiscard]] batch_value_type
    _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple = {}) const;
 
-   [[nodiscard]] multi_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const
+   [[nodiscard]] batch_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const
    {
       return _sample(nr_samples, std::tuple{std::nullopt, std::nullopt});
    }
@@ -164,7 +164,7 @@ template < typename MaskT1, typename MaskT2 >
 auto SequenceSpace< FeatureSpace >::_sample(
    size_t nr_samples,
    const std::tuple< MaskT1, MaskT2 >& mask_tuple
-) const -> multi_value_type
+) const -> batch_value_type
 {
    if(nr_samples == 0) {
       throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
@@ -177,15 +177,15 @@ auto SequenceSpace< FeatureSpace >::_sample(
    return std::invoke([&] {
       return std::views::all(lengths_per_sample)  //
              | std::views::transform(
-                [&](auto nr_samples_concrete) -> typename feature_space_type::multi_value_type {
+                [&](auto nr_samples_concrete) -> typename feature_space_type::batch_value_type {
                    if(nr_samples_concrete > 0) {
                       return m_feature_space.sample(nr_samples_concrete, feature_mask);
                    }
                    if constexpr(detail::is_xarray<
-                                   typename feature_space_type::multi_value_type >) {
+                                   typename feature_space_type::batch_value_type >) {
                       // a default constructed xarray of type int, i.e. xarray<int>{}, will convert
                       // to 0, instead of an empty xarray. We have to handle this case manually then
-                      return feature_space_type::multi_value_type::from_shape(xt::svector{0});
+                      return feature_space_type::batch_value_type::from_shape(xt::svector{0});
                    }
                    return {};
                 }
