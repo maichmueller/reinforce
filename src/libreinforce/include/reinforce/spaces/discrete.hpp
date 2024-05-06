@@ -69,11 +69,11 @@ class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
       return _sample(size_t{1}, mask);
    }
 
-   [[nodiscard]] value_type _sample(size_t nr_samples) const;
+   [[nodiscard]] value_type _sample(size_t batch_size) const;
 
-   [[nodiscard]] value_type _sample(size_t nr_samples, std::nullopt_t) const;
+   [[nodiscard]] value_type _sample(size_t batch_size, std::nullopt_t) const;
 
-   [[nodiscard]] value_type _sample(size_t nr_samples, const xarray< bool >& mask) const;
+   [[nodiscard]] value_type _sample(size_t batch_size, const xarray< bool >& mask) const;
 
    [[nodiscard]] bool _contains(const detail::value_t< value_type >& value) const
    {
@@ -88,21 +88,21 @@ class DiscreteSpace: public Space< xarray< T >, DiscreteSpace< T > > {
 };
 
 template < std::integral T >
-auto DiscreteSpace< T >::_sample(size_t nr_samples) const -> value_type
+auto DiscreteSpace< T >::_sample(size_t batch_size) const -> value_type
 {
-   return xt::random::randint< T >({nr_samples}, m_start, m_start + m_nr_values, rng());
+   return xt::random::randint< T >({batch_size}, m_start, m_start + m_nr_values, rng());
 }
 
 template < std::integral T >
-auto DiscreteSpace< T >::_sample(size_t nr_samples, std::nullopt_t /*unused*/) const -> value_type
+auto DiscreteSpace< T >::_sample(size_t batch_size, std::nullopt_t /*unused*/) const -> value_type
 {
-   return _sample(nr_samples);
+   return _sample(batch_size);
 }
 
 template < std::integral T >
-auto DiscreteSpace< T >::_sample(size_t nr_samples, const xarray< bool >& mask) const -> value_type
+auto DiscreteSpace< T >::_sample(size_t batch_size, const xarray< bool >& mask) const -> value_type
 {
-   auto samples = xt::empty< T >(xt::svector{nr_samples});
+   auto samples = xt::empty< T >(xt::svector{batch_size});
 
    if(mask.size() != static_cast< size_t >(m_nr_values)) {
       throw std::invalid_argument(
@@ -121,7 +121,7 @@ auto DiscreteSpace< T >::_sample(size_t nr_samples, const xarray< bool >& mask) 
 
    if(not valid_indices.empty()) {
       std::uniform_int_distribution< size_t > dist(0UL, valid_indices.size() - 1);
-      for(auto i : ranges::views::iota(0UL, nr_samples)) {
+      for(auto i : ranges::views::iota(0UL, batch_size)) {
          samples.unchecked(i) = m_start + valid_indices[dist(rng())];
       }
       return samples;

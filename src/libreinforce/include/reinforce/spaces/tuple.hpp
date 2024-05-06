@@ -119,12 +119,12 @@ class TupleSpace:
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
                and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
-   [[nodiscard]] batch_value_type _sample(size_t nr_samples, MaskTuple&& mask_tuple) const
+   [[nodiscard]] batch_value_type _sample(size_t batch_size, MaskTuple&& mask_tuple) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
             return std::tuple{
-               std::get< Is >(m_spaces).sample(nr_samples, std::get< Is >(FWD(mask_tuple)))...
+               std::get< Is >(m_spaces).sample(batch_size, std::get< Is >(FWD(mask_tuple)))...
             };
          },
          spaces_idx_seq{}
@@ -133,16 +133,16 @@ class TupleSpace:
 
    template < typename... MaskTs >
       requires(sizeof...(MaskTs) == sizeof...(Spaces))
-   [[nodiscard]] batch_value_type _sample(size_t nr_samples, MaskTs&&... masks) const
+   [[nodiscard]] batch_value_type _sample(size_t batch_size, MaskTs&&... masks) const
    {
-      return sample(nr_samples, std::tuple{FWD(masks)...});
+      return sample(batch_size, std::tuple{FWD(masks)...});
    }
 
-   [[nodiscard]] batch_value_type _sample(size_t nr_samples) const
+   [[nodiscard]] batch_value_type _sample(size_t batch_size) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
-            return std::tuple{std::get< Is >(m_spaces).sample(nr_samples)...};
+            return std::tuple{std::get< Is >(m_spaces).sample(batch_size)...};
          },
          spaces_idx_seq{}
       );

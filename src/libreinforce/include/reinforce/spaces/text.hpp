@@ -118,7 +118,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
               and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
    batch_value_type _sample(
       internal_tag_t,
-      size_t nr_samples,
+      size_t batch_size,
       const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple
    ) const;
 
@@ -134,16 +134,16 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    ///
    /// \tparam MaskT1 type of the 1st masking element
    /// \tparam MaskT2 type of the 2nd masking element
-   /// \param nr_samples the total number of samples to generate (forwarded)
+   /// \param batch_size the total number of samples to generate (forwarded)
    /// \param mask_tuple the mask tuple with generics contained in them. The only restriction is
    /// that not both generic types are std::optionals at the same time. \return
    template < typename MaskT1, typename MaskT2 >
-   batch_value_type _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple)
+   batch_value_type _sample(size_t batch_size, const std::tuple< MaskT1, MaskT2 >& mask_tuple)
       const;
 
-   batch_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const
+   batch_value_type _sample(size_t batch_size, std::nullopt_t = std::nullopt) const
    {
-      return _sample(internal_tag, nr_samples, {});
+      return _sample(internal_tag, batch_size, {});
    }
 
    [[nodiscard]] bool _contains(const value_type& value) const
@@ -154,7 +154,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
 
    template < typename SizeOrVectorT >
    [[nodiscard]] xarray< size_t >
-   _compute_lengths(size_t nr_samples, const SizeOrVectorT* lengths_ptr) const;
+   _compute_lengths(size_t batch_size, const SizeOrVectorT* lengths_ptr) const;
 
    static std::unordered_map< char, size_t > make_charmap(const xarray< char >& chars);
 
@@ -170,12 +170,12 @@ template < typename SizeOrVectorT, typename Xarray >
            ) and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
 auto TextSpace::_sample(
    internal_tag_t,
-   size_t nr_samples,
+   size_t batch_size,
    const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple
 ) const -> batch_value_type
 {
-   if(nr_samples == 0) {
-      throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
+   if(batch_size == 0) {
+      throw std::invalid_argument("`batch_size` argument has to be greater than 0.");
    }
    const auto [length_ptr, charlist_mask_ptr] = mask_tuple;
    auto valid_indices = std::invoke([&] {
@@ -195,7 +195,7 @@ auto TextSpace::_sample(
 
    // Compute the lenghts each sample should have. This is an array of potentially
    // differing integers which at index i indicates the sampled string size for sample i.
-   auto lengths_per_sample = _compute_lengths(nr_samples, length_ptr);
+   auto lengths_per_sample = _compute_lengths(batch_size, length_ptr);
    SPDLOG_DEBUG(fmt::format("Random lengths of each sample:\n{}", lengths_per_sample));
    size_t total_nr_char_sample = xt::sum(lengths_per_sample, xt::evaluation_strategy::immediate)
                                     .unchecked(0);
@@ -245,22 +245,22 @@ auto TextSpace::_sample(
 }
 
 template < typename SizeOrVectorT >
-xarray< size_t > TextSpace::_compute_lengths(size_t nr_samples, const SizeOrVectorT* lengths_ptr)
+xarray< size_t > TextSpace::_compute_lengths(size_t batch_size, const SizeOrVectorT* lengths_ptr)
    const
 {
    if(lengths_ptr) {
       const SizeOrVectorT& lengths = *lengths_ptr;
       return std::invoke([&] {
          if constexpr(std::convertible_to< SizeOrVectorT, size_t >) {
-            return xt::full(xt::svector{nr_samples}, static_cast< size_t >(lengths));
+            return xt::full(xt::svector{batch_size}, static_cast< size_t >(lengths));
          } else {
             // lengths is now confirmed to be a std::vector type
-            if(lengths.size() != nr_samples) {
+            if(lengths.size() != batch_size) {
                throw std::invalid_argument(fmt::format(
                   "Given mask mandates fixed lengths for only {} out of {} samples. Expected "
                   "parity.",
                   lengths.size(),
-                  nr_samples
+                  batch_size
                ));
             }
             xarray< size_t > arr = xt::empty< size_t >({lengths.size()});
@@ -271,11 +271,11 @@ xarray< size_t > TextSpace::_compute_lengths(size_t nr_samples, const SizeOrVect
          }
       });
    }
-   return xt::random::randint(xt::svector{nr_samples}, m_min_length, m_max_length + 1, rng());
+   return xt::random::randint(xt::svector{batch_size}, m_min_length, m_max_length + 1, rng());
 }
 
 template < typename T1, typename T2 >
-auto TextSpace::_sample(size_t nr_samples, const std::tuple< T1, T2 >& mask_tuple) const
+auto TextSpace::_sample(size_t batch_size, const std::tuple< T1, T2 >& mask_tuple) const
    -> batch_value_type
 {
    constexpr auto int_0 = std::integral_constant< int, 0 >{};
@@ -290,7 +290,7 @@ auto TextSpace::_sample(size_t nr_samples, const std::tuple< T1, T2 >& mask_tupl
       }
    };
    const auto& [m1, m2] = mask_tuple;
-   return _sample(internal_tag, nr_samples, std::tuple{to_ptr(m1, int_0), to_ptr(m2, int_1)});
+   return _sample(internal_tag, batch_size, std::tuple{to_ptr(m1, int_0), to_ptr(m2, int_1)});
 }
 
 }  // namespace force

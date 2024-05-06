@@ -81,11 +81,11 @@ class MultiBinarySpace: public Space< xarray< int8_t >, MultiBinarySpace > {
    [[nodiscard]] std::string repr() const { return fmt::format("MultiBinary({})", shape()); }
 
   private:
-   [[nodiscard]] xt::svector< int > samples_shape(size_t nr_samples) const;
+   [[nodiscard]] xt::svector< int > samples_shape(size_t batch_size) const;
 
-   [[nodiscard]] batch_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const;
+   [[nodiscard]] batch_value_type _sample(size_t batch_size, std::nullopt_t = std::nullopt) const;
 
-   [[nodiscard]] batch_value_type _sample(size_t nr_samples, const value_type& mask) const;
+   [[nodiscard]] batch_value_type _sample(size_t batch_size, const value_type& mask) const;
 
    [[nodiscard]] batch_value_type _sample(std::nullopt_t = std::nullopt) const
    {

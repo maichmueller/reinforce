@@ -125,7 +125,7 @@ class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
    ) const;
 
    [[nodiscard]] value_type _sample(
-      size_t nr_samples,
+      size_t batch_size,
       const std::optional< xarray< bool > >& /*unused*/ = std::nullopt
    ) const;
 
@@ -265,11 +265,11 @@ auto BoxSpace< T >::_sample(const std::optional< xarray< bool > >&) const -> val
 template < typename T >
    requires std::is_integral_v< T > || std::is_floating_point_v< T >
 auto BoxSpace< T >::_sample(
-   size_t nr_samples,
+   size_t batch_size,
    const std::optional< xarray< bool > >& /*unused*/
 ) const -> value_type
 {
-   xarray< T > samples = xt::empty< T >(prepend(shape(), static_cast< int >(nr_samples)));
+   xarray< T > samples = xt::empty< T >(prepend(shape(), static_cast< int >(batch_size)));
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
 
    for(auto&& [i, bounds] :
@@ -283,7 +283,7 @@ auto BoxSpace< T >::_sample(
       );
       SPDLOG_DEBUG(fmt::format("Slice: {}", slice_vec));
       auto entry_view = xt::strided_view(samples, slice_vec);
-      auto draw_shape = xt::svector{nr_samples};
+      auto draw_shape = xt::svector{batch_size};
       switch(auto choice = (lower_bounded ? 1 : -1) + int(upper_bounded)) {
             // we use the `double` versions of all the sampling functions of xtensor even if `T`
             // were to be integral. xtensor casts the sampled double floating points to `T`

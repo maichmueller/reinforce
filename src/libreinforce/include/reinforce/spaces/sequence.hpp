@@ -134,11 +134,11 @@ class SequenceSpace:
    //    ranges::value_type_t< detail::raw_t< MaskT1 > >, size_t >))
    // )
    [[nodiscard]] batch_value_type
-   _sample(size_t nr_samples, const std::tuple< MaskT1, MaskT2 >& mask_tuple = {}) const;
+   _sample(size_t batch_size, const std::tuple< MaskT1, MaskT2 >& mask_tuple = {}) const;
 
-   [[nodiscard]] batch_value_type _sample(size_t nr_samples, std::nullopt_t = std::nullopt) const
+   [[nodiscard]] batch_value_type _sample(size_t batch_size, std::nullopt_t = std::nullopt) const
    {
-      return _sample(nr_samples, std::tuple{std::nullopt, std::nullopt});
+      return _sample(batch_size, std::tuple{std::nullopt, std::nullopt});
    }
 
    [[nodiscard]] bool _contains(const value_type& value) const
@@ -147,7 +147,7 @@ class SequenceSpace:
    }
 
    template < typename Range >
-   [[nodiscard]] xarray< size_t > _compute_lengths(size_t nr_samples, Range&& lengths_rng) const;
+   [[nodiscard]] xarray< size_t > _compute_lengths(size_t batch_size, Range&& lengths_rng) const;
 };
 
 // template implementations
@@ -162,24 +162,24 @@ template < typename MaskT1, typename MaskT2 >
 //    ranges::value_type_t< detail::raw_t< MaskT1 > >, size_t >))
 // )
 auto SequenceSpace< FeatureSpace >::_sample(
-   size_t nr_samples,
+   size_t batch_size,
    const std::tuple< MaskT1, MaskT2 >& mask_tuple
 ) const -> batch_value_type
 {
-   if(nr_samples == 0) {
-      throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
+   if(batch_size == 0) {
+      throw std::invalid_argument("`batch_size` argument has to be greater than 0.");
    }
    auto&& [length_rng, feature_mask] = mask_tuple;
    // Compute the lenghts each sample should have. This is an array of potentially
    // differing integers which at index i indicates the sampled string size for sample i.
-   auto lengths_per_sample = _compute_lengths(nr_samples, FWD(length_rng));
+   auto lengths_per_sample = _compute_lengths(batch_size, FWD(length_rng));
    SPDLOG_DEBUG(fmt::format("Lengths of each sample:\n{}", lengths_per_sample));
    return std::invoke([&] {
       return std::views::all(lengths_per_sample)  //
              | std::views::transform(
-                [&](auto nr_samples_concrete) -> typename feature_space_type::batch_value_type {
-                   if(nr_samples_concrete > 0) {
-                      return m_feature_space.sample(nr_samples_concrete, feature_mask);
+                [&](auto batch_size_concrete) -> typename feature_space_type::batch_value_type {
+                   if(batch_size_concrete > 0) {
+                      return m_feature_space.sample(batch_size_concrete, feature_mask);
                    }
                    if constexpr(detail::is_xarray<
                                    typename feature_space_type::batch_value_type >) {
@@ -197,12 +197,12 @@ auto SequenceSpace< FeatureSpace >::_sample(
 template < typename FeatureSpace >
 template < typename Range >
 xarray< size_t >
-SequenceSpace< FeatureSpace >::_compute_lengths(size_t nr_samples, Range&& lengths_rng) const
+SequenceSpace< FeatureSpace >::_compute_lengths(size_t batch_size, Range&& lengths_rng) const
 {
    using namespace detail;
    if constexpr(std::same_as< raw_t< Range >, std::nullopt_t >) {
       // if none given, then sample the length from a geometric distribution
-      return xt::random::geometric< size_t >(xt::svector{nr_samples}, m_geometric_prob, rng());
+      return xt::random::geometric< size_t >(xt::svector{batch_size}, m_geometric_prob, rng());
    } else if constexpr(std::convertible_to< raw_t< Range >, size_t >) {
       auto length = static_cast< size_t >(lengths_rng);
       if(length == 0) {
@@ -210,7 +210,7 @@ SequenceSpace< FeatureSpace >::_compute_lengths(size_t nr_samples, Range&& lengt
             fmt::format("Expecting a fixed length mask greater than 0. Given: {}", length)
          );
       }
-      return xt::full(xt::svector{nr_samples}, length);
+      return xt::full(xt::svector{batch_size}, length);
    } else {
       auto&& length_options = xt::cast< size_t >(std::invoke([&]() -> decltype(auto) {
          static constexpr bool is_already_xarray = is_xarray< raw_t< Range > >
@@ -226,7 +226,7 @@ SequenceSpace< FeatureSpace >::_compute_lengths(size_t nr_samples, Range&& lengt
             return arr;
          }
       }));
-      return xt::random::choice(length_options, xt::svector{nr_samples}, true, rng());
+      return xt::random::choice(length_options, xt::svector{batch_size}, true, rng());
    }
 }
 

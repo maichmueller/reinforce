@@ -119,7 +119,7 @@ class OneOf:
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
                and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
-   [[nodiscard]] batch_value_type _sample(size_t nr_samples, MaskTuple&& mask_tuple) const
+   [[nodiscard]] batch_value_type _sample(size_t batch_size, MaskTuple&& mask_tuple) const
    {
       auto space_with_mask_tuple = zip_tuples(m_spaces, FWD(mask_tuple));
       size_t space_idx = xt::random::randint({1}, 0, sizeof...(Spaces), rng()).unchecked(0);
@@ -130,7 +130,7 @@ class OneOf:
             space_idx,
             [=](const auto& space_and_mask) {
                auto&& [space, mask] = space_and_mask;
-               return space.sample(nr_samples, mask);
+               return space.sample(batch_size, mask);
             }
          )
       };
@@ -138,16 +138,16 @@ class OneOf:
 
    template < typename... MaskTs >
       requires(sizeof...(MaskTs) == sizeof...(Spaces))
-   [[nodiscard]] batch_value_type _sample(size_t nr_samples, MaskTs&&... masks) const
+   [[nodiscard]] batch_value_type _sample(size_t batch_size, MaskTs&&... masks) const
    {
-      return sample(nr_samples, std::tuple{FWD(masks)...});
+      return sample(batch_size, std::tuple{FWD(masks)...});
    }
 
-   [[nodiscard]] batch_value_type _sample(size_t nr_samples) const
+   [[nodiscard]] batch_value_type _sample(size_t batch_size) const
    {
       size_t space_idx = xt::random::randint({1}, 0, sizeof...(Spaces), rng()).unchecked(0);
       return {space_idx, visit_at_unchecked(m_spaces, space_idx, [=](const auto& space) {
-                 return space.sample(nr_samples);
+                 return space.sample(batch_size);
               })};
    }
    template < typename MaskTuple >

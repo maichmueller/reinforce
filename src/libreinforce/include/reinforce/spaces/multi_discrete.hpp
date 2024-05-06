@@ -157,11 +157,11 @@ class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
 
    template < typename MaskRange = std::array< std::optional< xarray< bool > >, 0 > >
       requires detail::is_mask_range< MaskRange >
-   [[nodiscard]] value_type _sample(size_t nr_samples, const MaskRange& mask_range = {}) const;
+   [[nodiscard]] value_type _sample(size_t batch_size, const MaskRange& mask_range = {}) const;
 
-   [[nodiscard]] value_type _sample(size_t nr_samples, std::nullopt_t /**/) const
+   [[nodiscard]] value_type _sample(size_t batch_size, std::nullopt_t /**/) const
    {
-      return _sample(nr_samples);
+      return _sample(batch_size);
    }
 
    [[nodiscard]] bool _contains(const value_type& value) const
@@ -236,18 +236,18 @@ MultiDiscreteSpace< T >::MultiDiscreteSpace(
 template < std::integral T >
 template < typename MaskRange >
    requires detail::is_mask_range< MaskRange >
-auto MultiDiscreteSpace< T >::_sample(size_t nr_samples, const MaskRange& mask_range) const
+auto MultiDiscreteSpace< T >::_sample(size_t batch_size, const MaskRange& mask_range) const
    -> value_type
 {
-   switch(nr_samples) {
+   switch(batch_size) {
       case 0: {
-         throw std::invalid_argument("`nr_samples` argument has to be greater than 0.");
+         throw std::invalid_argument("`batch_size` argument has to be greater than 0.");
       }
       case 1: {
          return _sample(mask_range);
       }
       default: {
-         xarray< T > samples = xt::empty< T >(prepend(shape(), static_cast< int >(nr_samples)));
+         xarray< T > samples = xt::empty< T >(prepend(shape(), static_cast< int >(batch_size)));
          SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
 
          auto mask_iter = std::ranges::begin(mask_range),
@@ -266,10 +266,10 @@ auto MultiDiscreteSpace< T >::_sample(size_t nr_samples, const MaskRange& mask_r
             auto&& view = xt::strided_view(samples, index_stride);
             if(mask_iter != mask_iter_end and mask_iter->has_value()) {
                view = xt::random::choice(
-                  xt::eval(xt::filter(xt::arange(start, end), **mask_iter)), nr_samples, true, rng()
+                  xt::eval(xt::filter(xt::arange(start, end), **mask_iter)), batch_size, true, rng()
                );
             } else {
-               view = xt::random::randint({nr_samples}, start, end, rng());
+               view = xt::random::randint({batch_size}, start, end, rng());
             }
             std::ranges::advance(mask_iter, 1, mask_iter_end);
          }

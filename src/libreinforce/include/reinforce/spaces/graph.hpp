@@ -138,16 +138,16 @@ class GraphSpace:
                    detail::value_t< detail::raw_t< optional_size_or_forwardrange_t > > >)
                or detail::integral_or_forwardrange< detail::raw_t< optional_size_or_forwardrange_t > >)
    batch_value_type _sample(
-      size_t nr_samples,
+      size_t batch_size,
       const std::tuple< node_mask_t, edge_mask_t >& mask,
       size_or_range_t&& num_nodes = 10,
       optional_size_or_forwardrange_t&& num_edges = std::nullopt
    ) const;
 
    template < typename... Args >
-   auto _sample(size_t nr_samples, std::nullopt_t mask = std::nullopt, Args&&... args) const
+   auto _sample(size_t batch_size, std::nullopt_t mask = std::nullopt, Args&&... args) const
    {
-      return _sample(nr_samples, std::tuple{mask, mask}, FWD(args)...);
+      return _sample(batch_size, std::tuple{mask, mask}, FWD(args)...);
    }
 
    idx_xarray _sample_edge_links(size_t num_nodes, size_t num_edges) const
@@ -159,11 +159,11 @@ class GraphSpace:
    }
 
    template < typename size_or_forwardrange_t >
-   auto _make_num_nodes_view(size_t nr_samples, const size_or_forwardrange_t& num_nodes) const;
+   auto _make_num_nodes_view(size_t batch_size, const size_or_forwardrange_t& num_nodes) const;
 
    template < typename num_nodes_view_t, typename optional_size_or_forwardrange_t >
    auto _make_num_edges_array(
-      size_t nr_samples,
+      size_t batch_size,
       const num_nodes_view_t& num_nodes_view,
       const optional_size_or_forwardrange_t& num_edges
    ) const;
@@ -202,7 +202,7 @@ template <
                 detail::value_t< detail::raw_t< optional_size_or_forwardrange_t > > >)
             or detail::integral_or_forwardrange< detail::raw_t< optional_size_or_forwardrange_t > >)
 auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
-   size_t nr_samples,
+   size_t batch_size,
    const std::tuple< node_mask_t, edge_mask_t >& mask,
    size_or_forwardrange_t&& num_nodes,
    optional_size_or_forwardrange_t&& num_edges
@@ -215,16 +215,16 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
    const auto& [node_space_mask, edge_space_mask] = mask;
    // build the numbers of edges array out of the possible parameter combinations of
    // `num_nodes` and `num_edges`
-   auto [num_nodes_view, num_nodes_view_size] = _make_num_nodes_view(nr_samples, FWD(num_nodes));
+   auto [num_nodes_view, num_nodes_view_size] = _make_num_nodes_view(batch_size, FWD(num_nodes));
    xarray< size_t > num_edges_arr = _make_num_edges_array(
-      nr_samples, num_nodes_view, FWD(num_edges)
+      batch_size, num_nodes_view, FWD(num_edges)
    );
    FORCE_DEBUG_ASSERT_MSG(
       num_edges_arr.size() == std::ranges::size(num_nodes_view)
-         and num_edges_arr.size() == nr_samples,
+         and num_edges_arr.size() == batch_size,
       fmt::format(
-         "nr_samples = {}, num_edges_arr.size() = {}, std::ranges::size(num_nodes_view) = {}",
-         nr_samples,
+         "batch_size = {}, num_edges_arr.size() = {}, std::ranges::size(num_nodes_view) = {}",
+         batch_size,
          num_edges_arr.size(),
          std::ranges::size(num_nodes_view)
       )
@@ -236,7 +236,7 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
                            ? m_edge_space->sample(total_nr_edge_samples, edge_space_mask)
                            : detail::batch_value_t< EdgeSpace >::from_shape({0});
 
-   if(nr_samples == 1) {
+   if(batch_size == 1) {
       return std::vector{value_type{
          .nodes = std::move(sampled_nodes),
          .edges = std::move(sampled_edges),
@@ -246,7 +246,7 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
       }};
    } else {
       batch_value_type samples;
-      samples.reserve(nr_samples);
+      samples.reserve(batch_size);
       auto node_space_nr_elements_per_sample = ranges::accumulate(
          m_node_space.shape(), size_t{1}, std::multiplies{}
       );
@@ -288,7 +288,7 @@ template < typename NodeSpace, typename EdgeSpace >
    requires graph_space_concept< NodeSpace, EdgeSpace >
 template < typename size_or_forwardrange_t >
 auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_nodes_view(
-   size_t nr_samples,
+   size_t batch_size,
    const size_or_forwardrange_t& num_nodes
 ) const
 {
@@ -299,16 +299,16 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_nodes_view(
          throw std::invalid_argument("`num_nodes` has to be greater than 0.");
       }
       return std::pair{
-         views::repeat_n(static_cast< size_t >(num_nodes), static_cast< long >(nr_samples)),
-         nr_samples
+         views::repeat_n(static_cast< size_t >(num_nodes), static_cast< long >(batch_size)),
+         batch_size
       };
    } else {
       auto size = std::ranges::size(num_nodes);
-      if(size != nr_samples) {
+      if(size != batch_size) {
          throw std::invalid_argument(fmt::format(
-            "`num_nodes` range length ({}) does not match `nr_samples` to draw ({})",
+            "`num_nodes` range length ({}) does not match `batch_size` to draw ({})",
             num_nodes.size(),
-            nr_samples
+            batch_size
          ));
       }
       return std::pair{num_nodes | views::cast< size_t >, size};
@@ -319,7 +319,7 @@ template < typename NodeSpace, typename EdgeSpace >
    requires graph_space_concept< NodeSpace, EdgeSpace >
 template < typename num_nodes_view_t, typename optional_size_or_forwardrange_t >
 auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_edges_array(
-   size_t nr_samples,
+   size_t batch_size,
    const num_nodes_view_t& num_nodes_view,
    const optional_size_or_forwardrange_t& num_edges
 ) const
@@ -333,10 +333,10 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_edges_array(
          SPDLOG_WARN(
             fmt::format("The number of edges is set, but the edge space is None.", deref(num_edges))
          );
-         out = xt::zeros< size_t >({nr_samples});
+         out = xt::zeros< size_t >({batch_size});
       } else {
          if constexpr(std::ranges::forward_range< contained_value >) {
-            out = xarray< size_t >::from_shape({nr_samples});
+            out = xarray< size_t >::from_shape({batch_size});
             size_t count = 0;
             for(const auto& [i, val] : views::enumerate(deref(num_edges) | views::cast< size_t >)) {
                ++count;
@@ -347,12 +347,12 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_edges_array(
                }
                out.unchecked(i) = val;
             }
-            if(count != nr_samples) {
+            if(count != batch_size) {
                throw std::invalid_argument(fmt::format(
-                  "`num_edges` parameter range and `nr_samples` view do not match in size. {} "
+                  "`num_edges` parameter range and `batch_size` view do not match in size. {} "
                   "vs. {}.",
                   count,
-                  nr_samples
+                  batch_size
                ));
             }
          } else {
@@ -365,19 +365,19 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_edges_array(
                   fmt::format("'num_edges' parameter needs to be greater than 0. Actual: {}", value)
                );
             }
-            out = xt::ones< size_t >({nr_samples}) * (deref(num_edges));
+            out = xt::ones< size_t >({batch_size}) * (deref(num_edges));
          }
       }
    } else {
       if constexpr(is_specialization_v< num_nodes_view_t, repeat_view >) {
          auto num_nodes = deref(std::ranges::begin(num_nodes_view));
          if(std::cmp_greater(num_nodes, 1)) {
-            out = xt::random::randint({nr_samples}, size_t{0}, num_nodes, rng());
+            out = xt::random::randint({batch_size}, size_t{0}, num_nodes, rng());
          } else {
-            out = xt::zeros< size_t >({nr_samples});
+            out = xt::zeros< size_t >({batch_size});
          }
       } else {
-         out = xt::empty< size_t >({nr_samples});
+         out = xt::empty< size_t >({batch_size});
          for(auto [i, n_nodes] : views::enumerate(num_nodes_view)) {
             // as per gymnasium doc:
             // max number of edges is `n*(n-1)` with self connections and two-way is allowed
