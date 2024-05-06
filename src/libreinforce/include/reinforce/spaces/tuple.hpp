@@ -180,7 +180,7 @@ class TupleSpace:
       );
    }
 
-   [[nodiscard]] value_type _sample(std::nullopt_t) const
+   [[nodiscard]] value_type _sample(std::nullopt_t = std::nullopt) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
