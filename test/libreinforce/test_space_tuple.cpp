@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <pybind11/embed.h>
 
+#include <array>
 #include <tuple>
 #include <xtensor/xset_operation.hpp>
 

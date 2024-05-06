@@ -64,84 +64,6 @@ class TupleSpace:
       seed(std::optional< size_t >{});
    }
 
-   template < typename MaskTuple >
-      requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
-   [[nodiscard]] multi_value_type sample(size_t nr_samples, MaskTuple&& mask_tuple) const
-   {
-      return std::invoke(
-         [&]< size_t... Is >(std::index_sequence< Is... >) {
-            return std::tuple{
-               std::get< Is >(m_spaces).sample(nr_samples, std::get< Is >(FWD(mask_tuple)))...
-            };
-         },
-         spaces_idx_seq{}
-      );
-   }
-
-   template < typename... MaskTs >
-   [[nodiscard]] multi_value_type sample(size_t nr_samples, MaskTs&&... masks) const
-   {
-      return sample(nr_samples, std::tuple{FWD(masks)...});
-   }
-
-   [[nodiscard]] multi_value_type sample(size_t nr_samples) const
-   {
-      return std::invoke(
-         [&]< size_t... Is >(std::index_sequence< Is... >) {
-            return std::tuple{std::get< Is >(m_spaces).sample(nr_samples)...};
-         },
-         spaces_idx_seq{}
-      );
-   }
-   template < typename MaskTuple >
-      requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
-   [[nodiscard]] value_type sample(MaskTuple&& mask_tuple) const
-   {
-      return std::invoke(
-         [&]< size_t... Is >(std::index_sequence< Is... >) {
-            return std::tuple{std::get< Is >(m_spaces).sample(std::get< Is >(FWD(mask_tuple)))...};
-         },
-         spaces_idx_seq{}
-      );
-   }
-
-   template < typename FirstMaskT, typename... MaskTs >
-      requires(not std::is_integral_v< detail::raw_t< FirstMaskT > >)
-   [[nodiscard]] value_type sample(FirstMaskT&& mask1, MaskTs&&... tail_masks) const
-   {
-      return std::invoke(
-         [&]<
-            size_t... IsSpaces,
-            size_t... IsMasks >(std::index_sequence< IsSpaces... >, std::index_sequence< IsMasks... >) {
-            return std::tuple{std::get< IsSpaces >(m_spaces).sample(
-               FWD(mask1), std::get< IsMasks >(FWD(tail_masks))
-            )...};
-         },
-         std::index_sequence_for< Spaces... >{},
-         std::index_sequence_for< MaskTs... >{}
-      );
-   }
-
-   [[nodiscard]] value_type sample() const
-   {
-      return std::invoke(
-         [&]< size_t... Is >(std::index_sequence< Is... >) {
-            return std::tuple{std::get< Is >(m_spaces).sample()...};
-         },
-         spaces_idx_seq{}
-      );
-   }
-
-   [[nodiscard]] bool contains(const value_type& value) const
-   {
-      return std::invoke(
-         [&]< size_t... Is >(std::index_sequence< Is... >) {
-            return (std::get< Is >(m_spaces).contains(std::get< Is >(value)) && ...);
-         },
-         spaces_idx_seq{}
-      );
-   }
-
    template < typename T >
    void seed(T value)
    {
@@ -192,6 +114,91 @@ class TupleSpace:
    }
 
    [[nodiscard]] constexpr size_t size() const { return std::tuple_size_v< value_type >; }
+
+  private:
+   template < typename MaskTuple >
+      requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
+               and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
+   [[nodiscard]] multi_value_type _sample(size_t nr_samples, MaskTuple&& mask_tuple) const
+   {
+      return std::invoke(
+         [&]< size_t... Is >(std::index_sequence< Is... >) {
+            return std::tuple{
+               std::get< Is >(m_spaces).sample(nr_samples, std::get< Is >(FWD(mask_tuple)))...
+            };
+         },
+         spaces_idx_seq{}
+      );
+   }
+
+   template < typename... MaskTs >
+      requires(sizeof...(MaskTs) == sizeof...(Spaces))
+   [[nodiscard]] multi_value_type _sample(size_t nr_samples, MaskTs&&... masks) const
+   {
+      return sample(nr_samples, std::tuple{FWD(masks)...});
+   }
+
+   [[nodiscard]] multi_value_type _sample(size_t nr_samples) const
+   {
+      return std::invoke(
+         [&]< size_t... Is >(std::index_sequence< Is... >) {
+            return std::tuple{std::get< Is >(m_spaces).sample(nr_samples)...};
+         },
+         spaces_idx_seq{}
+      );
+   }
+   template < typename MaskTuple >
+      requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
+               and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
+   [[nodiscard]] value_type _sample(MaskTuple&& mask_tuple) const
+   {
+      return std::invoke(
+         [&]< size_t... Is >(std::index_sequence< Is... >) {
+            return std::tuple{std::get< Is >(m_spaces).sample(std::get< Is >(FWD(mask_tuple)))...};
+         },
+         spaces_idx_seq{}
+      );
+   }
+
+   template < typename FirstMaskT, typename... MaskTs >
+      requires(
+         not std::is_integral_v< detail::raw_t< FirstMaskT > >
+         and (sizeof...(MaskTs) == sizeof...(Spaces) - 1)
+      )
+   [[nodiscard]] value_type _sample(FirstMaskT&& mask1, MaskTs&&... tail_masks) const
+   {
+      return std::invoke(
+         [&]<
+            size_t... IsSpaces,
+            size_t... IsMasks >(std::index_sequence< IsSpaces... >, std::index_sequence< IsMasks... >) {
+            return std::tuple{std::get< IsSpaces >(m_spaces).sample(
+               FWD(mask1), std::get< IsMasks >(FWD(tail_masks))
+            )...};
+         },
+         std::index_sequence_for< Spaces... >{},
+         std::index_sequence_for< MaskTs... >{}
+      );
+   }
+
+   [[nodiscard]] value_type _sample(std::nullopt_t) const
+   {
+      return std::invoke(
+         [&]< size_t... Is >(std::index_sequence< Is... >) {
+            return std::tuple{std::get< Is >(m_spaces).sample()...};
+         },
+         spaces_idx_seq{}
+      );
+   }
+
+   [[nodiscard]] bool _contains(const value_type& value) const
+   {
+      return std::invoke(
+         [&]< size_t... Is >(std::index_sequence< Is... >) {
+            return (std::get< Is >(m_spaces).contains(std::get< Is >(value)) && ...);
+         },
+         spaces_idx_seq{}
+      );
+   }
 };
 
 }  // namespace force
