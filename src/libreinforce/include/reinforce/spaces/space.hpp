@@ -67,7 +67,7 @@ class Space: public detail::rng_mixin {
          // derived does not have a single sized sample function, but a multi-value-type sample
          // function that returns an indexable container. We trust that element 0 is simply an
          // element of value_type that corresponds with the first (and only) sample drawn.
-         return sample(1, mask_arg, FWD(args)...)[0];
+         return batch_to_value_type(sample(1, mask_arg, FWD(args)...));
       } else {
          // neither options apply so we now decide between throwing a runtime exception (for dynamic
          // language support) or letting the call overload resolution fail at compile time.
@@ -201,6 +201,21 @@ class Space: public detail::rng_mixin {
          return derived()._contains(value);
       }
       return false;
+   }
+
+   template < typename BatchValueT >
+      requires std::same_as< batch_value_type, detail::raw_t< BatchValueT > >
+   value_type batch_to_value_type(BatchValueT&& batch) const
+   {
+      if constexpr(requires(Derived derived) { derived._batch_to_value_type(FWD(batch)); }) {
+         return derived()._batch_to_value_type(FWD(batch));
+      } else if constexpr(mvt_is_container) {
+         return FWD(batch)[0];
+      } else {
+         static_assert(
+            detail::always_false_v< BatchValueT >, "No batch_to_value_type function available."
+         );
+      }
    }
 
    // Checks whether this space can be flattened to a Box
