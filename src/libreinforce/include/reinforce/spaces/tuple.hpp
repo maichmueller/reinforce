@@ -31,6 +31,7 @@ class TupleSpace:
       TupleSpace,
       std::tuple< typename Spaces::batch_value_type... > >;
    using data_type = std::tuple< typename Spaces::data_type... >;
+   using spaces_tuple_type = std::tuple< Spaces... >;
    using typename base::value_type;
    using typename base::batch_value_type;
    using base::seed;
@@ -40,7 +41,7 @@ class TupleSpace:
    using spaces_idx_seq = std::index_sequence_for< Spaces... >;
 
   private:
-   std::tuple< Spaces... > m_spaces;
+   spaces_tuple_type m_spaces;
 
   public:
    template < std::integral T = size_t >
@@ -102,16 +103,7 @@ class TupleSpace:
       );
    }
 
-   template < size_t N >
-   auto& get_space() const
-   {
-      return std::get< N >(m_spaces);
-   }
-   template < size_t N >
-   auto& get_space()
-   {
-      return std::get< N >(m_spaces);
-   }
+   INJECT_STRUCTURED_BINDING_GETTERS(m_spaces)
 
    [[nodiscard]] constexpr size_t size() const { return std::tuple_size_v< value_type >; }
 
@@ -202,5 +194,19 @@ class TupleSpace:
 };
 
 }  // namespace force
+
+namespace std {
+
+template < typename... Spaces >
+struct tuple_size< ::force::TupleSpace< Spaces... > >:
+    integral_constant< size_t, sizeof...(Spaces) > {};
+
+template < size_t idx, typename... Spaces >
+struct tuple_element< idx, ::force::TupleSpace< Spaces... > > {
+   using type = std::
+      tuple_element_t< idx, typename ::force::TupleSpace< Spaces... >::spaces_tuple_type >;
+};
+
+}  // namespace std
 
 #endif  // REINFORCE_SPACE_TUPLE_HPP

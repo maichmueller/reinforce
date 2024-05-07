@@ -44,4 +44,51 @@
    #endif
 #endif
 
+#ifndef INJECT_STRUCTURED_BINDING_GETTERS
+   #define INJECT_STRUCTURED_BINDING_GETTERS(tuple_member) \
+      template < size_t N >                                \
+      auto& get() const&                                   \
+      {                                                    \
+         return std::get< N >(tuple_member);               \
+      }                                                    \
+      template < size_t N >                                \
+      auto& get()&                                         \
+      {                                                    \
+         return std::get< N >(tuple_member);               \
+      }                                                    \
+                                                           \
+      template < size_t N >                                \
+      auto&& get() const&&                                 \
+      {                                                    \
+         return std::move(std::get< N >(tuple_member));    \
+      }                                                    \
+      template < size_t N >                                \
+      auto&& get()&&                                       \
+      {                                                    \
+         return std::move(std::get< N >(tuple_member));    \
+      }                                                    \
+                                                           \
+      template < typename T >                              \
+      auto& get() const&                                   \
+      {                                                    \
+         return std::get< T >(tuple_member);               \
+      }                                                    \
+      template < typename T >                              \
+      auto& get()&                                         \
+      {                                                    \
+         return std::get< T >(tuple_member);               \
+      }                                                    \
+                                                           \
+      template < typename T >                              \
+      auto&& get() const&&                                 \
+      {                                                    \
+         return std::move(std::get< T >(tuple_member));    \
+      }                                                    \
+      template < typename T >                              \
+      auto&& get()&&                                       \
+      {                                                    \
+         return std::move(std::get< T >(tuple_member));    \
+      }
+#endif  // INJECT_STD_GET_FUNCTIONALITY
+
 #endif  // REINFORCE_MACRO_HPP

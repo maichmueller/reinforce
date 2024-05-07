@@ -189,3 +189,23 @@ TEST(Spaces, Tuple_Discrete_Box_copy_construction)
    EXPECT_NE(std::get< 0 >(space_copy.sample(1000)), std::get< 0 >(space.sample(1000)));
    EXPECT_NE(std::get< 1 >(space_copy.sample(1000)), std::get< 1 >(space.sample(1000)));
 }
+
+TEST(Spaces, Tuple_Discrete_MultiDiscrete_structured_decomposition)
+{
+   auto start = xarray< int >({0, 0, -3});
+   auto end = xarray< int >({10, 5, 3});
+   constexpr auto start_discrete = 5;
+   constexpr auto n_discrete = 5;
+   auto space = TupleSpace{
+      DiscreteSpace{n_discrete, start_discrete}, MultiDiscreteSpace{start, end}
+   };
+   auto [disc_space, mdisc_space] = space;
+   EXPECT_EQ(disc_space, space.get< 0 >());
+   EXPECT_EQ(mdisc_space, space.get< 1 >());
+   EXPECT_EQ((std::tuple{disc_space.sample(), mdisc_space.sample()}), space.sample());
+   auto [disc_space2, mdisc_space2] = std::move(space);
+   EXPECT_EQ(disc_space, disc_space2);
+   EXPECT_EQ(mdisc_space, mdisc_space2);
+   std::ignore = disc_space2.sample();
+   EXPECT_NE(disc_space.sample(1000), disc_space2.sample(1000));
+}
