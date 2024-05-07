@@ -9,6 +9,7 @@
 #include <reinforce/utils/tuple_utils.hpp>
 #include <tuple>
 #include <variant>
+#include <xtensor/xhistogram.hpp>
 #include <xtensor/xrandom.hpp>
 
 #include "reinforce/spaces/space.hpp"
@@ -16,20 +17,20 @@
 namespace force {
 
 template < typename... Spaces >
-class OneOf:
+class OneOfSpace:
     public Space<
        std::pair< size_t, std::variant< detail::value_t< Spaces >... > >,
-       OneOf< std::variant< detail::value_t< Spaces >... > >,
-       std::pair< size_t, std::variant< detail::batch_value_t< Spaces >... > > > {
+       OneOfSpace< Spaces... >,
+       std::vector< std::pair< size_t, std::variant< detail::value_t< Spaces >... > > > > {
   public:
    friend class Space<
       std::pair< size_t, std::variant< detail::value_t< Spaces >... > >,
-      OneOf< std::variant< detail::value_t< Spaces >... > >,
-      std::pair< size_t, std::variant< detail::batch_value_t< Spaces >... > > >;
+      OneOfSpace< Spaces... >,
+      std::vector< std::pair< size_t, std::variant< detail::value_t< Spaces >... > > > >;
    using base = Space<
       std::pair< size_t, std::variant< detail::value_t< Spaces >... > >,
-      OneOf< std::variant< detail::value_t< Spaces >... > >,
-      std::pair< size_t, std::variant< detail::batch_value_t< Spaces >... > > >;
+      OneOfSpace< Spaces... >,
+      std::vector< std::pair< size_t, std::variant< detail::value_t< Spaces >... > > > >;
    using data_type = std::variant< typename Spaces::data_type... >;
    using typename base::value_type;
    using typename base::batch_value_type;
@@ -44,7 +45,7 @@ class OneOf:
 
   public:
    template < std::integral T = size_t >
-   explicit OneOf(T seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
+   explicit OneOfSpace(T seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
       SPDLOG_DEBUG("Called oneof space constructor with seed");
       seed(seed_);
@@ -53,13 +54,13 @@ class OneOf:
    template < typename OptionalT = std::optional< size_t > >
       requires detail::is_specialization_v< OptionalT, std::optional >
                and std::convertible_to< detail::value_t< OptionalT >, size_t >
-   explicit OneOf(OptionalT seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
+   explicit OneOfSpace(OptionalT seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
       SPDLOG_DEBUG("Called oneof space constructor with optional-seed");
       seed(seed_);
    }
 
-   explicit OneOf(Spaces... spaces) : m_spaces{std::move(spaces)...}
+   explicit OneOfSpace(Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
       seed(std::optional< size_t >{});
    }
@@ -76,7 +77,7 @@ class OneOf:
       );
    }
 
-   bool operator==(const OneOf& other) const
+   bool operator==(const OneOfSpace& other) const
    {
       return std::invoke(
          [&]< size_t... Is >(std::index_sequence< Is... >) {
@@ -102,16 +103,7 @@ class OneOf:
       );
    }
 
-   template < size_t N >
-   auto& get_space() const
-   {
-      return std::get< N >(m_spaces);
-   }
-   template < size_t N >
-   auto& get_space()
-   {
-      return std::get< N >(m_spaces);
-   }
+   INJECT_STRUCTURED_BINDING_GETTERS(m_spaces)
 
    [[nodiscard]] constexpr size_t size() const { return std::tuple_size_v< value_type >; }
 
@@ -121,19 +113,51 @@ class OneOf:
                and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
    [[nodiscard]] batch_value_type _sample(size_t batch_size, MaskTuple&& mask_tuple) const
    {
-      auto space_with_mask_tuple = zip_tuples(m_spaces, FWD(mask_tuple));
-      size_t space_idx = xt::random::randint({1}, 0, sizeof...(Spaces), rng()).unchecked(0);
-      return {
-         space_idx,
-         visit_at_unchecked(
-            space_with_mask_tuple,
-            space_idx,
-            [=](const auto& space_and_mask) {
-               auto&& [space, mask] = space_and_mask;
-               return space.sample(batch_size, mask);
-            }
-         )
-      };
+      auto container_per_space_tuple = std::tuple{detail::batch_value_t< Spaces >{}...};
+      auto space_mask_container_tuple = zip_tuples(
+         m_spaces, FWD(mask_tuple), container_per_space_tuple
+      );
+      // generate how many samples we need from each space
+      auto batch_size_per_space = xt::bincount(
+         xt::random::randint< size_t >({batch_size}, 0, sizeof...(Spaces), rng())
+      );
+      // sample now from each space with the corresponding mask as many times as the bincount says
+      // and stack the results together.
+      for(size_t space_idx = 0; size_t size_for_space : batch_size_per_space) {
+         if(size_for_space > 0) {
+            visit(
+               space_mask_container_tuple,
+               space_idx,
+               [=](const auto& space_and_mask_and_container) {
+                  auto&& [space, mask, container] = space_and_mask_and_container;
+                  container = space.sample(size_for_space, mask);
+               }
+            );
+         }
+         space_idx++;
+      }
+      batch_value_type result;
+      result.reserve(batch_size);
+      for(size_t space_idx; size_t size_for_space : batch_size_per_space) {
+         if(size_for_space > 0) {
+            visit(
+               zip(m_spaces, container_per_space_tuple),
+               space_idx,
+               [&](const auto& space_and_container) {
+                  auto&& [space, container] = space_and_container;
+                  ranges::move(
+                     container | ranges::views::transform([&](auto&& entry) {
+                        return std::pair{space_idx, FWD(space.batch_to_value_type(entry))};
+                     }),
+                     std::back_inserter(result)
+                  );
+               }
+            );
+         }
+         space_idx++;
+      }
+      ranges::shuffle(result, rng());
+      return result;
    }
 
    template < typename... MaskTs >
@@ -145,8 +169,9 @@ class OneOf:
 
    [[nodiscard]] batch_value_type _sample(size_t batch_size) const
    {
-      size_t space_idx = xt::random::randint({1}, 0, sizeof...(Spaces), rng()).unchecked(0);
-      return {space_idx, visit_at_unchecked(m_spaces, space_idx, [=](const auto& space) {
+      size_t space_idx = xt::random::randint< size_t >({1}, 0, sizeof...(Spaces), rng())
+                            .unchecked(0);
+      return {space_idx, visit(m_spaces, space_idx, [=](const auto& space) {
                  return space.sample(batch_size);
               })};
    }
@@ -156,18 +181,12 @@ class OneOf:
    [[nodiscard]] value_type _sample(MaskTuple&& mask_tuple) const
    {
       auto space_with_mask_tuple = zip_tuples(m_spaces, FWD(mask_tuple));
-      size_t space_idx = xt::random::randint({1}, 0, sizeof...(Spaces), rng()).unchecked(0);
-      return {
-         space_idx,
-         visit_at_unchecked(
-            space_with_mask_tuple,
-            space_idx,
-            [](const auto& space_and_mask) {
-               auto&& [space, mask] = space_and_mask;
-               return space.sample(mask);
-            }
-         )
-      };
+      size_t space_idx = xt::random::randint< size_t >({1}, 0, sizeof...(Spaces), rng())
+                            .unchecked(0);
+      return {space_idx, visit(space_with_mask_tuple, space_idx, [](const auto& space_and_mask) {
+                 auto&& [space, mask] = space_and_mask;
+                 return space.sample(mask);
+              })};
    }
 
    template < typename FirstMaskT, typename... TailMaskTs >
@@ -182,10 +201,11 @@ class OneOf:
 
    [[nodiscard]] value_type _sample(std::nullopt_t = std::nullopt) const
    {
-      size_t space_idx = xt::random::randint({1}, 0, sizeof...(Spaces), rng()).unchecked(0);
-      return {space_idx, visit_at_unchecked(m_spaces, space_idx, [](const auto& space) {
-                 return space.sample();
-              })};
+      size_t space_idx = xt::random::randint< size_t >({1}, 0, sizeof...(Spaces), rng())
+                            .unchecked(0);
+      return {
+         space_idx, visit(m_spaces, space_idx, [](const auto& space) { return space.sample(); })
+      };
    }
 
    [[nodiscard]] bool _contains(const value_type& value) const
@@ -194,6 +214,15 @@ class OneOf:
       return visit_at_unchecked(m_spaces, space_idx, [&]< typename SpaceT >(const SpaceT& space) {
          return space.contains(value_of_space);
       });
+   }
+
+   decltype(auto) visit(auto&&... args) const
+   {
+#ifndef NDEBUG
+      return visit_at(FWD(args)...);
+#else
+      return visit_at_unchecked(FWD(args)...);
+#endif
    }
 };
 
