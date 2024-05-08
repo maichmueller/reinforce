@@ -97,6 +97,15 @@ constexpr auto zip_tuples_impl(std::index_sequence< Ns... >, Tuples&&... tuples)
    return std::tuple{zip_tuples_at< Ns >(FWD(tuples)...)...};
 }
 
+template < size_t N, typename T >
+using T_ = T;
+
+template < typename T, std::size_t... Is >
+constexpr auto create_tuple(T value, std::index_sequence< Is... >)
+{
+   return std::tuple< T_< Is, T >... >{(static_cast< void >(Is), value)...};
+}
+
 }  // namespace force::detail
 
 namespace force {
@@ -152,6 +161,12 @@ constexpr auto zip_tuples(Tuple1&& tuple, TuplesTail&&... tuple_tail)
 {
    constexpr size_t tuple_len = std::tuple_size_v< detail::raw_t< Tuple1 > >;
    return zip_tuples_impl(std::make_index_sequence< tuple_len >(), FWD(tuple), FWD(tuple_tail)...);
+}
+
+template < size_t N, class T >
+auto create_tuple(T value = {})
+{
+   return detail::create_tuple< T >(value, std::make_index_sequence< N >{});
 }
 
 }  // namespace force

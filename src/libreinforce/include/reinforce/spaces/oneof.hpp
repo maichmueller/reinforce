@@ -152,8 +152,6 @@ class OneOfSpace:
       auto batch_size_per_space = xt::bincount(
          xt::random::randint< size_t >({batch_size}, 0, sizeof...(Spaces), rng())
       );
-      // sample now from each space with the corresponding mask as many times as the bincount says
-      // and stack the results together.
       batch_value_type result;
       result.reserve(batch_size);
       std::invoke(
@@ -174,13 +172,27 @@ class OneOfSpace:
                and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
    [[nodiscard]] value_type _sample(MaskTuple&& mask_tuple) const
    {
-      auto space_with_mask_tuple = zip_tuples(m_spaces, FWD(mask_tuple));
       size_t space_idx = xt::random::randint< size_t >({1}, 0, sizeof...(Spaces), rng())
                             .unchecked(0);
-      return {space_idx, visit(space_with_mask_tuple, space_idx, [](const auto& space_and_mask) {
-                 auto&& [space, mask] = space_and_mask;
-                 return space.sample(mask);
-              })};
+      value_type result;
+      std::invoke(
+         [&]< size_t... Is >(std::index_sequence< Is... >) {
+            (static_cast< void >(std::invoke(
+                [&](const auto& space, auto&& mask) {
+                   if(space_idx == Is) {
+                      result = std::pair{
+                         Is, value_variant_type{std::in_place_index< Is >, space.sample(FWD(mask))}
+                      };
+                   }
+                },
+                std::get< Is >(m_spaces),
+                std::get< Is >(mask_tuple)
+             )),
+             ...);
+         },
+         spaces_idx_seq{}
+      );
+      return result;
    }
 
    template < typename FirstMaskT, typename... TailMaskTs >
@@ -190,16 +202,12 @@ class OneOfSpace:
       )
    [[nodiscard]] value_type _sample(FirstMaskT&& mask1, TailMaskTs&&... tail_masks) const
    {
-      return sample(std::forward_as_tuple(FWD(mask1), FWD(tail_masks)...));
+      return _sample(std::forward_as_tuple(FWD(mask1), FWD(tail_masks)...));
    }
 
    [[nodiscard]] value_type _sample(std::nullopt_t = std::nullopt) const
    {
-      size_t space_idx = xt::random::randint< size_t >({1}, 0, sizeof...(Spaces), rng())
-                            .unchecked(0);
-      return {
-         space_idx, visit(m_spaces, space_idx, [](const auto& space) { return space.sample(); })
-      };
+      return _sample(create_tuple< sizeof...(Spaces) >(std::nullopt));
    }
 
    [[nodiscard]] bool _contains(const value_type& value) const
