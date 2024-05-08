@@ -24,7 +24,7 @@ struct visit_impl_binary_search {
 
    template < typename Tuple, typename F, typename... Args >
    static constexpr auto visit(Tuple const& tuple, std::size_t idx, F fun, Args&&... args)
-      -> decltype(fun(std::get< right - 1U >(tuple), FWD(args)...))
+      -> decltype(fun(std::get< mid >(tuple), FWD(args)...))
    {
       using R = decltype(fun(std::get< mid >(tuple), FWD(args)...));
       return visit_impl_binary_search< left, right, R >::template visit< R >(
@@ -146,12 +146,12 @@ constexpr decltype(auto) visit_at(Tuple const& tuple, std::size_t idx, F fun, au
 template < typename Tuple1, typename... TuplesTail >
    requires(
       (sizeof...(TuplesTail) > 0)
-      and ((std::tuple_size_v< Tuple1 > == std::tuple_size_v< TuplesTail >) && ...)
+      and ((std::tuple_size_v< detail::raw_t< Tuple1 > > == std::tuple_size_v< detail::raw_t< TuplesTail > >) && ...)
    )
-constexpr auto zip_tuples(TuplesTail&&... tuples)
+constexpr auto zip_tuples(Tuple1&& tuple, TuplesTail&&... tuple_tail)
 {
    constexpr size_t tuple_len = std::tuple_size_v< detail::raw_t< Tuple1 > >;
-   return zip_tuples_impl(std::make_index_sequence< tuple_len >(), FWD(tuples)...);
+   return zip_tuples_impl(std::make_index_sequence< tuple_len >(), FWD(tuple), FWD(tuple_tail)...);
 }
 
 }  // namespace force

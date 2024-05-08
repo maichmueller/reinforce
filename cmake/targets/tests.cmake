@@ -14,6 +14,7 @@ register_reinforce_target(
         test_space_text.cpp
         test_space_sequence.cpp
         test_space_graph.cpp
+        test_space_oneof.cpp
 )
 
 

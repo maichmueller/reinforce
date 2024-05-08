@@ -139,6 +139,7 @@ class TupleSpace:
          spaces_idx_seq{}
       );
    }
+
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
                and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
