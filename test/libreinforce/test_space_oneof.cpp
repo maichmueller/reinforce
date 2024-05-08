@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <pybind11/embed.h>
+#include <spdlog/spdlog.h>
 
 #include <array>
 #include <tuple>
@@ -56,29 +57,43 @@ TEST(Spaces, OneOf_Discrete_Box_sample)
       MultiDiscreteSpace{md_start, md_end}
    };
 
-   auto samples = space.sample(10000);
-   SPDLOG_DEBUG(fmt::format("Samples:\n[{}]", samples));
-   //   SPDLOG_DEBUG(fmt::format("Discrete Samples:\n{}", disc_samples));
-   //   SPDLOG_DEBUG(fmt::format("Box Samples:\n{}", box_samples));
-   //
-   //   for(auto i : ranges::views::iota(0, 3)) {
-   //      EXPECT_TRUE(xt::all(xt::view(box_samples, xt::all(), i) >= box_low(i)));
-   //      EXPECT_TRUE(xt::all(xt::view(box_samples, xt::all(), i) <= box_high(i)));
-   //   }
-   //   EXPECT_TRUE(xt::all(disc_samples >= start_discrete));
-   //   EXPECT_TRUE(xt::all(disc_samples < start_discrete + n_discrete));
-   //
-   //   for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
-   //      auto [new_disc_samples, new_box_samples] = space.sample();
-   //
-   //      EXPECT_TRUE(xt::all(new_disc_samples >= start_discrete));
-   //      EXPECT_TRUE(xt::all(new_disc_samples < start_discrete + n_discrete));
-   //
-   //      for(auto i : ranges::views::iota(0, 3)) {
-   //         EXPECT_GE(new_box_samples(i), box_low(i));
-   //         EXPECT_LE(new_box_samples(i), box_high(i));
-   //      }
-   //   }
+   auto samples = space.sample(100);
+   SPDLOG_DEBUG(fmt::format("Samples:\n[{}]", fmt::join(samples, "\n")));
+
+   auto verification_visitor = [&](size_t space_idx) {
+      return detail::overload{
+         [&, space_idx](const xarray< int >& disc_or_mdisc_sample) {
+            if(space_idx == 0) {
+               EXPECT_TRUE(xt::greater_equal(disc_or_mdisc_sample, start_discrete)(0));
+               EXPECT_TRUE(xt::less_equal(disc_or_mdisc_sample, start_discrete + n_discrete)(0));
+            } else {
+               EXPECT_EQ(space_idx, 2);
+               for(auto i : ranges::views::iota(0, 3)) {
+                  EXPECT_GE(disc_or_mdisc_sample(i), md_start(i));
+                  EXPECT_LE(disc_or_mdisc_sample(i), md_end(i));
+               }
+            }
+         },
+         [&](const auto& box_sample) {
+            for(auto i : ranges::views::iota(0, 3)) {
+               EXPECT_GE(box_sample(i), box_low(i));
+               EXPECT_LE(box_sample(i), box_high(i));
+            }
+         },
+      };
+   };
+
+   for(const auto& sample : samples) {
+      auto [space_idx, sample_var] = sample;
+      std::visit(verification_visitor(space_idx), sample_var);
+   }
+
+   for([[maybe_unused]] auto i : ranges::views::iota(0, 100)) {
+      auto sample = space.sample();
+      SPDLOG_DEBUG(fmt::format("Sample:\n{}", sample));
+      auto [idx, sample_var] = sample;
+      std::visit(verification_visitor(idx), sample_var);
+   }
 }
 //
 // TEST(Spaces, OneOf_Discrete_MultiDiscrete_sample_masked)
