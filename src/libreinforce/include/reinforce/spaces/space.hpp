@@ -20,8 +20,13 @@
 namespace force {
 
 namespace detail {
-template < typename T >
-concept has_getitem_operator = requires(T t, size_t idx) { t[idx]; };
+template < typename T, typename Indexer = size_t >
+concept has_getitem_operator = requires(T t, Indexer idx) { t[idx]; };
+
+template < typename T, typename Return, typename Indexer = size_t >
+concept has_getitem_operator_r = requires(T t, Indexer idx) {
+   { t[idx] } -> std::convertible_to< Return >;
+};
 }  // namespace detail
 
 /// \brief The generic Space base class
@@ -41,14 +46,15 @@ class Space: public detail::rng_mixin {
    static constexpr internal_tag_t internal_tag{};
 
   public:
-   // the type of values returned by sampling or containment queries
+   /// the type of values returned by single instance sampling
    using value_type = Value;
-   // the type of values returned by multiple-sampling (i.e. sample-size > 1) queries and
-   // containment queries for multiple elements at once
+   /// the type of values returned by multiple-sampling (i.e. with batch_size argument)
    using batch_value_type = BatchValue;
 
-   constexpr static bool mvt_is_container = not std::is_same_v< batch_value_type, value_type >
-                                            and detail::has_getitem_operator< BatchValue >;
+   constexpr static bool
+      batch_value_type_is_container = not std::is_same_v< batch_value_type, value_type >
+                                      and detail::
+                                         has_getitem_operator_r< batch_value_type, value_type >;
 
    explicit Space(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
        : rng_mixin(seed), m_shape(std::move(shape))
@@ -61,7 +67,7 @@ class Space: public detail::rng_mixin {
       if constexpr(requires(Derived derived) { derived._sample(mask_arg, FWD(args)...); }) {
          // derived has the necessary sample function, so call it
          return derived()._sample(mask_arg, FWD(args)...);
-      } else if constexpr(mvt_is_container and requires(Derived derived) {
+      } else if constexpr(batch_value_type_is_container and requires(Derived derived) {
                              derived._sample(1, mask_arg, FWD(args)...);
                           }) {
          // derived does not have a single sized sample function, but a multi-value-type sample
@@ -209,11 +215,17 @@ class Space: public detail::rng_mixin {
    {
       if constexpr(requires(Derived derived) { derived._batch_to_value_type(FWD(batch)); }) {
          return derived()._batch_to_value_type(FWD(batch));
-      } else if constexpr(mvt_is_container) {
+      } else if constexpr(detail::is_xarray< batch_value_type >
+                          and detail::is_xarray< value_type >) {
+         // by default: an xarray will have dimension 1 as the batch_dim added to the shape of the
+         // value_type. If this is not the case for a child Space class, the child class should
+         // override provide '_batch_to_value_type'.
+         return xt::squeeze(FWD(batch), 0, xt::check_policy::full());
+      } else if constexpr(batch_value_type_is_container) {
          return FWD(batch)[0];
       } else {
          static_assert(
-            detail::always_false_v< BatchValueT >, "No batch_to_value_type function available."
+            detail::always_false_v< BatchValueT >, "No 'batch_to_value_type' function available."
          );
       }
    }
