@@ -18,7 +18,7 @@ xt::svector< int > MultiBinarySpace::samples_shape(size_t batch_size) const
 auto MultiBinarySpace::_sample(size_t batch_size, std::nullopt_t) const -> value_type
 {
    if(batch_size == 0) {
-      throw std::invalid_argument("`batch_size` argument has to be greater than 0.");
+      return xt::empty< int8_t >({0});
    }
    return xt::random::randint(samples_shape(batch_size), 0, 2, rng());
 }
@@ -26,7 +26,7 @@ auto MultiBinarySpace::_sample(size_t batch_size, std::nullopt_t) const -> value
 auto MultiBinarySpace::_sample(size_t batch_size, const value_type& mask) const -> value_type
 {
    if(batch_size == 0) {
-      throw std::invalid_argument("`batch_size` argument has to be greater than 0.");
+      return xt::empty< int8_t >({0});
    }
    if(not ranges::equal(mask.shape(), shape())) {
       throw std::invalid_argument(fmt::format(

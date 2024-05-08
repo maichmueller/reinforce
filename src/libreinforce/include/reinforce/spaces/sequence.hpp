@@ -167,7 +167,7 @@ auto SequenceSpace< FeatureSpace >::_sample(
 ) const -> batch_value_type
 {
    if(batch_size == 0) {
-      throw std::invalid_argument("`batch_size` argument has to be greater than 0.");
+      return batch_value_type{};
    }
    auto&& [length_rng, feature_mask] = mask_tuple;
    // Compute the lenghts each sample should have. This is an array of potentially
@@ -183,8 +183,8 @@ auto SequenceSpace< FeatureSpace >::_sample(
                    }
                    if constexpr(detail::is_xarray<
                                    typename feature_space_type::batch_value_type >) {
-                      // a default constructed xarray of type int, i.e. xarray<int>{}, will convert
-                      // to 0, instead of an empty xarray. We have to handle this case manually then
+                      // a default constructed xarray of type int, i.e. xarray<int>{}, will hold
+                      // 0, instead of an empty xarray. We have to handle this case manually then
                       return feature_space_type::batch_value_type::from_shape(xt::svector{0});
                    }
                    return {};

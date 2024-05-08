@@ -211,6 +211,10 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
    using namespace detail;
    using namespace ranges;
 
+   if(batch_size == 0) {
+      return batch_value_type{};
+   }
+
    const bool has_edge_space = m_edge_space.has_value();
    const auto& [node_space_mask, edge_space_mask] = mask;
    // build the numbers of edges array out of the possible parameter combinations of

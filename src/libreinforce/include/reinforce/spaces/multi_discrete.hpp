@@ -241,10 +241,10 @@ auto MultiDiscreteSpace< T >::_sample(size_t batch_size, const MaskRange& mask_r
 {
    switch(batch_size) {
       case 0: {
-         throw std::invalid_argument("`batch_size` argument has to be greater than 0.");
+         return xt::empty< T >({0});
       }
       case 1: {
-         return _sample(mask_range);
+         return xt::expand_dims(_sample(mask_range), 0);
       }
       default: {
          xarray< T > samples = xt::empty< T >(prepend(shape(), static_cast< int >(batch_size)));

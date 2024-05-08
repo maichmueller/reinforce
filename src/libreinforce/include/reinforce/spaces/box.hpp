@@ -269,6 +269,9 @@ auto BoxSpace< T >::_sample(
    const std::optional< xarray< bool > >& /*unused*/
 ) const -> value_type
 {
+   if(batch_size == 0) {
+      return xt::empty< T >({0});
+   }
    xarray< T > samples = xt::empty< T >(prepend(shape(), static_cast< int >(batch_size)));
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
 

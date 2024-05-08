@@ -102,6 +102,9 @@ auto DiscreteSpace< T >::_sample(size_t batch_size, std::nullopt_t /*unused*/) c
 template < std::integral T >
 auto DiscreteSpace< T >::_sample(size_t batch_size, const xarray< bool >& mask) const -> value_type
 {
+   if(batch_size == 0) {
+      return xt::empty< T >({0});
+   }
    auto samples = xt::empty< T >(xt::svector{batch_size});
 
    if(mask.size() != static_cast< size_t >(m_nr_values)) {

@@ -175,7 +175,7 @@ auto TextSpace::_sample(
 ) const -> batch_value_type
 {
    if(batch_size == 0) {
-      throw std::invalid_argument("`batch_size` argument has to be greater than 0.");
+      return batch_value_type{};
    }
    const auto [length_ptr, charlist_mask_ptr] = mask_tuple;
    auto valid_indices = std::invoke([&] {
