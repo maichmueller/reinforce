@@ -108,9 +108,6 @@ TEST(Spaces, Text_sample_masked_lengths)
    for(auto [sample, mask_len] : ranges::views::zip(samples, std::get< 0 >(mask3))) {
       EXPECT_EQ(sample.size(), mask_len);
    }
-   // there is no need to verify single sample calls to sample() since the length mask part of the
-   // mask doesnt match the number of samples and would throw
-   EXPECT_THROW(space.sample(mask3), std::invalid_argument);
 }
 
 TEST(Spaces, Text_reseeding)

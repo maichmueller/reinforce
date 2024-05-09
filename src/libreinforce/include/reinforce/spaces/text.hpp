@@ -31,6 +31,7 @@
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
+#include "reinforce/utils/views_extension.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
 #include "space.hpp"
@@ -111,15 +112,15 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    struct internal_tag_t {};
    static constexpr internal_tag_t internal_tag;
 
-   template < typename SizeOrVectorT = size_t, typename Xarray = xarray< int > >
-      requires(std::convertible_to< SizeOrVectorT, size_t >
-               or (detail::is_specialization_v< SizeOrVectorT, std::vector > and std::convertible_to< ranges::value_type_t< SizeOrVectorT >, size_t >)
+   template < typename SizeOrRangeT = size_t, typename Xarray = xarray< int > >
+      requires(std::convertible_to< SizeOrRangeT, size_t >
+               or (std::ranges::range< SizeOrRangeT > and std::convertible_to< ranges::range_reference_t< SizeOrRangeT >, size_t >)
               )
               and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
    batch_value_type _sample(
       internal_tag_t,
       size_t batch_size,
-      const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple
+      const std::tuple< const SizeOrRangeT*, const Xarray* >& mask_tuple
    ) const;
 
    /// \brief Helper function to enable the passing of std::nullopt for mask elements
@@ -152,9 +153,9 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
              and ranges::all_of(value, [&](char chr) { return ranges::contains(m_chars, chr); });
    }
 
-   template < typename SizeOrVectorT >
+   template < typename SizeOrRangeT >
    [[nodiscard]] xarray< size_t >
-   _compute_lengths(size_t batch_size, const SizeOrVectorT* lengths_ptr) const;
+   _compute_lengths(size_t batch_size, const SizeOrRangeT* lengths_ptr) const;
 
    static std::unordered_map< char, size_t > make_charmap(const xarray< char >& chars);
 
@@ -164,14 +165,14 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
 
 // template implementations
 
-template < typename SizeOrVectorT, typename Xarray >
-   requires(std::convertible_to< SizeOrVectorT, size_t >
-            or (detail::is_specialization_v< SizeOrVectorT, std::vector > and std::convertible_to< ranges::value_type_t< SizeOrVectorT >, size_t >)
+template < typename SizeOrRangeT, typename Xarray >
+   requires(std::convertible_to< SizeOrRangeT, size_t >
+            or (std::ranges::range< SizeOrRangeT > and std::convertible_to< ranges::range_reference_t< SizeOrRangeT >, size_t >)
            ) and (detail::is_xarray< Xarray > or detail::is_xarray_ref< Xarray >)
 auto TextSpace::_sample(
    internal_tag_t,
    size_t batch_size,
-   const std::tuple< const SizeOrVectorT*, const Xarray* >& mask_tuple
+   const std::tuple< const SizeOrRangeT*, const Xarray* >& mask_tuple
 ) const -> batch_value_type
 {
    if(batch_size == 0) {
@@ -244,28 +245,33 @@ auto TextSpace::_sample(
           | ranges::to_vector;
 }
 
-template < typename SizeOrVectorT >
-xarray< size_t > TextSpace::_compute_lengths(size_t batch_size, const SizeOrVectorT* lengths_ptr)
+template < typename SizeOrRangeT >
+xarray< size_t > TextSpace::_compute_lengths(size_t batch_size, const SizeOrRangeT* lengths_ptr)
    const
 {
    if(lengths_ptr) {
-      const SizeOrVectorT& lengths = *lengths_ptr;
+      const SizeOrRangeT& lengths = *lengths_ptr;
       return std::invoke([&] {
-         if constexpr(std::convertible_to< SizeOrVectorT, size_t >) {
+         if constexpr(std::convertible_to< SizeOrRangeT, size_t >) {
             return xt::full(xt::svector{batch_size}, static_cast< size_t >(lengths));
          } else {
-            // lengths is now confirmed to be a std::vector type
-            if(lengths.size() != batch_size) {
-               throw std::invalid_argument(fmt::format(
-                  "Given mask mandates fixed lengths for only {} out of {} samples. Expected "
-                  "parity.",
-                  lengths.size(),
-                  batch_size
-               ));
+            // lengths is now confirmed to be a range type
+            xarray< size_t > arr = xt::empty< size_t >({batch_size});
+            size_t index = 0;
+            for(auto len : lengths | ranges::views::cast< size_t >) {
+               SPDLOG_DEBUG(fmt::format("Length: {}, Index: ", len, index));
+               arr.unchecked(index) = len;
+               ++index;
+               if(index == batch_size) {
+                  break;
+               }
             }
-            xarray< size_t > arr = xt::empty< size_t >({lengths.size()});
-            for(auto index : std::views::iota(0U, lengths.size())) {
-               arr.unchecked(index) = static_cast< size_t >(lengths[index]);
+            if(index != batch_size) {
+               throw std::invalid_argument(fmt::format(
+                  "Lengths range too short to fill out the batch size. Expected {}, found {}",
+                  batch_size,
+                  index
+               ));
             }
             return arr;
          }
