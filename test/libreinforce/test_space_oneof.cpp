@@ -10,6 +10,7 @@
 #include "reinforce/spaces/discrete.hpp"
 #include "reinforce/spaces/multi_discrete.hpp"
 #include "reinforce/spaces/oneof.hpp"
+#include "reinforce/spaces/text.hpp"
 #include "reinforce/utils/math.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
@@ -43,7 +44,7 @@ TEST(Spaces, OneOf_Discrete_Box_constructor)
    );
 }
 
-TEST(Spaces, OneOf_Discrete_Box_sample)
+TEST(Spaces, OneOf_Discrete_Box_MultiDiscrete_Text_sample)
 {
    const xarray< double > box_low{-inf<>, 0, -10};
    const xarray< double > box_high{0, inf<>, 10};
@@ -54,7 +55,8 @@ TEST(Spaces, OneOf_Discrete_Box_sample)
    auto space = OneOfSpace{
       DiscreteSpace{n_discrete, start_discrete},
       BoxSpace{box_low, box_high},
-      MultiDiscreteSpace{md_start, md_end}
+      MultiDiscreteSpace{md_start, md_end},
+      TextSpace{{.max_length = 6, .characters = "aeiou"}}
    };
 
    auto samples = space.sample(100);
@@ -80,6 +82,12 @@ TEST(Spaces, OneOf_Discrete_Box_sample)
                EXPECT_LE(box_sample(i), box_high(i));
             }
          },
+         [&](const std::string& text_sample) {
+            EXPECT_TRUE(text_sample.size() <= 6);
+            EXPECT_TRUE(ranges::all_of(text_sample, [](char chr) {
+               return ranges::contains("aeiou", chr);
+            }));
+         },
       };
    };
 
@@ -95,6 +103,7 @@ TEST(Spaces, OneOf_Discrete_Box_sample)
       std::visit(verification_visitor(idx), sample_var);
    }
 }
+
 //
 // TEST(Spaces, OneOf_Discrete_MultiDiscrete_sample_masked)
 //{
