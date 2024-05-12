@@ -40,30 +40,47 @@ namespace force {
 
 namespace detail {
 
-template < typename T >
-struct vector_if_not_xarray {
-   using type = std::conditional_t< is_xarray< T >, T, std::vector< T > >;
+template < typename Value, bool stacked >
+struct stacked_value_type {
+   static consteval auto type_selector()
+   {
+      using default_type = std::vector< Value >;
+      if constexpr(stacked) {
+         if constexpr(is_xarray< Value >) {
+            return Value{};
+         } else {
+            return default_type{};
+         }
+      } else {
+         return default_type{};
+      }
+   }
+   using type = std::invoke_result_t< decltype(type_selector) >;
 };
 
-template < typename T >
-using vector_if_not_xarray_t = typename vector_if_not_xarray< T >::type;
+template < typename Value, bool stacked >
+using stacked_value_type_t = typename stacked_value_type< Value, stacked >::type;
 }  // namespace detail
 
-template < typename FeatureSpace >
+template < typename FeatureSpace, bool stacked = true >
 class SequenceSpace:
     public Space<
-       detail::vector_if_not_xarray_t< typename FeatureSpace::value_type >,
+       detail::stacked_value_type_t< typename FeatureSpace::value_type, stacked >,
        SequenceSpace< FeatureSpace >,
        std::vector< typename FeatureSpace::batch_value_type > > {
-   struct internal_tag {};
+   /// a tag for class-internal dispatch
+   struct internal_tag_t {};
+   static constexpr internal_tag_t internal_tag{};
+
+   static constexpr bool _is_composite_space = true;
 
   public:
    friend class Space<
-      detail::vector_if_not_xarray_t< typename FeatureSpace::value_type >,
+      detail::stacked_value_type_t< typename FeatureSpace::value_type, stacked >,
       SequenceSpace,
       std::vector< typename FeatureSpace::batch_value_type > >;
    using base = Space<
-      detail::vector_if_not_xarray_t< typename FeatureSpace::value_type >,
+      detail::stacked_value_type_t< typename FeatureSpace::value_type, stacked >,
       SequenceSpace,
       std::vector< typename FeatureSpace::batch_value_type > >;
    using feature_space_type = FeatureSpace;
@@ -115,7 +132,7 @@ class SequenceSpace:
 
    [[nodiscard]] std::string repr() const
    {
-      return fmt::format("Sequence({}, stack=true)", m_feature_space);
+      return fmt::format("Sequence({}, stack={})", m_feature_space, stacked);
    }
 
    auto& feature_space() const { return m_feature_space; }
@@ -126,6 +143,14 @@ class SequenceSpace:
    double m_geometric_prob = DEFAULT_GEOMETRIC_PROBABILITY;
 
    template < typename MaskT1 = std::nullopt_t, typename MaskT2 = std::nullopt_t >
+   [[nodiscard]] value_type _sample(const std::tuple< MaskT1, MaskT2 >& mask_tuple) const;
+
+   [[nodiscard]] value_type _sample(std::nullopt_t /*unused*/ = std::nullopt) const
+   {
+      return _sample(std::tuple{std::nullopt, std::nullopt});
+   }
+
+   template < typename MaskT1 = std::nullopt_t, typename MaskT2 = std::nullopt_t >
    // requires(
    //    (detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::tuple >
    //     or detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::pair >)
@@ -134,9 +159,10 @@ class SequenceSpace:
    //    ranges::value_type_t< detail::raw_t< MaskT1 > >, size_t >))
    // )
    [[nodiscard]] batch_value_type
-   _sample(size_t batch_size, const std::tuple< MaskT1, MaskT2 >& mask_tuple = {}) const;
+   _sample(size_t sub_batch_size, const std::tuple< MaskT1, MaskT2 >& mask_tuple = {}) const;
 
-   [[nodiscard]] batch_value_type _sample(size_t batch_size, std::nullopt_t = std::nullopt) const
+   [[nodiscard]] batch_value_type
+   _sample(size_t batch_size, std::nullopt_t /*unused*/ = std::nullopt) const
    {
       return _sample(batch_size, std::tuple{std::nullopt, std::nullopt});
    }
@@ -147,12 +173,19 @@ class SequenceSpace:
    }
 
    template < typename Range >
-   [[nodiscard]] xarray< size_t > _compute_lengths(size_t batch_size, Range&& lengths_rng) const;
+   [[nodiscard]] xarray< size_t > _sample_lengths(size_t batch_size, Range&& lengths_rng) const;
 };
+template < typename FeatureSpace, bool stacked >
+template < typename MaskT1, typename MaskT2 >
+auto SequenceSpace< FeatureSpace, stacked >::_sample(const std::tuple< MaskT1, MaskT2 >& mask_tuple
+) const -> value_type
+{
+   return nullptr;
+}
 
 // template implementations
 
-template < typename FeatureSpace >
+template < typename FeatureSpace, bool stacked >
 template < typename MaskT1, typename MaskT2 >
 // requires(
 //    (detail::is_specialization_v< MaskTupleT< MaskT1, MaskT2 >, std::tuple >
@@ -161,7 +194,7 @@ template < typename MaskT1, typename MaskT2 >
 //    size_t > or (std::ranges::range< detail::raw_t< MaskT1 > > and std::convertible_to<
 //    ranges::value_type_t< detail::raw_t< MaskT1 > >, size_t >))
 // )
-auto SequenceSpace< FeatureSpace >::_sample(
+auto SequenceSpace< FeatureSpace, stacked >::_sample(
    size_t batch_size,
    const std::tuple< MaskT1, MaskT2 >& mask_tuple
 ) const -> batch_value_type
@@ -172,32 +205,21 @@ auto SequenceSpace< FeatureSpace >::_sample(
    auto&& [length_rng, feature_mask] = mask_tuple;
    // Compute the lenghts each sample should have. This is an array of potentially
    // differing integers which at index i indicates the sampled string size for sample i.
-   auto lengths_per_sample = _compute_lengths(batch_size, FWD(length_rng));
+   auto lengths_per_sample = _sample_lengths(batch_size, FWD(length_rng));
    SPDLOG_DEBUG(fmt::format("Lengths of each sample:\n{}", lengths_per_sample));
-   return std::invoke([&] {
-      return std::views::all(lengths_per_sample)  //
-             | std::views::transform(
-                [&](auto batch_size_concrete) -> typename feature_space_type::batch_value_type {
-                   if(batch_size_concrete > 0) {
-                      return m_feature_space.sample(batch_size_concrete, feature_mask);
-                   }
-                   if constexpr(detail::is_xarray<
-                                   typename feature_space_type::batch_value_type >) {
-                      // a default constructed xarray of type int, i.e. xarray<int>{}, will hold
-                      // 0, instead of an empty xarray. We have to handle this case manually then
-                      return feature_space_type::batch_value_type::from_shape(xt::svector{0});
-                   }
-                   return {};
-                }
-             )  //
-             | ranges::to_vector;
-   });
+   return std::views::all(lengths_per_sample)  //
+          | std::views::transform([&](auto sub_batch_size) {
+               return m_feature_space.sample(sub_batch_size, feature_mask);
+            })  //
+          | ranges::to_vector;
 }
 
-template < typename FeatureSpace >
+template < typename FeatureSpace, bool stacked >
 template < typename Range >
-xarray< size_t >
-SequenceSpace< FeatureSpace >::_compute_lengths(size_t batch_size, Range&& lengths_rng) const
+xarray< size_t > SequenceSpace< FeatureSpace, stacked >::_sample_lengths(
+   size_t batch_size,
+   Range&& lengths_rng
+) const
 {
    using namespace detail;
    if constexpr(std::same_as< raw_t< Range >, std::nullopt_t >) {
