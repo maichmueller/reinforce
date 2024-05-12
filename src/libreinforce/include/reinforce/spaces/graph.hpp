@@ -186,7 +186,7 @@ GraphSpace< NodeSpace, EdgeSpace >::value_type GraphSpace< NodeSpace, EdgeSpace 
       .nodes = m_node_space.sample(num_nodes, node_space_mask),
       .edges = m_edge_space.has_value() and num_edges.has_value()
                   ? m_edge_space->sample(*num_edges, edge_space_mask)
-                  : detail::value_t< EdgeSpace >::from_shape({0}),
+                  : detail::batch_value_t< EdgeSpace >::from_shape({0}),
       .edge_links = _sample_edge_links(num_nodes, num_edges.value_or(0))
    };
 }
