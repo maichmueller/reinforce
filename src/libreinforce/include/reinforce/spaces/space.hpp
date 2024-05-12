@@ -27,6 +27,7 @@ template < typename T, typename Return, typename Indexer = size_t >
 concept has_getitem_operator_r = requires(T t, Indexer idx) {
    { t[idx] } -> std::convertible_to< Return >;
 };
+
 }  // namespace detail
 
 /// \brief The generic Space base class
@@ -38,7 +39,6 @@ template <
    typename Derived,
    typename BatchValue = Value,
    bool runtime_sample_throw = false >
-   requires(std::is_same_v< Value, BatchValue > or detail::has_getitem_operator< BatchValue >)
 class Space: public detail::rng_mixin {
   private:
    /// for tag dispatch within this class
@@ -51,10 +51,16 @@ class Space: public detail::rng_mixin {
    /// the type of values returned by multiple-sampling (i.e. with batch_size argument)
    using batch_value_type = BatchValue;
 
+   static constexpr bool is_composite_space = requires(Derived) {
+      Derived::_is_composite_space;
+      requires Derived::_is_composite_space;
+   };
+
    constexpr static bool
-      batch_value_type_is_container = not std::is_same_v< batch_value_type, value_type >
-                                      and detail::
-                                         has_getitem_operator_r< batch_value_type, value_type >;
+      batch_type_is_container_of_value_type = not std::is_same_v< batch_value_type, value_type >
+                                              and detail::has_getitem_operator_r<
+                                                 batch_value_type,
+                                                 value_type >;
 
    explicit Space(xt::svector< int > shape = {}, std::optional< size_t > seed = std::nullopt)
        : rng_mixin(seed), m_shape(std::move(shape))
@@ -67,7 +73,7 @@ class Space: public detail::rng_mixin {
       if constexpr(requires(Derived derived) { derived._sample(mask_arg, FWD(args)...); }) {
          // derived has the necessary sample function, so call it
          return derived()._sample(mask_arg, FWD(args)...);
-      } else if constexpr(batch_value_type_is_container and requires(Derived derived) {
+      } else if constexpr(batch_type_is_container_of_value_type and requires(Derived derived) {
                              derived._sample(1, mask_arg, FWD(args)...);
                           }) {
          // derived does not have a single sized sample function, but a multi-value-type sample
@@ -221,7 +227,7 @@ class Space: public detail::rng_mixin {
          // value_type. If this is not the case for a child Space class, the child class should
          // override provide '_batch_to_value_type'.
          return xt::squeeze(FWD(batch), 0, xt::check_policy::full());
-      } else if constexpr(batch_value_type_is_container) {
+      } else if constexpr(batch_type_is_container_of_value_type) {
          return FWD(batch)[0];
       } else {
          static_assert(
@@ -286,11 +292,10 @@ class Space: public detail::rng_mixin {
    constexpr auto& derived() { return static_cast< Derived& >(*this); }
 };
 
-template < typename T, typename Derived, typename MultiT, bool runtime_sample_throw >
-   requires(std::is_same_v< T, MultiT > or detail::has_getitem_operator< MultiT >)
+template < typename Value, typename Derived, typename BatchValue, bool runtime_sample_throw >
 template < typename DType, std::ranges::range Rng1, std::ranges::range Rng2, typename BoundaryTag >
    requires(std::floating_point< DType > or std::integral< DType >)
-bool Space< T, Derived, MultiT, runtime_sample_throw >::_isin_shape_and_bounds(
+bool Space< Value, Derived, BatchValue, runtime_sample_throw >::_isin_shape_and_bounds(
    const xarray< DType >& values,
    const Rng1& low_boundary,
    const Rng2& high_boundary,
@@ -375,6 +380,28 @@ bool Space< T, Derived, MultiT, runtime_sample_throw >::_isin_shape_and_bounds(
              and compare(std::less{}, std::less_equal{}, val, high);
    });
 }
+
+namespace detail {
+
+template < typename MaybeSpaceT >
+concept derives_from_space =
+   std::derived_from<
+      MaybeSpaceT,
+      Space< value_t< MaybeSpaceT >, MaybeSpaceT, batch_value_t< MaybeSpaceT >, true > >
+   or std::derived_from<
+      MaybeSpaceT,
+      Space< value_t< MaybeSpaceT >, MaybeSpaceT, batch_value_t< MaybeSpaceT >, false > >;
+
+template < typename MaybeSpaceT >
+concept is_space = requires(MaybeSpaceT t) {
+   { t.shape() } -> std::convertible_to< xt::svector< int > >;
+   requires has_value_type< MaybeSpaceT >;
+   requires has_batch_value_type< MaybeSpaceT >;
+   requires has_data_type< MaybeSpaceT >;
+   requires derives_from_space< MaybeSpaceT >;
+};
+
+}  // namespace detail
 
 }  // namespace force
 

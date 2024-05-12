@@ -105,6 +105,12 @@ consteval bool same_as(const T&, const U&)
 template < typename T >
 concept has_value_type = requires(T t) { typename T::value_type; };
 
+template < typename T >
+concept has_batch_value_type = requires(T t) { typename T::batch_value_type; };
+
+template < typename T >
+concept has_data_type = requires(T t) { typename T::data_type; };
+
 template < class Array >
 concept is_xarray = has_value_type< Array >
                     and detail::is_any_v<
