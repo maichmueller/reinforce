@@ -129,8 +129,9 @@ class OneOfSpace:
          [&]< size_t... Is >(std::index_sequence< Is... >) {
             (static_cast< void >(_append_samples< Is >(
                 result,
-                std::get< Is >(m_spaces).sample(batch_size_per_space.at(Is)),
-                std::get< Is >(mask_tuple)
+                std::get< Is >(m_spaces).sample(
+                   batch_size_per_space.at(Is), std::get< Is >(mask_tuple)
+                )
              )),
              ...);
          },
@@ -215,7 +216,7 @@ class OneOfSpace:
    [[nodiscard]] bool _contains(const value_type& value) const
    {
       auto&& [space_idx, value_of_space] = value;
-      return visit_at_unchecked(m_spaces, space_idx, [&]< typename SpaceT >(const SpaceT& space) {
+      return visit(m_spaces, space_idx, [&]< typename SpaceT >(const SpaceT& space) {
          return space.contains(value_of_space);
       });
    }

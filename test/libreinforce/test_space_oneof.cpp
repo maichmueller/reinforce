@@ -104,65 +104,81 @@ TEST(Spaces, OneOf_Discrete_Box_MultiDiscrete_Text_sample)
    }
 }
 
-//
-// TEST(Spaces, OneOf_Discrete_MultiDiscrete_sample_masked)
-//{
-//   auto start = xarray< int >({0, 0, -3});
-//   auto end = xarray< int >({10, 5, 3});
-//   constexpr auto start_discrete = 5;
-//   constexpr auto n_discrete = 5;
-//   auto space = TupleSpace{
-//      DiscreteSpace{n_discrete, start_discrete}, MultiDiscreteSpace{start, end}
-//   };
-//   auto mask = std::tuple{
-//      xarray< bool >{false, false, true, true, false},
-//      std::vector< std::optional< xarray< bool > > >{
-//         xarray< bool >{false, false, false, false, false, true, true, true, true, true, true},
-//         std::nullopt,
-//         xarray< bool >{true, false, true, true, true, false}
-//      }
-//   };
-//   auto [disc_samples, multi_disc_samples] = space.sample(10000, mask);
-//   SPDLOG_DEBUG(fmt::format("Discrete Samples:\n{}", disc_samples));
-//   SPDLOG_DEBUG(fmt::format("Multi Discrete Samples:\n{}", multi_disc_samples));
-//
-//   auto md_view = std::array{
-//      xt::strided_view(multi_disc_samples, {xt::all(), 0}),
-//      xt::strided_view(multi_disc_samples, {xt::all(), 1}),
-//      xt::strided_view(multi_disc_samples, {xt::all(), 2})
-//   };
-//   auto expected_ranges = std::array{
-//      xt::xarray< int >{5, 6, 7, 8, 9},
-//      xt::xarray< int >{0, 1, 2, 3, 4},
-//      xt::xarray< int >{-3, -1, 0, 1}
-//   };
-//   for(auto [samples_view, expected_range] : ranges::views::zip(md_view, expected_ranges)) {
-//      // assert that all samples lie in the masked range of possible values
-//      EXPECT_TRUE((xt::all(xt::isin(samples_view, expected_range))));
-//      // assert that not all samples values are the same (compare with settings above!)
-//      for(auto value : expected_range) {
-//         EXPECT_TRUE((xt::any(xt::not_equal(samples_view, value))));
-//      }
-//   }
-//
-//   for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
-//      auto [new_disc_samples, new_multi_disc_samples] = space.sample(mask);
-//
-//      SPDLOG_DEBUG(fmt::format("Discrete Samples:\n{}", new_disc_samples));
-//      SPDLOG_DEBUG(fmt::format("Multi-Discrete Samples:\n{}", new_multi_disc_samples));
-//
-//      EXPECT_TRUE(xt::all(new_disc_samples >= start_discrete));
-//      EXPECT_TRUE(xt::all(new_disc_samples < start_discrete + n_discrete));
-//
-//      EXPECT_GE(new_multi_disc_samples(0), 5);
-//      EXPECT_LE(new_multi_disc_samples(0), 9);
-//      EXPECT_GE(new_multi_disc_samples(1), 0);
-//      EXPECT_LE(new_multi_disc_samples(1), 4);
-//      EXPECT_GE(new_multi_disc_samples(2), -3);
-//      EXPECT_NE(new_multi_disc_samples(2), -2);
-//      EXPECT_LE(new_multi_disc_samples(2), 1);
-//   }
-//}
+TEST(Spaces, OneOf_Discrete_Box_MultiDiscrete_Text_sample_masked)
+{
+   const xarray< double > box_low{-inf<>, 0, -10};
+   const xarray< double > box_high{0, inf<>, 10};
+   const xarray< int > md_start = xarray< int >({0, 0, -2});
+   const xarray< int > md_end = xarray< int >({10, 5, 3});
+   constexpr auto start_discrete = 5;
+   constexpr auto n_discrete = 5;
+   auto space = OneOfSpace{
+      DiscreteSpace{n_discrete, start_discrete},
+      BoxSpace{box_low, box_high},
+      MultiDiscreteSpace{md_start, md_end},
+      TextSpace{{.max_length = 6, .characters = "aeiou"}}
+   };
+   auto text_len_cycle = std::array{5, 3};
+   auto mask_tuple = std::tuple{
+      // discrete mask
+      xarray< bool >{true, false, true, false, true},
+      // box mask
+      std::nullopt,
+      // multidiscrete mask
+      std::vector< std::optional< xarray< bool > > >{
+         xarray< bool >{false, false, false, false, false, true, true, true, true, true, true},
+         std::nullopt,
+         xarray< bool >{false, true, true, true, false}
+      },
+      // text mask
+      std::tuple{ranges::views::cycle(text_len_cycle), xarray< int >{1, 0, 1, 0, 1}}
+   };
+
+   auto samples = space.sample(100, mask_tuple);
+   SPDLOG_DEBUG(fmt::format("Samples:\n[{}]", fmt::join(samples, "\n")));
+
+   auto verification_visitor = [&](size_t space_idx) {
+      return detail::overload{
+         [&, space_idx](const xarray< int >& disc_or_mdisc_sample) {
+            if(space_idx == 0) {
+               EXPECT_TRUE(xt::greater_equal(disc_or_mdisc_sample, start_discrete)(0));
+               EXPECT_TRUE(xt::less_equal(disc_or_mdisc_sample, start_discrete + n_discrete)(0));
+            } else {
+               EXPECT_EQ(space_idx, 2);
+               for(auto i : ranges::views::iota(0, 3)) {
+                  EXPECT_GE(disc_or_mdisc_sample(i), md_start(i));
+                  EXPECT_LE(disc_or_mdisc_sample(i), md_end(i));
+               }
+            }
+         },
+         [&](const auto& box_sample) {
+            for(auto i : ranges::views::iota(0, 3)) {
+               EXPECT_GE(box_sample(i), box_low(i));
+               EXPECT_LE(box_sample(i), box_high(i));
+            }
+         },
+         [&](const std::string& text_sample) {
+            EXPECT_TRUE(text_sample.size() <= 6);
+            EXPECT_TRUE(ranges::all_of(text_sample, [&](char chr) {
+               return ranges::contains(space.get< 3 >().characters(), chr);
+            }));
+         },
+      };
+   };
+
+   for(const auto& sample : samples) {
+      auto [space_idx, sample_var] = sample;
+      std::visit(verification_visitor(space_idx), sample_var);
+   }
+
+   for([[maybe_unused]] auto i : ranges::views::iota(0, 100)) {
+      auto sample = space.sample(mask_tuple);
+      SPDLOG_DEBUG(fmt::format("Sample:\n{}", sample));
+      auto [idx, sample_var] = sample;
+      std::visit(verification_visitor(idx), sample_var);
+   }
+}
+
 //
 // TEST(Spaces, OneOf_Discrete_Box_reseeding)
 //{
