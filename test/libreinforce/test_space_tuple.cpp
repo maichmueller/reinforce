@@ -64,8 +64,8 @@ TEST(Spaces, Tuple_Discrete_Box_sample)
    for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
       auto [new_disc_samples, new_box_samples] = space.sample();
 
-      EXPECT_TRUE(xt::all(new_disc_samples >= start_discrete));
-      EXPECT_TRUE(xt::all(new_disc_samples < start_discrete + n_discrete));
+      EXPECT_GE(new_disc_samples, start_discrete);
+      EXPECT_LT(new_disc_samples, start_discrete + n_discrete);
 
       for(auto i : ranges::views::iota(0, 3)) {
          EXPECT_GE(new_box_samples(i), box_low(i));
@@ -120,8 +120,8 @@ TEST(Spaces, Tuple_Discrete_MultiDiscrete_sample_masked)
       SPDLOG_DEBUG(fmt::format("Discrete Samples:\n{}", new_disc_samples));
       SPDLOG_DEBUG(fmt::format("Multi-Discrete Samples:\n{}", new_multi_disc_samples));
 
-      EXPECT_TRUE(xt::all(new_disc_samples >= start_discrete));
-      EXPECT_TRUE(xt::all(new_disc_samples < start_discrete + n_discrete));
+      EXPECT_GE(new_disc_samples, start_discrete);
+      EXPECT_LT(new_disc_samples, start_discrete + n_discrete);
 
       EXPECT_GE(new_multi_disc_samples(0), 5);
       EXPECT_LE(new_multi_disc_samples(0), 9);

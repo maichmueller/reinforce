@@ -62,6 +62,9 @@ class GraphSpace:
        GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > >,
        GraphSpace< NodeSpace, EdgeSpace >,
        std::vector< GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > > > > {
+  private:
+   static constexpr bool _is_composite_space = true;
+
   public:
    friend class Space<
       GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > >,

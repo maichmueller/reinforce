@@ -42,6 +42,8 @@ class OneOfSpace:
 
    using spaces_idx_seq = std::index_sequence_for< Spaces... >;
 
+   static constexpr bool _is_composite_space = true;
+
   private:
    std::tuple< Spaces... > m_spaces;
 

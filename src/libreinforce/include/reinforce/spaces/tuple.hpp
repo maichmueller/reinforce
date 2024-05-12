@@ -40,6 +40,8 @@ class TupleSpace:
 
    using spaces_idx_seq = std::index_sequence_for< Spaces... >;
 
+   static constexpr bool _is_composite_space = true;
+
   private:
    spaces_tuple_type m_spaces;
 
