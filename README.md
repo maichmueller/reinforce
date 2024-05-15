@@ -99,6 +99,8 @@ xt::print_options::set_precision(1);
 fmt::println("Sample:\n{}", space.sample());
 // or a batch of samples
 fmt::println("Batch:\n{}", space.sample(100));
+
+
 ```
 
 </td>
