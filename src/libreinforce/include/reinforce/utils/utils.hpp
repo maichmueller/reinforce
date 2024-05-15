@@ -72,7 +72,9 @@ auto append(Container&& container, T&& elem)
 template < typename Container, typename T >
 decltype(auto) prepend(Container&& container, T&& elem)
 {
-   container.insert(container.begin(), FWD(elem));
+   container.insert(
+      container.begin(), static_cast< detail::value_t< detail::raw_t< Container > > >(FWD(elem))
+   );
    return FWD(container);
 }
 
