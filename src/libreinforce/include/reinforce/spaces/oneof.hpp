@@ -51,7 +51,7 @@ class OneOfSpace:
    template < std::integral T = size_t >
    explicit OneOfSpace(T seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
-      SPDLOG_DEBUG("Called oneof space constructor with seed");
+      SPDLOG_DEBUG("Called OneOf space constructor with seed");
       seed(seed_);
    }
 
@@ -60,7 +60,7 @@ class OneOfSpace:
                and std::convertible_to< detail::value_t< OptionalT >, size_t >
    explicit OneOfSpace(OptionalT seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
-      SPDLOG_DEBUG("Called oneof space constructor with optional-seed");
+      SPDLOG_DEBUG("Called OneOf space constructor with optional-seed");
       seed(seed_);
    }
 
@@ -233,8 +233,8 @@ class OneOfSpace:
    template < size_t space_idx >
    void _append_sample(batch_value_type& result, auto&& entry) const
    {
-      result.push_back(
-         {space_idx, value_variant_type{std::in_place_index< space_idx >, std::move(entry)}}
+      result.emplace_back(
+         space_idx, value_variant_type{std::in_place_index< space_idx >, std::move(entry)}
       );
    };
 
@@ -242,9 +242,23 @@ class OneOfSpace:
    void _append_samples(batch_value_type& result, Container&& samples) const
    {
       if constexpr(detail::is_xarray< detail::raw_t< Container > >) {
-         for(auto entry_iter = xt::axis_begin(samples, 0); entry_iter != xt::axis_end(samples, 0);
-             entry_iter++) {
-            _append_sample< space_idx >(result, *entry_iter);
+         if constexpr(not detail::is_xarray< detail::value_t<
+                         std::tuple_element_t< space_idx, decltype(m_spaces) > > >) {
+            // if the space's value_type is not an xarray, but the batch_type is, then the batch
+            // xarray container is merely a holder like a std::vector would. We can thus disregard
+            // any nested xarray shapes we would preserve were we to sample according to e.g. the
+            // 0th axis. If we didn't do this we would get errors of impossible conversions from
+            // xt::strided_view to whatever the space's value type is, since axis_begin iterators
+            // would wrap contained values in a view type of shape {1}.
+            for(auto&& entry : FWD(samples)) {
+               _append_sample< space_idx >(result, FWD(entry));
+            }
+         } else {
+            for(auto entry_iter = xt::axis_begin(samples, 0);
+                entry_iter != xt::axis_end(samples, 0);
+                entry_iter++) {
+               _append_sample< space_idx >(result, *entry_iter);
+            }
          }
       } else {
          for(auto&& entry : FWD(samples)) {
