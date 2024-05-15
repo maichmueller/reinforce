@@ -88,7 +88,7 @@ TEST(Spaces, Discrete_contains)
    /// candidates are missing one dimension to be part of this space
    EXPECT_FALSE(space.contains(contain_candidates));
    /// add last dimension to candiates to become part of the space
-   contain_candidates = xt::random::randint(xt::svector{1, n}, start, start + nr_elems);
+   contain_candidates = xt::random::randint(xt::svector{n, 1}, start, start + nr_elems);
    SPDLOG_DEBUG(fmt::format("Correct containment candidates array:\n{}", contain_candidates));
    EXPECT_TRUE(space.contains(contain_candidates));
    // Individual values tests
