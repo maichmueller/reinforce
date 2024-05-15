@@ -20,6 +20,7 @@
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xstorage.hpp>
 
+#include "reinforce/spaces/concepts.hpp"
 #include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
@@ -69,7 +70,8 @@ concept is_mask_range = std::ranges::range< Rng >
 
 }  // namespace detail
 
-template < std::integral T >
+template < typename T >
+   requires multidiscrete_reqs< T >
 class MultiDiscreteSpace: public Space< xarray< T >, MultiDiscreteSpace< T > > {
   public:
    friend class Space< xarray< T >, MultiDiscreteSpace >;
@@ -185,7 +187,8 @@ MultiDiscreteSpace(const Array& end) -> MultiDiscreteSpace< std::ranges::range_v
 
 /// Implementations
 
-template < std::integral T >
+template < typename T >
+   requires multidiscrete_reqs< T >
 MultiDiscreteSpace< T >::MultiDiscreteSpace(
    value_type start,
    value_type end,
@@ -233,7 +236,8 @@ MultiDiscreteSpace< T >::MultiDiscreteSpace(
                             })));
 }
 
-template < std::integral T >
+template < typename T >
+   requires multidiscrete_reqs< T >
 template < typename MaskRange >
    requires detail::is_mask_range< MaskRange >
 auto MultiDiscreteSpace< T >::_sample(size_t batch_size, const MaskRange& mask_range) const
@@ -278,7 +282,8 @@ auto MultiDiscreteSpace< T >::_sample(size_t batch_size, const MaskRange& mask_r
    }
 }
 
-template < std::integral T >
+template < typename T >
+   requires multidiscrete_reqs< T >
 template < typename MaskRange >
    requires detail::is_mask_range< MaskRange >
 auto MultiDiscreteSpace< T >::_sample(const MaskRange& mask_range) const -> value_type

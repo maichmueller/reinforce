@@ -6,6 +6,7 @@
 #include <optional>
 #include <reinforce/utils/views_extension.hpp>
 
+#include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
@@ -49,20 +50,20 @@ concept integral_or_forwardrange = std::integral< T > or std::ranges::forward_ra
 }
 
 namespace force {
-template < typename NodeSpace, typename EdgeSpace >
-concept graph_space_concept =
-   (detail::is_specialization_v< NodeSpace, BoxSpace >
-    or detail::is_specialization_v< NodeSpace, DiscreteSpace >)
-   and (detail::is_specialization_v< EdgeSpace, BoxSpace > or detail::is_specialization_v< EdgeSpace, DiscreteSpace >);
 
 template < typename NodeSpace, typename EdgeSpace = DiscreteSpace< short > >
-   requires graph_space_concept< NodeSpace, EdgeSpace >
 class GraphSpace:
     public Space<
        GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > >,
        GraphSpace< NodeSpace, EdgeSpace >,
        std::vector< GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > > > > {
   private:
+   static_assert(
+      (detail::is_specialization_v< NodeSpace, BoxSpace >
+       or detail::is_specialization_v< NodeSpace, DiscreteSpace >)
+         and (detail::is_specialization_v< EdgeSpace, BoxSpace > or detail::is_specialization_v< EdgeSpace, DiscreteSpace >),
+      "NodeSpace and EdgeSpace must be BoxSpace or DiscreteSpace for now."
+   );
    static constexpr bool _is_composite_space = true;
 
   public:
@@ -80,12 +81,14 @@ class GraphSpace:
    using base::shape;
    using base::rng;
 
+   template < class NodeSpaceType, class EdgeSpaceType >
+      requires(detail::derives_from_space< detail::raw_t< EdgeSpaceType > >)
    GraphSpace(
-      NodeSpace node_space,
-      EdgeSpace edge_space,
+      NodeSpaceType&& node_space,
+      EdgeSpaceType&& edge_space,
       std::optional< size_t > seed = std::nullopt
    )
-       : base({}, seed), m_node_space(std::move(node_space)), m_edge_space(std::move(edge_space))
+       : base({}, seed), m_node_space(FWD(node_space)), m_edge_space(FWD(edge_space))
    {
    }
    GraphSpace(NodeSpace node_space, std::optional< size_t > seed = std::nullopt)
@@ -172,8 +175,16 @@ class GraphSpace:
    ) const;
 };
 
+// deduction guide
+template < class NodeSpaceType, class EdgeSpaceType >
+   requires(detail::derives_from_space< detail::raw_t< EdgeSpaceType > >)
+GraphSpace(
+   NodeSpaceType&& node_space,
+   EdgeSpaceType&& edge_space,
+   std::optional< size_t > seed = std::nullopt
+) -> GraphSpace< detail::raw_t< NodeSpaceType >, detail::raw_t< EdgeSpaceType > >;
+
 template < typename NodeSpace, typename EdgeSpace >
-   requires graph_space_concept< NodeSpace, EdgeSpace >
 template < typename node_mask_t, typename edge_mask_t >
 GraphSpace< NodeSpace, EdgeSpace >::value_type GraphSpace< NodeSpace, EdgeSpace >::_sample(
    const std::tuple< node_mask_t, edge_mask_t >& mask,
@@ -192,7 +203,6 @@ GraphSpace< NodeSpace, EdgeSpace >::value_type GraphSpace< NodeSpace, EdgeSpace 
 }
 
 template < typename NodeSpace, typename EdgeSpace >
-   requires graph_space_concept< NodeSpace, EdgeSpace >
 template <
    typename node_mask_t,
    typename edge_mask_t,
@@ -292,7 +302,6 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
 }
 
 template < typename NodeSpace, typename EdgeSpace >
-   requires graph_space_concept< NodeSpace, EdgeSpace >
 template < typename size_or_forwardrange_t >
 auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_nodes_view(
    size_t batch_size,
@@ -323,7 +332,6 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_nodes_view(
 }
 
 template < typename NodeSpace, typename EdgeSpace >
-   requires graph_space_concept< NodeSpace, EdgeSpace >
 template < typename num_nodes_view_t, typename optional_size_or_forwardrange_t >
 auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_edges_array(
    size_t batch_size,

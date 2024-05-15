@@ -16,12 +16,14 @@
 #include <xtensor/xmath.hpp>
 #include <xtensor/xrandom.hpp>
 
+#include "reinforce/spaces/concepts.hpp"
+#include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
-#include "space.hpp"
 
 namespace force {
 
-template < std::integral T >
+template < typename T >
+   requires discrete_reqs< T >
 class DiscreteSpace: public Space< T, DiscreteSpace< T >, xarray< T > > {
   public:
    friend class Space< T, DiscreteSpace< T >, xarray< T > >;
@@ -104,20 +106,23 @@ class DiscreteSpace: public Space< T, DiscreteSpace< T >, xarray< T > > {
    }
 };
 
-template < std::integral T >
+template < typename T >
+   requires discrete_reqs< T >
 auto DiscreteSpace< T >::_sample(size_t batch_size) const -> batch_value_type
 {
    return xt::random::randint< T >({batch_size}, m_start, m_start + m_nr_values, rng());
 }
 
-template < std::integral T >
+template < typename T >
+   requires discrete_reqs< T >
 auto DiscreteSpace< T >::_sample(size_t batch_size, std::nullopt_t /*unused*/) const
    -> batch_value_type
 {
    return _sample(batch_size);
 }
 
-template < std::integral T >
+template < typename T >
+   requires discrete_reqs< T >
 template < std::ranges::range MaskRange >
 auto DiscreteSpace< T >::_sample(size_t batch_size, MaskRange&& mask) const -> batch_value_type
 {
@@ -168,7 +173,8 @@ auto DiscreteSpace< T >::_sample(size_t batch_size, MaskRange&& mask) const -> b
    return {};
 }
 
-template < std::integral T >
+template < typename T >
+   requires discrete_reqs< T >
 auto DiscreteSpace< T >::_sample(internal_tag_t, size_t batch_size, const xarray< bool >& mask)
    const -> batch_value_type
 {

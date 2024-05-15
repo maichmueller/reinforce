@@ -14,6 +14,7 @@
 
 #include "reinforce/utils/exceptions.hpp"
 #include "reinforce/utils/macro.hpp"
+#include "reinforce/utils/type_traits.hpp"
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
@@ -209,7 +210,7 @@ class Space: public detail::rng_mixin {
    template < typename T >
    bool contains(const T& value) const
    {
-      if constexpr(std::convertible_to< T, value_type >) {
+      if constexpr(requires(Derived d) { d._contains(value); }) {
          return derived()._contains(value);
       }
       return false;
@@ -384,20 +385,27 @@ bool Space< Value, Derived, BatchValue, runtime_sample_throw >::_isin_shape_and_
 namespace detail {
 
 template < typename MaybeSpaceT >
-concept derives_from_space =
-   std::derived_from<
-      MaybeSpaceT,
-      Space< value_t< MaybeSpaceT >, MaybeSpaceT, batch_value_t< MaybeSpaceT >, true > >
-   or std::derived_from<
-      MaybeSpaceT,
-      Space< value_t< MaybeSpaceT >, MaybeSpaceT, batch_value_t< MaybeSpaceT >, false > >;
+concept derives_from_space = std::derived_from<
+                                MaybeSpaceT,
+                                Space<
+                                   detail::value_t< MaybeSpaceT >,
+                                   MaybeSpaceT,
+                                   detail::batch_value_t< MaybeSpaceT >,
+                                   true > >
+                             or std::derived_from<
+                                MaybeSpaceT,
+                                Space<
+                                   detail::value_t< MaybeSpaceT >,
+                                   MaybeSpaceT,
+                                   detail::batch_value_t< MaybeSpaceT >,
+                                   false > >;
 
 template < typename MaybeSpaceT >
-concept is_space = requires(MaybeSpaceT t) {
-   { t.shape() } -> std::convertible_to< xt::svector< int > >;
-   requires has_value_type< MaybeSpaceT >;
-   requires has_batch_value_type< MaybeSpaceT >;
-   requires has_data_type< MaybeSpaceT >;
+concept is_space = requires(MaybeSpaceT space) {
+   { space.shape() } -> std::convertible_to< xt::svector< int > >;
+   requires detail::has_value_type< MaybeSpaceT >;
+   requires detail::has_batch_value_type< MaybeSpaceT >;
+   requires detail::has_data_type< MaybeSpaceT >;
    requires derives_from_space< MaybeSpaceT >;
 };
 

@@ -22,6 +22,7 @@
 #include <xtensor/xstrided_view.hpp>
 #include <xtensor/xview.hpp>
 
+#include "reinforce/spaces/concepts.hpp"
 #include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/type_traits.hpp"
@@ -33,7 +34,7 @@
 namespace force {
 
 template < typename T >
-   requires std::is_integral_v< T > || std::is_floating_point_v< T >
+   requires box_reqs< T >
 class BoxSpace: public Space< xarray< T >, BoxSpace< T > > {
   public:
    friend class Space< xarray< T >, BoxSpace >;
@@ -148,7 +149,8 @@ BoxSpace(const U& low, const V& high, Range&& shape_, std::optional< size_t > se
 ///
 
 template < typename T >
-   requires std::is_integral_v< T > || std::is_floating_point_v< T >
+
+   requires box_reqs< T >
 template < std::ranges::range Range >
 BoxSpace< T >::BoxSpace(
    xarray< T > low,
@@ -213,7 +215,8 @@ BoxSpace< T >::BoxSpace(
 }
 
 template < typename T >
-   requires std::is_integral_v< T > || std::is_floating_point_v< T >
+
+   requires box_reqs< T >
 auto BoxSpace< T >::_sample(const std::optional< xarray< bool > >&) const -> value_type
 {
    xarray< T > samples = xt::empty< T >(shape());
@@ -263,7 +266,7 @@ auto BoxSpace< T >::_sample(const std::optional< xarray< bool > >&) const -> val
 }
 
 template < typename T >
-   requires std::is_integral_v< T > || std::is_floating_point_v< T >
+   requires box_reqs< T >
 auto BoxSpace< T >::_sample(
    size_t batch_size,
    const std::optional< xarray< bool > >& /*unused*/
@@ -328,7 +331,7 @@ auto BoxSpace< T >::_sample(
 }
 
 template < typename T >
-   requires std::is_integral_v< T > || std::is_floating_point_v< T >
+   requires box_reqs< T >
 bool BoxSpace< T >::is_bounded(const std::string_view manner)
 {
    constexpr auto below = [&] { return xt::all(m_bounded_below); };
