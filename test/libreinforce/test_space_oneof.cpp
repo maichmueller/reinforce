@@ -64,25 +64,27 @@ TEST(Spaces, OneOf_Discrete_Box_MultiDiscrete_Text_sample)
 
    auto verification_visitor = [&](size_t space_idx) {
       return detail::overload{
-         [&, space_idx](const xarray< int >& disc_or_mdisc_sample) {
-            if(space_idx == 0) {
-               EXPECT_TRUE(xt::greater_equal(disc_or_mdisc_sample, start_discrete)(0));
-               EXPECT_TRUE(xt::less_equal(disc_or_mdisc_sample, start_discrete + n_discrete)(0));
-            } else {
-               EXPECT_EQ(space_idx, 2);
-               for(auto i : ranges::views::iota(0, 3)) {
-                  EXPECT_GE(disc_or_mdisc_sample(i), md_start(i));
-                  EXPECT_LE(disc_or_mdisc_sample(i), md_end(i));
-               }
-            }
+         [=](int disc_sample) {
+            EXPECT_EQ(space_idx, 0);
+            EXPECT_GE(disc_sample, start_discrete);
+            EXPECT_LE(disc_sample, start_discrete + n_discrete);
          },
-         [&](const auto& box_sample) {
+         [=](const xarray< double >& box_sample) {
+            EXPECT_EQ(space_idx, 1);
             for(auto i : ranges::views::iota(0, 3)) {
                EXPECT_GE(box_sample(i), box_low(i));
                EXPECT_LE(box_sample(i), box_high(i));
             }
          },
-         [&](const std::string& text_sample) {
+         [=](const xarray< int >& mdisc_sample) {
+            EXPECT_EQ(space_idx, 2);
+            for(auto i : ranges::views::iota(0, 3)) {
+               EXPECT_GE(mdisc_sample(i), md_start(i));
+               EXPECT_LE(mdisc_sample(i), md_end(i));
+            }
+         },
+         [=](const std::string& text_sample) {
+            EXPECT_EQ(space_idx, 3);
             EXPECT_TRUE(text_sample.size() <= 6);
             EXPECT_TRUE(ranges::all_of(text_sample, [](char chr) {
                return ranges::contains("aeiou", chr);
@@ -139,28 +141,41 @@ TEST(Spaces, OneOf_Discrete_Box_MultiDiscrete_Text_sample_masked)
 
    auto verification_visitor = [&](size_t space_idx) {
       return detail::overload{
-         [&, space_idx](const xarray< int >& disc_or_mdisc_sample) {
-            if(space_idx == 0) {
-               EXPECT_TRUE(xt::greater_equal(disc_or_mdisc_sample, start_discrete)(0));
-               EXPECT_TRUE(xt::less_equal(disc_or_mdisc_sample, start_discrete + n_discrete)(0));
-            } else {
-               EXPECT_EQ(space_idx, 2);
-               for(auto i : ranges::views::iota(0, 3)) {
-                  EXPECT_GE(disc_or_mdisc_sample(i), md_start(i));
-                  EXPECT_LE(disc_or_mdisc_sample(i), md_end(i));
-               }
-            }
+         [=](int disc_sample) {
+            EXPECT_EQ(space_idx, 0);
+            EXPECT_TRUE((ranges::contains(
+               std::array{start_discrete, start_discrete + 2, start_discrete + 4}, disc_sample
+            )));
          },
-         [&](const auto& box_sample) {
+         [=](const auto& box_sample) {
+            EXPECT_EQ(space_idx, 1);
             for(auto i : ranges::views::iota(0, 3)) {
                EXPECT_GE(box_sample(i), box_low(i));
                EXPECT_LE(box_sample(i), box_high(i));
             }
          },
-         [&](const std::string& text_sample) {
+         [=](const xarray< int >& mdisc_sample) {
+            EXPECT_EQ(space_idx, 2);
+            for(auto i : ranges::views::iota(0, 3)) {
+               EXPECT_GE(mdisc_sample(i), md_start(i));
+               EXPECT_LE(mdisc_sample(i), md_end(i));
+            }
+         },
+         [=](const std::string& text_sample) {
+            EXPECT_EQ(space_idx, 3);
             EXPECT_TRUE(text_sample.size() <= 6);
             EXPECT_TRUE(ranges::all_of(text_sample, [&](char chr) {
-               return ranges::contains(space.get< 3 >().characters(), chr);
+               return ranges::contains(
+                  ranges::views::enumerate(space.get< 3 >().characters())  //
+                     | ranges::views::filter([&](auto idx_base_chr) {
+                          const auto& text_mask = std::get< 3 >(mask_tuple);
+                          auto [ign, char_mask] = text_mask;
+                          auto [idx, base_chr] = idx_base_chr;
+                          return char_mask(idx) == 1;
+                       })
+                     | std::views::elements< 1 >,
+                  chr
+               );
             }));
          },
       };
