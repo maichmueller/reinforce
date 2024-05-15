@@ -47,8 +47,8 @@ last drop of performance out of their juicy training routines.
 
 <table>
 <tr>
-<th>Reinforce</th>
 <th>Gymnasium</th>
+<th>Reinforce</th>
 </tr>
 <tr>
 <td>
