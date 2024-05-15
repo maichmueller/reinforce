@@ -7,17 +7,17 @@ No? Oh...
 Well, `Reinforce` is a C++ implementation of the Gymnasium spaces anyway, designed to bridge the use of
 Reinforcement Learning (RL) in C++. Its aim is to port existing spaces, wherever meaningful, and related features
 of [Gymnasium](https://github.com/Farama-Foundation/Gymnasium), allowing developers to squeeze the
-last drop of performance out of their training routines.
+last drop of performance out of their juicy training routines.
 
 ## Features
 
 - **Gym Spaces:** Reinforce provides C++ implementations of common Gymnasium spaces whenever meaningful. For a seamless
   transition from the Python-based standard set by Gym their API is replicated as much as possible.
   All spaces implemented so far provide the basic public API:
-    - (vectorized) `sampling`
+    - (batch) `sampling`
     - `contains` checks
     - `repr`
-    - `equality` comparison .
+    - `equality` comparison
 
   The following spaces have already been ported:
     - `Discrete`
@@ -25,6 +25,7 @@ last drop of performance out of their training routines.
     - `Graph`
     - `MultiDiscrete`
     - `MultiBinary`
+    - `OneOf`
     - `Text`
     - `Tuple`
     - `Sequence`
@@ -36,6 +37,9 @@ last drop of performance out of their training routines.
   NumPy API as much as possible can be used to interact with samples of most of the spaces.
 - **Environments:** Reinforce plans to offer a small selection of environments for training RL models.
   Currently, only a version of `gridworld` of arbitrary dimensions is included.
+- **Python Bindings**: In the future, I hope to export Reinforce to Python. Given the heavy template reliance, this is still
+  being evaluated for feasibility. If you have advice or wish to share the workload on this, feel free to open an issue
+  or discussion item!
 
 ## Examples
 
@@ -49,14 +53,40 @@ last drop of performance out of their training routines.
 <tr>
 <td>
 
+
+```python
+from gymnasium import spaces
+from gymnasium.vector.utils import concatenate
+import numpy as np
+
+# high and low boundaries for samples
+# of shape (2,3). We have that
+# low[i,j] <= samples[:, i,j] <= high[i,j]
+low = np.array([[-np.inf,  0.0, -4.0], 
+                [    4.0, 16.0, 64.0]])
+high = np.array([[np.inf,  2.0,   -2.0], 
+                 [   8.0, 32.0, np.inf]])
+space = spaces.Box(low, high)
+
+with np.printoptions(precision=1):
+  # sample either a single sample
+  print(f"Sample:\n{space.sample()}")
+  # or a batch of samples
+  out = np.empty((100,) + space.shape, dtype=space.dtype)
+  samples = tuple(space.sample() for _ in range(100))
+  print(f"Batch:\n{concatenate(space, samples, out)}")
+```
+
+</td>
+<td>
+
 ```cpp
 #include <reinforce/spaces/box.hpp>
 #include <reinforce/utils/math.hpp>
-
 using namespace force;
 
-// high and low boundaries for samples 
-// of shape (2,3). We have that 
+// high and low boundaries for samples
+// of shape (2,3). We have that
 // low[i,j] <= samples[:, i,j] <= high[i,j]
 xarray< double > low {{-inf<>,  0,    -4},
                       {     4, 16,    64}};
@@ -67,76 +97,14 @@ auto space = BoxSpace{low, high};
 xt::print_options::set_precision(1);
 // sample either a single sample
 fmt::println("Sample:\n{}", space.sample());
-
 // or a batch of samples
-fmt::println(
-  "Batch:\n{}", 
-  space.sample(100)
-);
-```
-
-</td>
-<td>
-
-```python
-from gymnasium import spaces
-import numpy as np
-
-
-
-
-
-
-low = np.array([[-np.inf, 0., -4.],
-                [4., 16., 64.]])
-high = np.array([[np.inf, 2., -2.],
-                 [8., 32., np.inf]])
-space = spaces.Box(low, high)
-
-with np.printoptions(precision=1):
-
-    print(f"Sample:\n{space.sample()}")
-
-
-    print(f"Batch:\n{np.vstack([
-      space.sample().reshape(1, 2, 3)
-      for _ in range(100)
-    ])}")
+fmt::println("Batch:\n{}", space.sample(100));
 ```
 
 </td>
 </tr>
 
 <tr>
-<td>
-
-```cpp
-Sample:
-{{  1.3,   0.1,  -3. },
- {  6.9,  22.6,  64.4}}
-Batch:
-{{{ -1.6,   0.6,  -2.3},
-  {  7.8,  29.3,  64.7}},
-  
- {{ -0.3,   0.7,  -3.6},
-  {  6.8,  27.4,  64.1}},
-  
- {{  1.3,   1. ,  -3.7},
-  {  5.3,  23.4,  64.2}},
-  
- ...,
- 
- {{ -0.1,   0.5,  -2.2},
-  {  4.9,  24.8,  64. }},
-  
- {{  0. ,   0.7,  -2. },
-  {  7.5,  16.3,  64.8}},
-  
- {{ -1. ,   0.9,  -3.4},
-  {  5.5,  25.7,  64.1}}}
-```
-
-</td>
 <td>
 
 ```cpp
@@ -163,6 +131,35 @@ Batch:
 
  [[ 1.1  1.8 -2.3]
   [ 5.2 29.2 64. ]]]
+```
+
+</td>
+<td>
+
+```cpp
+Sample:
+{{  1.3,   0.1,  -3. },
+ {  6.9,  22.6,  64.4}}
+Batch:
+{{{ -1.6,   0.6,  -2.3},
+  {  7.8,  29.3,  64.7}},
+  
+ {{ -0.3,   0.7,  -3.6},
+  {  6.8,  27.4,  64.1}},
+  
+ {{  1.3,   1. ,  -3.7},
+  {  5.3,  23.4,  64.2}},
+  
+ ...,
+ 
+ {{ -0.1,   0.5,  -2.2},
+  {  4.9,  24.8,  64. }},
+  
+ {{  0. ,   0.7,  -2. },
+  {  7.5,  16.3,  64.8}},
+  
+ {{ -1. ,   0.9,  -3.4},
+  {  5.5,  25.7,  64.1}}}
 ```
 
 </td>
