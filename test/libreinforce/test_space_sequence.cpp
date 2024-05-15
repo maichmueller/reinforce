@@ -2,6 +2,7 @@
 #include <reinforce/spaces/box.hpp>
 #include <reinforce/spaces/discrete.hpp>
 #include <reinforce/spaces/multi_discrete.hpp>
+#include <tuple>
 #include <xtensor/xset_operation.hpp>
 
 #include "gtest/gtest.h"
@@ -34,6 +35,19 @@ TEST(Spaces, Sequence_Discrete_sample)
    constexpr auto start_discrete = 5;
    constexpr auto n_discrete = 5;
    auto space = SequenceSpace{DiscreteSpace{n_discrete, start_discrete}, 0.5};
+   for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
+      auto new_samples = space.sample();
+      SPDLOG_DEBUG(fmt::format("Sample:\n{}", new_samples));
+      EXPECT_TRUE(new_samples.size() == 0 or xt::all(new_samples >= start_discrete));
+      EXPECT_TRUE(new_samples.size() == 0 or xt::all(new_samples < start_discrete + n_discrete));
+   }
+}
+
+TEST(Spaces, Sequence_Discrete_sample_batch)
+{
+   constexpr auto start_discrete = 5;
+   constexpr auto n_discrete = 5;
+   auto space = SequenceSpace{DiscreteSpace{n_discrete, start_discrete}, 0.5};
    constexpr auto n_samples = 100;
    auto samples = space.sample(n_samples);
    SPDLOG_DEBUG(fmt::format("Samples: [\n{}\n]", fmt::join(samples, "\n")));
@@ -41,11 +55,6 @@ TEST(Spaces, Sequence_Discrete_sample)
    for(auto sample_arr : samples) {
       EXPECT_TRUE(xt::all(sample_arr >= start_discrete));
       EXPECT_TRUE(xt::all(sample_arr < start_discrete + n_discrete));
-   }
-   for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
-      auto new_samples = space.sample();
-      EXPECT_TRUE(xt::all(new_samples >= start_discrete));
-      EXPECT_TRUE(xt::all(new_samples < start_discrete + n_discrete));
    }
 }
 
@@ -110,7 +119,7 @@ TEST(Spaces, Sequence_Discrete_sample_masked)
 
 TEST(Spaces, Sequence_MultiDiscrete_sample_masked)
 {
-   size_t n = 100;
+   constexpr size_t n = 100;
    auto start = xarray< int >({0, 0, -3});
    auto end = xarray< int >({10, 5, 3});
    auto space = SequenceSpace{MultiDiscreteSpace{start, end}, 56363};
@@ -146,11 +155,13 @@ TEST(Spaces, Sequence_MultiDiscrete_sample_masked)
       }
    }
 
-   for([[maybe_unused]] auto _ : ranges::views::iota(0, 100)) {
+   for([[maybe_unused]] auto _ : ranges::views::iota(0ul, n)) {
       auto sample = space.sample(mask);
 
       SPDLOG_DEBUG(fmt::format("Sample:\n{}", sample));
-
+      if(sample.size() == 0) {
+         continue;
+      }
       EXPECT_TRUE(xt::all(sample >= start.reshape({1, 3})));
       EXPECT_TRUE(xt::all(sample < end.reshape({1, 3})));
 

@@ -14,6 +14,7 @@
 #include <range/v3/detail/prologue.hpp>
 #include <range/v3/iterator/traits.hpp>
 #include <ranges>
+#include <reinforce/utils/concatenate.hpp>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -40,32 +41,18 @@ namespace force {
 
 namespace detail {
 
-template < typename Value, bool stacked >
-struct stacked_value_type {
-   static consteval auto type_selector()
-   {
-      using default_type = std::vector< Value >;
-      if constexpr(stacked) {
-         if constexpr(is_xarray< Value >) {
-            return Value{};
-         } else {
-            return default_type{};
-         }
-      } else {
-         return default_type{};
-      }
-   }
-   using type = std::invoke_result_t< decltype(type_selector) >;
-};
+template < typename FeatureSpace, bool stacked >
+using stacked_value_type = std::conditional_t<
+   stacked,
+   typename concatenate< FeatureSpace >::result_type,
+   std::vector< detail::value_t< FeatureSpace > > >;
 
-template < typename Value, bool stacked >
-using stacked_value_type_t = typename stacked_value_type< Value, stacked >::type;
 }  // namespace detail
 
 template < typename FeatureSpace, bool stacked = true >
 class SequenceSpace:
     public Space<
-       detail::stacked_value_type_t< typename FeatureSpace::value_type, stacked >,
+       detail::stacked_value_type< FeatureSpace, stacked >,
        SequenceSpace< FeatureSpace >,
        std::vector< typename FeatureSpace::batch_value_type > > {
    /// a tag for class-internal dispatch
@@ -76,11 +63,11 @@ class SequenceSpace:
 
   public:
    friend class Space<
-      detail::stacked_value_type_t< typename FeatureSpace::value_type, stacked >,
+      detail::stacked_value_type< FeatureSpace, stacked >,
       SequenceSpace,
       std::vector< typename FeatureSpace::batch_value_type > >;
    using base = Space<
-      detail::stacked_value_type_t< typename FeatureSpace::value_type, stacked >,
+      detail::stacked_value_type< FeatureSpace, stacked >,
       SequenceSpace,
       std::vector< typename FeatureSpace::batch_value_type > >;
    using feature_space_type = FeatureSpace;
@@ -173,14 +160,21 @@ class SequenceSpace:
    }
 
    template < typename Range >
-   [[nodiscard]] xarray< size_t > _sample_lengths(size_t batch_size, Range&& lengths_rng) const;
+   [[nodiscard]] auto _lengths_sampler(size_t batch_size, Range&& lengths_mask_range) const;
 };
 template < typename FeatureSpace, bool stacked >
 template < typename MaskT1, typename MaskT2 >
 auto SequenceSpace< FeatureSpace, stacked >::_sample(const std::tuple< MaskT1, MaskT2 >& mask_tuple
 ) const -> value_type
 {
-   return nullptr;
+   auto&& [length_rng, feature_mask] = mask_tuple;
+   size_t minibatch_size = std::geometric_distribution< size_t >{m_geometric_prob}(rng());
+   constexpr auto concat = concatenate< feature_space_type >{};
+   return concat(
+      m_feature_space,
+      std::views::iota(0UL, minibatch_size)  //
+         | std::views::transform([&](auto) { return m_feature_space.sample(feature_mask); })
+   );
 }
 
 // template implementations
@@ -203,52 +197,48 @@ auto SequenceSpace< FeatureSpace, stacked >::_sample(
       return batch_value_type{};
    }
    auto&& [length_rng, feature_mask] = mask_tuple;
-   // Compute the lenghts each sample should have. This is an array of potentially
-   // differing integers which at index i indicates the sampled string size for sample i.
-   auto lengths_per_sample = _sample_lengths(batch_size, FWD(length_rng));
-   SPDLOG_DEBUG(fmt::format("Lengths of each sample:\n{}", lengths_per_sample));
-   return std::views::all(lengths_per_sample)  //
-          | std::views::transform([&](auto sub_batch_size) {
+   return _lengths_sampler(batch_size, FWD(length_rng))  //
+          | ranges::views::transform([&](auto sub_batch_size) {
                return m_feature_space.sample(sub_batch_size, feature_mask);
-            })  //
+            })
           | ranges::to_vector;
 }
 
 template < typename FeatureSpace, bool stacked >
 template < typename Range >
-xarray< size_t > SequenceSpace< FeatureSpace, stacked >::_sample_lengths(
+auto SequenceSpace< FeatureSpace, stacked >::_lengths_sampler(
    size_t batch_size,
-   Range&& lengths_rng
+   Range&& lengths_mask_range
 ) const
 {
    using namespace detail;
    if constexpr(std::same_as< raw_t< Range >, std::nullopt_t >) {
       // if none given, then sample the length from a geometric distribution
-      return xt::random::geometric< size_t >(xt::svector{batch_size}, m_geometric_prob, rng());
+      return ranges::views::indices(0ul, batch_size)
+             | ranges::views::transform(
+                [&,
+                 dist = std::geometric_distribution< size_t >{m_geometric_prob}](auto&&) mutable {
+                   return dist(rng());
+                }
+             );
    } else if constexpr(std::convertible_to< raw_t< Range >, size_t >) {
-      auto length = static_cast< size_t >(lengths_rng);
+      auto length = static_cast< size_t >(lengths_mask_range);
       if(length == 0) {
          throw std::invalid_argument(
             fmt::format("Expecting a fixed length mask greater than 0. Given: {}", length)
          );
       }
-      return xt::full(xt::svector{batch_size}, length);
+      return ranges::views::repeat_n(length, static_cast< ptrdiff_t >(batch_size));
    } else {
-      auto&& length_options = xt::cast< size_t >(std::invoke([&]() -> decltype(auto) {
-         static constexpr bool is_already_xarray = is_xarray< raw_t< Range > >
-                                                   or is_xarray_ref< raw_t< Range > >;
-         if constexpr(is_already_xarray) {
-            return FWD(lengths_rng);
-         } else {
-            // lengths is now confirmed to be a range
-            xarray< size_t > arr = xt::empty< size_t >({std::ranges::distance(lengths_rng)});
-            for(auto [index, value] : ranges::views::enumerate(lengths_rng)) {
-               arr.unchecked(index) = static_cast< size_t >(value);
-            }
-            return arr;
-         }
-      }));
-      return xt::random::choice(length_options, xt::svector{batch_size}, true, rng());
+      auto len_vec = ranges::to_vector(FWD(lengths_mask_range));
+      size_t n = len_vec.size();
+      // sample with replacement from the length vector
+      return ranges::views::indices(0ul, batch_size)
+             | ranges::views::transform([&,
+                                         dist = std::uniform_int_distribution< size_t >{0, n},
+                                         lens = std::move(len_vec)](auto&&) mutable {
+                  return lens[dist(rng())];
+               });
    }
 }
 
