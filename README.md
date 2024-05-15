@@ -101,6 +101,7 @@ fmt::println("Sample:\n{}", space.sample());
 fmt::println("Batch:\n{}", space.sample(100));
 
 
+
 ```
 
 </td>
