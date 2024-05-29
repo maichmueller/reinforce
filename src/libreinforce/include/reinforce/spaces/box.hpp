@@ -20,6 +20,7 @@
 #include <vector>
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xstrided_view.hpp>
+#include <xtensor/xstrides.hpp>
 #include <xtensor/xview.hpp>
 
 #include "reinforce/spaces/concepts.hpp"
@@ -177,15 +178,18 @@ BoxSpace< T >::BoxSpace(
    SPDLOG_DEBUG(fmt::format(
       "Low shape {}, high shape: {}, specified shape: {}", low_shape, high_shape, shape()
    ));
-   if(not ranges::equal(high_shape, low_shape) or not ranges::equal(high_shape, shape())) {
+   if(not xt::reshapeable(high_shape, shape()) or not xt::reshapeable(low_shape, shape())) {
       throw std::invalid_argument(fmt::format(
-         "Shape of 'Low' and 'High' bound arrays, as well as the explicit shape need to match. "
+         "Shape of 'Low' and 'High' bound arrays need to be reshapeable to the explicit shape. "
          "Given {}, {}, and {} respectively.",
          low_shape,
          high_shape,
          shape()
       ));
    }
+   m_low = xt::reshape_view(m_low, shape());
+   m_high = xt::reshape_view(m_high, shape());
+   SPDLOG_DEBUG(fmt::format("Reshaped Low {}, High: {}", m_low.shape(), m_high.shape()));
    SPDLOG_DEBUG(fmt::format(
       "Bounds:\n{}", std::invoke([&] {
          xarray< std::string > bounds = xt::empty< std::string >(shape());

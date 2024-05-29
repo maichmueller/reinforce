@@ -25,11 +25,15 @@ TEST(Spaces, Box_multivariates_constructor)
    EXPECT_NO_THROW((BoxSpace{low, high}));
    EXPECT_NO_THROW((BoxSpace{low, high, xt::svector< int >{}}));
    EXPECT_NO_THROW((BoxSpace{low, high, xt::svector{3}}));
+   EXPECT_NO_THROW((BoxSpace{low, high, xt::svector{1, 3}}));
+   EXPECT_NO_THROW((BoxSpace{low, high, xt::svector{1, 1, 3}}));
+   EXPECT_NO_THROW((BoxSpace{low, high, xt::svector{3, 1}}));
+   EXPECT_NO_THROW((BoxSpace{low, high, xt::svector{3, 1, 1}}));
    EXPECT_THROW((BoxSpace{low, high, xt::svector{0}}), std::invalid_argument);
    EXPECT_THROW((BoxSpace{low, high, xt::svector{1}}), std::invalid_argument);
    EXPECT_THROW((BoxSpace{low, high, xt::svector{2}}), std::invalid_argument);
    EXPECT_THROW((BoxSpace{low, high, xt::svector{3, 0}}), std::invalid_argument);
-   EXPECT_THROW((BoxSpace{low, high, xt::svector{1, 3}}), std::invalid_argument);
+   EXPECT_THROW((BoxSpace{low, high, xt::svector{4, 1}}), std::invalid_argument);
 }
 
 TEST(Spaces, Box_multivariates_sample)
