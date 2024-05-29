@@ -62,7 +62,7 @@ import numpy as np
 # high and low boundaries for samples
 # of shape (2,3). We have that
 # low[i,j] <= samples[:, i,j] <= high[i,j]
-low = np.array([[-np.inf,  0.0, -4.0], 
+low  = np.array([[-np.inf,  0.0, -4.0], 
                 [    4.0, 16.0, 64.0]])
 high = np.array([[np.inf,  2.0,   -2.0], 
                  [   8.0, 32.0, np.inf]])
@@ -205,14 +205,14 @@ started with this, clone the repository and build it by running the following co
 ```bash
 git clone https://github.com/maichmueller/reinforce.git
 cd reinforce
-./configure.sh
-./build.sh
+./configure.sh --output build
+./build.sh build
 ```
 
-After building the project, you can start install it by running:
+After building the project, you can install it by running:
 
 ```bash
-./install.sh
+./install.sh build
 ```
 
 ## Documentation
