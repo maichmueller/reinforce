@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <pybind11/embed.h>
 #include <spdlog/spdlog.h>
 
 #include <array>
@@ -9,6 +8,9 @@
 #include "reinforce/reinforce.hpp"
 
 using namespace force;
+
+#ifdef REINFORCE_USE_PYTHON
+   #include <pybind11/embed.h>
 namespace py = pybind11;
 
 TEST(PythonImport, numpy)
@@ -27,6 +29,7 @@ TEST(PythonImport, numpy)
    ASSERT_NO_THROW(py::module_::import("numpy"));
    ASSERT_NO_THROW(py::module_::import("numpy.core.multiarray"));
 }
+#endif
 
 TEST(Gridworld, construction)
 {

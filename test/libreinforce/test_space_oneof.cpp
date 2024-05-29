@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <pybind11/embed.h>
 #include <spdlog/spdlog.h>
 
 #include <array>

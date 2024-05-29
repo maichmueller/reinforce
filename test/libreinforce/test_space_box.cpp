@@ -3,7 +3,6 @@
 #include <tuple>
 
 #include "gtest/gtest.h"
-#include "pybind11/embed.h"
 #include "reinforce/spaces/box.hpp"
 #include "reinforce/utils/math.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"

@@ -4,7 +4,6 @@
 #include <xtensor/xset_operation.hpp>
 
 #include "gtest/gtest.h"
-#include "pybind11/embed.h"
 #include "reinforce/spaces/discrete.hpp"
 #include "reinforce/utils/math.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"

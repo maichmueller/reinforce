@@ -9,7 +9,6 @@
 #include <xtensor/xset_operation.hpp>
 
 #include "gtest/gtest.h"
-#include "pybind11/embed.h"
 #include "reinforce/spaces/text.hpp"
 #include "reinforce/utils/macro.hpp"
 #include "reinforce/utils/math.hpp"

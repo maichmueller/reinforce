@@ -16,8 +16,6 @@ static_assert(false, "No logging level set. Please define the macro 'SPDLOG_ACTI
 #include <range/v3/all.hpp>
 #include <valarray>
 #include <variant>
-#include <xtensor-blas/xlinalg.hpp>
-#include <xtensor-python/pyarray.hpp>
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xaxis_slice_iterator.hpp>
@@ -34,6 +32,10 @@ static_assert(false, "No logging level set. Please define the macro 'SPDLOG_ACTI
 #include "reinforce/utils/utils.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
+
+#ifdef REINFORCE_USE_PYTHON
+   #include <xtensor-python/pyarray.hpp>
+#endif
 
 namespace force {
 
