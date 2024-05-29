@@ -29,8 +29,14 @@ target_link_libraries(
         ${reinforce_test}_all
         PRIVATE
         project_options
-        pybind11::module
-        pybind11::embed
-        $<$<NOT:$<BOOL:USE_PYBIND11_FINDPYTHON>>:Python3::Module>
 )
+if(ENABLE_BUILD_PYTHON_EXTENSION)
+    target_link_libraries(
+            ${reinforce_test}_all
+            PUBLIC
+            pybind11::module
+            pybind11::embed
+            $<$<NOT:$<BOOL:USE_PYBIND11_FINDPYTHON>>:Python3::Module>
+    )
+endif ()
 

@@ -13,5 +13,6 @@ target_link_libraries(
         GTest::gtest
         fmt::fmt
         range-v3::range-v3
-        pybind11::module
+        $<$<BOOL:${ENABLE_BUILD_PYTHON_EXTENSION}>:pybind11::module>
+
 )

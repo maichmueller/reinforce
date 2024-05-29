@@ -56,8 +56,9 @@ function(set_project_compiler_options project_name)
 
     set(CLANG_LINK_OPTIONS
             "$<$<CXX_COMPILER_ID:Clang>:"  # if Compiler == Clang, add all of the following...
-            "$<$<IN_LIST:-flto,${CLANG_COMPILER_OPTIONS}>:-fuse-ld=lld>"
+            "-fuse-ld=lld"
             ">"
+
     )
 
     target_compile_options(

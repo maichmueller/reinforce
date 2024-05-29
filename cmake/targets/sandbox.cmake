@@ -21,7 +21,14 @@ target_link_libraries(
         xtensor
         xtensor-python
         fmt::fmt
-        pybind11::module
-        pybind11::embed
-        pybind11::lto
+
 )
+if(ENABLE_BUILD_PYTHON_EXTENSION)
+    target_link_libraries(
+            sandbox
+            PUBLIC
+            pybind11::module
+            pybind11::embed
+            pybind11::lto
+    )
+endif ()
