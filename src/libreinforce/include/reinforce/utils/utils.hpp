@@ -31,6 +31,21 @@
 
 namespace force {
 
+template < typename T >
+auto default_construct()
+{
+   return T{};
+}
+
+/// xarray's default constructor is not initializing the container,
+/// but rather behaves like a scalar-like value. We avoid this with from_shape.
+template < typename T >
+   requires(detail::is_xarray< T >)
+auto default_construct()
+{
+   return T::from_shape({0});
+}
+
 auto copy(auto item)
 {
    return item;

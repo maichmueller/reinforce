@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <optional>
 #include <reinforce/utils/views_extension.hpp>
+#include <string>
 
 #include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/macro.hpp"
@@ -16,6 +17,8 @@ namespace force {
 /// Contains information about nodes, edges, and edge links in a graph.
 template < typename DTypeNode, typename DTypeEdge >
 struct GraphInstance {
+   using node_array_type = xarray< DTypeNode >;
+   using edge_array_type = xarray< DTypeEdge >;
    /// @brief Represents the features for nodes.
    /// An (n x ...) sized array where (...) must adhere to the shape of the node space.
    xarray< DTypeNode > nodes;
@@ -58,12 +61,13 @@ class GraphSpace:
        GraphSpace< NodeSpace, EdgeSpace >,
        std::vector< GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > > > > {
   private:
-   static_assert(
-      (detail::is_specialization_v< NodeSpace, BoxSpace >
-       or detail::is_specialization_v< NodeSpace, DiscreteSpace >)
-         and (detail::is_specialization_v< EdgeSpace, BoxSpace > or detail::is_specialization_v< EdgeSpace, DiscreteSpace >),
-      "NodeSpace and EdgeSpace must be BoxSpace or DiscreteSpace for now."
-   );
+   //   static_assert(
+   //      (detail::is_specialization_v< NodeSpace, BoxSpace >
+   //       or detail::is_specialization_v< NodeSpace, DiscreteSpace >)
+   //         and (detail::is_specialization_v< EdgeSpace, BoxSpace > or
+   //         detail::is_specialization_v< EdgeSpace, DiscreteSpace >),
+   //      "NodeSpace and EdgeSpace must be BoxSpace or DiscreteSpace for now."
+   //   );
    static constexpr bool _is_composite_space = true;
 
   public:
@@ -77,6 +81,8 @@ class GraphSpace:
       std::vector< GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > > > >;
    using typename base::value_type;
    using typename base::batch_value_type;
+   using node_space_type = NodeSpace;
+   using edge_space_type = EdgeSpace;
    using base::seed;
    using base::shape;
    using base::rng;
@@ -156,7 +162,7 @@ class GraphSpace:
       return _sample(batch_size, std::tuple{mask, mask}, FWD(args)...);
    }
 
-   idx_xarray _sample_edge_links(size_t num_nodes, size_t num_edges) const
+   [[nodiscard]] idx_xarray _sample_edge_links(size_t num_nodes, size_t num_edges) const
    {
       if(num_edges == 0) {
          return idx_xarray::from_shape({0});
@@ -251,7 +257,7 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
    auto sampled_nodes = m_node_space.sample(total_nr_node_samples, node_space_mask);
    auto sampled_edges = has_edge_space
                            ? m_edge_space->sample(total_nr_edge_samples, edge_space_mask)
-                           : detail::batch_value_t< EdgeSpace >::from_shape({0});
+                           : default_construct< detail::batch_value_t< edge_space_type > >();
 
    if(batch_size == 1) {
       return std::vector{value_type{
@@ -280,21 +286,21 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
          auto start_nodes = std::exchange(node_offset, node_offset + node_slice_size);
          auto start_edges = std::exchange(edge_offset, edge_offset + edge_slice_size);
 
-         samples.emplace_back(value_type{
+         samples.push_back(value_type{
             .nodes = xt::strided_view(
                sampled_nodes, {xt::range(start_nodes, node_offset), xt::ellipsis()}
             ),
-            .edges = std::invoke([&]() -> detail::batch_value_t< EdgeSpace > {
+            .edges = std::invoke([&]() -> typename value_type::edge_array_type {
                if(has_edge_space) {
                   return xt::strided_view(
                      sampled_edges, {xt::range(start_edges, edge_offset), xt::ellipsis()}
                   );
                } else {
-                  return detail::batch_value_t< EdgeSpace >::from_shape({0});
+                  return default_construct< typename value_type::edge_array_type >();
                }
             }),
             .edge_links = has_edge_space ? _sample_edge_links(n_nodes, n_edges)
-                                         : idx_xarray::from_shape({0}),
+                                         : default_construct< idx_xarray >(),
          });
       }
       return samples;

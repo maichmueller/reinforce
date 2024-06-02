@@ -7,6 +7,7 @@
 #include <tuple>
 
 #include "reinforce/utils/macro.hpp"
+#include "reinforce/utils/type_traits.hpp"
 
 namespace force::detail {
 
@@ -81,8 +82,9 @@ void _check_idx(size_t idx)
    if(idx >= std::tuple_size< Tuple >::value) {
       throw std::out_of_range("Index out of range");
    }
-   std::cout << "Check idx: Passed! " << idx << " >= " << std::tuple_size< Tuple >::value
-             << " is FALSE" << std::endl;
+   SPDLOG_DEBUG(
+      fmt::format("Check idx: Passed! {} >= {} is FALSE", idx, std::tuple_size< Tuple >::value)
+   );
 }
 
 template < std::size_t N, typename... Tuples >
