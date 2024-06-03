@@ -4,15 +4,17 @@
 
 #include <cstddef>
 #include <optional>
-#include <reinforce/utils/views_extension.hpp>
 #include <string>
 
+#include "reinforce/fwd.hpp"
 #include "reinforce/spaces/space.hpp"
 #include "reinforce/utils/macro.hpp"
+#include "reinforce/utils/views_extension.hpp"
 #include "reinforce/utils/xarray_formatter.hpp"
 #include "reinforce/utils/xtensor_typedefs.hpp"
 
 namespace force {
+
 /// @brief A Graph space instance.
 /// Contains information about nodes, edges, and edge links in a graph.
 template < typename DTypeNode, typename DTypeEdge >
@@ -22,10 +24,10 @@ struct GraphInstance {
    /// @brief Represents the features for nodes.
    /// An (n x ...) sized array where (...) must adhere to the shape of the node space.
    xarray< DTypeNode > nodes;
-   /// Represents the features for edges.
+   /// @brief Represents the features for edges.
    /// An (m x ...) sized array where (...) must adhere to the shape of the edge space.
    xarray< DTypeEdge > edges;
-   /// Represents the indices of the two nodes that each edge connects.
+   /// @brief Represents the indices of the two nodes that each edge connects.
    /// An (m x 2) sized array of ints.
    idx_xarray edge_links;
 };
@@ -50,7 +52,21 @@ struct fmt::formatter< ::force::GraphInstance< Args... > > {
 namespace force::detail {
 template < typename T >
 concept integral_or_forwardrange = std::integral< T > or std::ranges::forward_range< T >;
-}
+
+template < typename SpaceT >
+struct dtype_selector {
+   using type = std::invoke_result_t< decltype([] {
+      if constexpr(detail::is_xarray< detail::value_t< SpaceT > >) {
+         return detail::data_t< SpaceT >{};
+      }
+      if constexpr(std::same_as< SpaceT, TextSpace >) {
+         return detail::value_t< SpaceT >{};
+      } else {
+         return detail::value_t< SpaceT >{};
+      }
+   }) >;
+};
+}  // namespace force::detail
 
 namespace force {
 
@@ -61,13 +77,6 @@ class GraphSpace:
        GraphSpace< NodeSpace, EdgeSpace >,
        std::vector< GraphInstance< detail::data_t< NodeSpace >, detail::data_t< EdgeSpace > > > > {
   private:
-   //   static_assert(
-   //      (detail::is_specialization_v< NodeSpace, BoxSpace >
-   //       or detail::is_specialization_v< NodeSpace, DiscreteSpace >)
-   //         and (detail::is_specialization_v< EdgeSpace, BoxSpace > or
-   //         detail::is_specialization_v< EdgeSpace, DiscreteSpace >),
-   //      "NodeSpace and EdgeSpace must be BoxSpace or DiscreteSpace for now."
-   //   );
    static constexpr bool _is_composite_space = true;
 
   public:
@@ -150,7 +159,7 @@ class GraphSpace:
                    detail::value_t< detail::raw_t< optional_size_or_forwardrange_t > > >)
                or detail::integral_or_forwardrange< detail::raw_t< optional_size_or_forwardrange_t > >)
    batch_value_type _sample(
-      size_t batch_size,
+      size_t number_pair,
       const std::tuple< node_mask_t, edge_mask_t >& mask,
       size_or_range_t&& num_nodes = 10,
       optional_size_or_forwardrange_t&& num_edges = std::nullopt
@@ -179,6 +188,9 @@ class GraphSpace:
       const num_nodes_view_t& num_nodes_view,
       const optional_size_or_forwardrange_t& num_edges
    ) const;
+
+   template < typename ReturnType >
+   ReturnType _slice_batch(auto& batch, size_t start_idx, size_t end_idx) const;
 };
 
 // deduction guide
@@ -280,30 +292,70 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_sample(
       });
 
       auto [node_offset, edge_offset] = std::array{0ul, 0ul};
-      for(auto [n_nodes, n_edges] : views::zip(num_nodes_view, num_edges_arr)) {
-         size_t node_slice_size = n_nodes * node_space_nr_elements_per_sample;
-         size_t edge_slice_size = n_edges * edge_space_nr_elems_per_sample;
-         auto start_nodes = std::exchange(node_offset, node_offset + node_slice_size);
-         auto start_edges = std::exchange(edge_offset, edge_offset + edge_slice_size);
-
-         samples.push_back(value_type{
-            .nodes = xt::strided_view(
-               sampled_nodes, {xt::range(start_nodes, node_offset), xt::ellipsis()}
-            ),
-            .edges = std::invoke([&]() -> typename value_type::edge_array_type {
-               if(has_edge_space) {
-                  return xt::strided_view(
-                     sampled_edges, {xt::range(start_edges, edge_offset), xt::ellipsis()}
-                  );
-               } else {
-                  return default_construct< typename value_type::edge_array_type >();
-               }
-            }),
-            .edge_links = has_edge_space ? _sample_edge_links(n_nodes, n_edges)
-                                         : default_construct< idx_xarray >(),
-         });
+      auto slice_rng_calc = [&](size_t nr_nodes, size_t nr_edges) {
+         size_t node_slice_size = nr_nodes * node_space_nr_elements_per_sample;
+         size_t edge_slice_size = nr_edges * edge_space_nr_elems_per_sample;
+         size_t start_nodes = std::exchange(node_offset, node_offset + node_slice_size);
+         size_t start_edges = std::exchange(edge_offset, edge_offset + edge_slice_size);
+         return std::tuple{start_nodes, start_edges};
+      };
+      auto zip_view = views::zip(num_nodes_view, num_edges_arr)  //
+                      | views::transform([&](auto&& number_pair) {
+                           auto [n_nodes, n_edges] = number_pair;
+                           return std::tuple_cat(
+                              std::forward_as_tuple(n_nodes, n_edges),
+                              std::apply(slice_rng_calc, number_pair)
+                           );
+                        });
+      if(has_edge_space) {
+         for(auto [n_nodes, n_edges, start_nodes, start_edges] : zip_view) {
+            samples.emplace_back(value_type{
+               .nodes = _slice_batch< typename value_type::node_array_type >(
+                  sampled_nodes, start_nodes, node_offset
+               ),
+               .edges = _slice_batch< typename value_type::edge_array_type >(
+                  sampled_edges, start_edges, edge_offset
+               ),
+               .edge_links = _sample_edge_links(n_nodes, n_edges)
+            });
+         }
+      } else {
+         for(auto [n_nodes, n_edges, start_nodes, start_edges] : zip_view) {
+            samples.emplace_back(value_type{
+               .nodes = _slice_batch< typename value_type::node_array_type >(
+                  sampled_nodes, start_nodes, node_offset
+               ),
+               .edges = default_construct< typename value_type::edge_array_type >(),
+               .edge_links = default_construct< idx_xarray >()
+            });
+         }
       }
       return samples;
+   }
+}
+
+template < typename NodeSpace, typename EdgeSpace >
+template < typename ReturnType >
+ReturnType GraphSpace< NodeSpace, EdgeSpace >::_slice_batch(
+   auto& batch,
+   size_t start_idx,
+   size_t end_idx
+) const
+{
+   using batch_type = detail::raw_t< decltype(batch) >;
+   if constexpr(detail::is_xarray< batch_type >) {
+      return xt::strided_view(batch, {xt::range(start_idx, end_idx), xt::ellipsis()});
+   } else if constexpr(std::ranges::range< batch_type >) {
+      ReturnType slice;
+      for(auto&& [i, elem] : ranges::views::enumerate(std::ranges::subrange(
+             std::next(std::ranges::begin(batch), start_idx),
+             std::next(std::ranges::begin(batch), end_idx)
+          ))) {
+         slice.element(i) = FWD(elem);
+      }
+      return slice;
+   } else {
+      static_assert(detail::always_false< batch_type >, "Unsupported batch type to slice.");
    }
 }
 
@@ -317,7 +369,7 @@ auto GraphSpace< NodeSpace, EdgeSpace >::_make_num_nodes_view(
    using namespace detail;
    using namespace ranges;
    if constexpr(std::integral< raw_t< size_or_forwardrange_t > >) {
-      if(std::unsigned_integral< raw_t< size_or_forwardrange_t > > and num_nodes < 0) {
+      if(std::signed_integral< raw_t< size_or_forwardrange_t > > and num_nodes < 0) {
          throw std::invalid_argument("`num_nodes` has to be greater than 0.");
       }
       return std::pair{
