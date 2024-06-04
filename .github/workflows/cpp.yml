@@ -126,6 +126,7 @@ jobs:
           -DENABLE_CACHE:BOOL=OFF
           -DENABLE_BUILD_SANDBOX:BOOL=OFF
           -DENABLE_PCH:BOOL=OFF 
+          -DENABLE_TESTING:BOOL=ON
 
       - name: Build REINFORCE Library
         shell: bash
