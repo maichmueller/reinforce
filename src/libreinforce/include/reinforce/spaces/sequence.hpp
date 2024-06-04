@@ -53,7 +53,7 @@ template < typename FeatureSpace, bool stacked = true >
 class SequenceSpace:
     public Space<
        detail::stacked_value_type< FeatureSpace, stacked >,
-       SequenceSpace< FeatureSpace >,
+       SequenceSpace< FeatureSpace, stacked >,
        std::vector< typename FeatureSpace::batch_value_type > > {
    /// a tag for class-internal dispatch
    struct internal_tag_t {};
