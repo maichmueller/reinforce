@@ -111,8 +111,8 @@ jobs:
       - name: Configure CMake
         shell: bash
         env:
-          CC: ${{ matrix.config.cc }}
-          CXX: ${{ matrix.config.cxx }}
+          CC: ${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}
+          CXX: ${{ matrix.config.cxx }}-${{ matrix.config.compiler_version }}
         run: >
           export CONAN_HOME=${{ steps.conan.outputs.CONAN_HOME }} && 
           cmake
