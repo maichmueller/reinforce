@@ -1,5 +1,7 @@
 # Reinforce
 
+[![C++ CI](https://github.com/maichmueller/reinforce/actions/workflows/cpp.yml/badge.svg)](https://github.com/maichmueller/reinforce/actions/workflows/cpp.yml)
+
 Have you ever wanted to implement reinforcement learing algorithms in C++, but did not want to leave the cushy
 embrace of Python?
 
