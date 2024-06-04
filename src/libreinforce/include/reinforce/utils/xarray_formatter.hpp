@@ -196,12 +196,11 @@ struct fmt::formatter< xt::xstrided_slice< T > > {
 // Specify disambiguation specializations for xarray< T >.
 // The specializations for this project's code are needed whenever a file includes <fmt/ranges.h>
 // and "xarray_formatter.hpp". The formatting library fmt will then have an ambiguity between the
-// generic formatter above for xarray< T, L, S, SA> and the formatter from fmt/ranges.h (as both are
-// equally valid template choices).
-// To use formatters in such situations we essentially need to lay out all the specializations we
-// want to see formatting for in such a file. In the absence of fmt/range.h, it should not be
-// necessary to have these as the generic xarray<...> formatter will apply.
-// For types which need to carry
+// generic formatter above for xarray< T, L, S, SA> and the formatter from fmt/ranges.h (as both
+// are equally valid template choices). To use formatters in such situations we essentially need
+// to lay out all the specializations we want to see formatting for in such a file. In the
+// absence of fmt/range.h, it should not be necessary to have these as the generic xarray<...>
+// formatter will apply. For types which need to carry
 #ifndef XARRAY_FORMATTER
    #define XARRY_FORMATTER(T) \
       template <>             \
@@ -236,6 +235,73 @@ XARRY_FORMATTER(char);
 XARRY_FORMATTER(signed char);
 XARRY_FORMATTER(unsigned char);
 XARRY_FORMATTER(std::string);
+
+XARRY_FORMATTER(xt::xarray< bool >);
+XARRY_FORMATTER(xt::xarray< double >);
+XARRY_FORMATTER(xt::xarray< float >);
+XARRY_FORMATTER(xt::xarray< long >);
+XARRY_FORMATTER(xt::xarray< unsigned long >);
+XARRY_FORMATTER(xt::xarray< long long >);
+XARRY_FORMATTER(xt::xarray< unsigned long long >);
+XARRY_FORMATTER(xt::xarray< int >);
+XARRY_FORMATTER(xt::xarray< unsigned int >);
+XARRY_FORMATTER(xt::xarray< short >);
+XARRY_FORMATTER(xt::xarray< unsigned short >);
+XARRY_FORMATTER(xt::xarray< char >);
+XARRY_FORMATTER(xt::xarray< signed char >);
+XARRY_FORMATTER(xt::xarray< unsigned char >);
+XARRY_FORMATTER(xt::xarray< std::string >);
+
+namespace xt::detail {
+
+template < class T >
+struct printer<
+   T,
+   std::enable_if_t< force::detail::is_specialization_v< typename T::value_type, std::vector > > > {
+   using value_type = std::decay_t< typename T::value_type >;
+   using cache_type = std::vector< T >;
+   using cache_iterator = typename cache_type::const_iterator;
+
+   explicit printer(std::streamsize precision) : m_printer(precision) {}
+
+   void init() { m_it = m_cache.cbegin(); }
+
+   std::ostream& print_next(std::ostream& out)
+   {
+      for(const auto& i : *m_it | ranges::views::drop_last)
+         fmt::format(out, "{:<{}}, ", width(), i);
+      fmt::format(out, "{:<{}}", width(), m_it.back());
+      ++m_it;
+      return out;
+   }
+
+   void update(const value_type& val) { m_cache.push_back(val); }
+
+   std::streamsize width() { return m_printer.width(); }
+
+  private:
+   printer< typename value_type::value_type > m_printer;
+   cache_type m_cache;
+   cache_iterator m_it;
+};
+
+}  // namespace xt::detail
+
+XARRY_FORMATTER(std::vector< bool >);
+XARRY_FORMATTER(std::vector< double >);
+XARRY_FORMATTER(std::vector< float >);
+XARRY_FORMATTER(std::vector< long >);
+XARRY_FORMATTER(std::vector< unsigned long >);
+XARRY_FORMATTER(std::vector< long long >);
+XARRY_FORMATTER(std::vector< unsigned long long >);
+XARRY_FORMATTER(std::vector< int >);
+XARRY_FORMATTER(std::vector< unsigned int >);
+XARRY_FORMATTER(std::vector< short >);
+XARRY_FORMATTER(std::vector< unsigned short >);
+XARRY_FORMATTER(std::vector< char >);
+XARRY_FORMATTER(std::vector< signed char >);
+XARRY_FORMATTER(std::vector< unsigned char >);
+XARRY_FORMATTER(std::vector< std::string >);
 
 XSTACKTENSOR_FORMATTER(size_t, 1);
 XSTACKTENSOR_FORMATTER(size_t, 2);
