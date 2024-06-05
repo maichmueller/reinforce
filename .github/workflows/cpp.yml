@@ -47,6 +47,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+          
+      - name: Set up Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
 
       - name: Cache LLVM Download
         id: cache-llvm
@@ -54,7 +57,7 @@ jobs:
         env:
           cache-name: cache-llvm-files
         with:
-          path: $HOME/llvm
+          path: ./llvm-${{ matrix.config.compiler_version }}
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}-${{ hashFiles('**/workflows/cpp.yml') }}
 
       - name: Install LLVM and Clang
@@ -62,11 +65,29 @@ jobs:
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: ${{ matrix.config.compiler_version }}
-          directory: $HOME/llvm
+          directory: ./llvm-${{ matrix.config.compiler_version }}
           env: 'true'
 
-      - name: Set up Ninja
-        uses: seanmiddleditch/gha-setup-ninja@master
+      - name: Append LLVM To Path
+        if: ${{ runner.os == 'Linux' && matrix.config.cc == 'clang' }}
+        shell: bash
+        run: |
+          llvmdir=$(pwd)/llvm-${{ matrix.config.compiler_version }}
+          echo "$llvmdir"
+          echo "LLVM_DIR=$llvmdir" >> $GITHUB_OUTPUT
+          echo "$llvmdir/bin" >> $GITHUB_PATH
+          
+
+      - name: Print Clang version
+        if: ${{ runner.os == 'Linux' && matrix.config.cc == 'clang' }}
+        shell: bash
+        run: |
+          echo $PATH
+          ls -l ./llvm-${{ matrix.config.compiler_version }}
+          ls -l ./llvm-${{ matrix.config.compiler_version }}/bin
+          echo "$PATH"
+          clang --version
+          llvm-config --version
 
       - name: Set up GCC
         if: ${{ runner.os == 'Linux' && matrix.config.cc == 'gcc' }}
@@ -111,8 +132,8 @@ jobs:
       - name: Configure CMake
         shell: bash
         env:
-          CC: ${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}
-          CXX: ${{ matrix.config.cxx }}-${{ matrix.config.compiler_version }}
+          CC: ${{ matrix.config.cc }}
+          CXX: ${{ matrix.config.cxx }}
         run: >
           export CONAN_HOME=${{ steps.conan.outputs.CONAN_HOME }} && 
           cmake
