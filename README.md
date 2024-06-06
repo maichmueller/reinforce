@@ -7,8 +7,8 @@ embrace of Python?
 
 Me neither.
 
-Anyway, `Reinforce` is a C++ port of the [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) interfaces, designed to bridge the use of
-Reinforcement Learning (RL) in C++. It provides spaces, wherever meaningful, and environments
+`Reinforce` is a C++ port of the [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) interfaces anyway, for when
+you would like to use of Reinforcement Learning (RL) in C++ after all. It provides spaces, wherever meaningful, and environments
 of Gymnasium, allowing developers to squeeze the
 last drop of performance out of their juicy training routines.
 
@@ -202,7 +202,7 @@ conan install .
 This command needs to be run in the project directory and will install all the necessary dependencies listed in
 the `conandata.yml` file, and partially in `conanfile.py`.
 The provided `configure.sh` and `build.sh` scripts will handle the dependency installation from conan and subsequent
-cmake configuration automatically; by default, it will configure a build folder named `build` in the project root. 
+cmake configuration automatically; by default, it will configure a build folder named `build` in the project root.
 
 To get started with this, clone the repository and build it by running the following commands:
 
