@@ -42,7 +42,7 @@ TEST(Spaces, Box_multivariates_sample)
    const xarray< double > high{0, inf<>, 10};
    auto box = BoxSpace< double >{low, high};
    auto samples = box.sample(10000);
-   fmt::print("Samples:\n{}", samples);
+   SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
    for(auto i : ranges::views::iota(0, 3)) {
       EXPECT_TRUE(xt::all(xt::view(samples, xt::all(), i) >= low(i)));
       EXPECT_TRUE(xt::all(xt::view(samples, xt::all(), i) <= high(i)));
@@ -62,7 +62,7 @@ TEST(Spaces, Box_2D_multivariates_sample)
    const xarray< double > high{{3, inf<>, 0}, {7, 5, 11}};
    auto box = BoxSpace{low, high};
    auto samples = box.sample(10000);
-   fmt::print("Samples:\n{}", samples);
+   SPDLOG_DEBUG(fmt::format("Samples:\n{}", samples));
    for(auto [i, j] :
        ranges::views::cartesian_product(ranges::views::iota(0, 2), ranges::views::iota(0, 3))) {
       //      SPDLOG_DEBUG(fmt::format(

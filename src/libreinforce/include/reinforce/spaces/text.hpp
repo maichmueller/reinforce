@@ -110,7 +110,7 @@ class TextSpace: public Space< std::string, TextSpace, std::vector< std::string 
    std::unordered_map< char, size_t > m_charmap = _default_charmap();
 
    struct internal_tag_t {};
-   static constexpr internal_tag_t internal_tag;
+   static constexpr internal_tag_t internal_tag{};
 
    template < typename SizeOrRangeT = size_t, typename Xarray = xarray< int > >
       requires(std::convertible_to< SizeOrRangeT, size_t >
@@ -232,11 +232,11 @@ auto TextSpace::_sample(
 
    return std::views::transform(
              lengths_per_sample,
-             [&, offset = 0U](auto length) mutable {
+             [&, offset = 0UL](auto length) mutable {
                 if(length == 0) {
                    return std::string{};
                 }
-                auto* begin = std::next(samples_view.begin(), offset);
+                auto* begin = std::next(samples_view.begin(), static_cast< long >(offset));
                 auto* end = std::next(begin, static_cast< long >(length));
                 offset += length;
                 return std::string(begin, end);
