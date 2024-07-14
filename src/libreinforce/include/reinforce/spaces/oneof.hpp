@@ -51,7 +51,6 @@ class OneOfSpace:
    template < std::integral T = size_t >
    explicit OneOfSpace(T seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
-      SPDLOG_DEBUG("Called OneOf space constructor with seed");
       seed(seed_);
    }
 
@@ -60,7 +59,6 @@ class OneOfSpace:
                and std::convertible_to< detail::value_t< OptionalT >, size_t >
    explicit OneOfSpace(OptionalT seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
-      SPDLOG_DEBUG("Called OneOf space constructor with optional-seed");
       seed(seed_);
    }
 
@@ -148,54 +146,36 @@ class OneOfSpace:
    {
       return sample(batch_size, std::tuple{FWD(masks)...});
    }
-
    [[nodiscard]] batch_value_type _sample(size_t batch_size) const
    {
-      // generate how many samples we need from each space
-      auto batch_size_per_space = xt::bincount(
-         xt::random::randint< size_t >({batch_size}, 0, sizeof...(Spaces), rng())
-      );
-      batch_value_type result;
-      result.reserve(batch_size);
-      std::invoke(
-         [&]< size_t... Is >(std::index_sequence< Is... >) {
-            (static_cast< void >(_append_samples< Is >(
-                result, std::get< Is >(m_spaces).sample(batch_size_per_space.at(Is))
-             )),
-             ...);
-         },
-         spaces_idx_seq{}
-      );
-      // shuffle the result vector to ensure that the individual samples are not grouped by space
-      ranges::shuffle(result, rng());
-      return result;
+      return _sample(batch_size, create_tuple< sizeof...(Spaces) >(std::nullopt));
    }
+
    template < typename MaskTuple >
       requires detail::is_specialization_v< detail::raw_t< MaskTuple >, std::tuple >
                and (std::tuple_size_v< detail::raw_t< MaskTuple > > == sizeof...(Spaces))
    [[nodiscard]] value_type _sample(MaskTuple&& mask_tuple) const
    {
-      size_t space_idx = xt::random::randint< size_t >({1}, 0, sizeof...(Spaces), rng())
-                            .unchecked(0);
-      value_type result;
-      std::invoke(
-         [&]< size_t... Is >(std::index_sequence< Is... >) {
-            (static_cast< void >(std::invoke(
-                [&](const auto& space, auto&& mask) {
-                   if(space_idx == Is) {
-                      result = std::pair{
-                         Is, value_variant_type{std::in_place_index< Is >, space.sample(FWD(mask))}
-                      };
-                   }
-                },
-                std::get< Is >(m_spaces),
-                std::get< Is >(mask_tuple)
-             )),
-             ...);
-         },
-         spaces_idx_seq{}
-      );
-      return result;
+      size_t space_idx = std::uniform_int_distribution< size_t >{0, sizeof...(Spaces) - 1}(rng());
+      return _sample_space_at< sizeof...(Spaces) - 1 >(space_idx, FWD(mask_tuple));
+   }
+
+   template < size_t I, typename MaskTuple >
+   [[nodiscard]] value_type _sample_space_at(size_t space_idx, MaskTuple&& mask_tuple) const
+   {
+      if(space_idx == I) {
+         const auto& space = std::get< I >(m_spaces);
+         auto&& mask = std::get< I >(FWD(mask_tuple));
+         return std::pair{I, value_variant_type{std::in_place_index< I >, space.sample(FWD(mask))}};
+      }
+      if constexpr(I == 0) {
+         // this is unreachable if merely called from _sample. But we have to add this to stop the
+         // compiler from generating a tuple_index_out_of_range error once I == 0 and hence
+         // I - 1 == 18446744073709551615 (the size_t(-1) value on 64bit size_t systems).
+         throw std::runtime_error("Invalid space index");
+      } else {
+         return _sample_space_at< I - 1 >(space_idx, FWD(mask_tuple));
+      }
    }
 
    template < typename FirstMaskT, typename... TailMaskTs >

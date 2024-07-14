@@ -11,6 +11,8 @@
 #include <utility>
 #include <vector>
 
+#include "reinforce/utils/macro.hpp"
+#include "reinforce/utils/tuple_utils.hpp"
 #include "reinforce/utils/type_traits.hpp"
 
 namespace force {
@@ -49,7 +51,6 @@ class TupleSpace:
    template < std::integral T = size_t >
    explicit TupleSpace(T seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
-      SPDLOG_DEBUG("Called tuple space constructor with seed");
       seed(seed_);
    }
 
@@ -58,7 +59,6 @@ class TupleSpace:
                and std::convertible_to< detail::value_t< OptionalT >, size_t >
    explicit TupleSpace(OptionalT seed_, Spaces... spaces) : m_spaces{std::move(spaces)...}
    {
-      SPDLOG_DEBUG("Called tuple space constructor with optional-seed");
       seed(seed_);
    }
 
@@ -134,12 +134,7 @@ class TupleSpace:
 
    [[nodiscard]] batch_value_type _sample(size_t batch_size) const
    {
-      return std::invoke(
-         [&]< size_t... Is >(std::index_sequence< Is... >) {
-            return std::tuple{std::get< Is >(m_spaces).sample(batch_size)...};
-         },
-         spaces_idx_seq{}
-      );
+      return _sample(batch_size, create_tuple< sizeof...(Spaces) >(std::nullopt));
    }
 
    template < typename MaskTuple >
@@ -177,12 +172,7 @@ class TupleSpace:
 
    [[nodiscard]] value_type _sample(std::nullopt_t = std::nullopt) const
    {
-      return std::invoke(
-         [&]< size_t... Is >(std::index_sequence< Is... >) {
-            return std::tuple{std::get< Is >(m_spaces).sample()...};
-         },
-         spaces_idx_seq{}
-      );
+      return _sample(create_tuple< sizeof...(Spaces) >(std::nullopt));
    }
 
    [[nodiscard]] bool _contains(const value_type& value) const
