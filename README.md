@@ -2,17 +2,9 @@
 
 [![C++ CI](https://github.com/maichmueller/reinforce/actions/workflows/cpp.yml/badge.svg)](https://github.com/maichmueller/reinforce/actions/workflows/cpp.yml)
 
-Have you ever felt like implementing reinforcement learning algorithms in Python is too straightforward and you would
-rather flip the bit-spatula manually in C++?
+`Reinforce` is a C++ port of the [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) interfaces, designed for those who want to dive into Reinforcement Learning (RL) with a performance boost. It offers Gymnasium-like spaces and environments, so you can wring every last ounce of speed from your training routines.
 
-Yeah, me neither.
-
-`Reinforce` is a C++ port of the [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) interfaces anyway, for when
-you would like to make use of Reinforcement Learning (RL) in C++ after all. It provides spaces and
-environments of Gymnasium, wherever possible, allowing developers to squeeze the
-last drop of performance out of their juicy training routines.
-
-Keep in mind, that this is very early work in progress and that any API is subject to major change.
+Keep in mind, that this is very early work in progress and that any API may be subject to major change.
 
 ## Features
 
