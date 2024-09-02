@@ -1,6 +1,7 @@
 # Reinforce
 
 [![C++ CI](https://github.com/maichmueller/reinforce/actions/workflows/cpp.yml/badge.svg)](https://github.com/maichmueller/reinforce/actions/workflows/cpp.yml)
+[![Static Badge](https://img.shields.io/badge/C%2B%2B-20-blue)](https://en.cppreference.com/w/cpp/compiler_support#cpp20)
 
 `Reinforce` is a C++ port of the [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) interfaces, designed for those who want to dive into Reinforcement Learning (RL) with a performance boost. It offers Gymnasium-like spaces and environments, so you can wring every last ounce of speed from your training routines.
 
