@@ -8,9 +8,9 @@ jobs:
     name: Pre-Commit Checks
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Update pip
@@ -28,7 +28,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - id: set-matrix
         run: |
           TASKS=$(echo $(cat .github/workflows/build-matrix.json) | sed 's/ //g' )
@@ -53,7 +53,7 @@ jobs:
 
       - name: Cache LLVM Download
         id: cache-llvm
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         env:
           cache-name: cache-llvm-files
         with:
@@ -110,7 +110,7 @@ jobs:
         run: source $HOME/.profile
 
       - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@v1.14
+        uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.26'
 
@@ -122,7 +122,7 @@ jobs:
 
       - name: Cache Conan Dependencies Install
         id: cache-conan-deps
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         env:
           cache-name: cache-conan-deps
         with:
@@ -165,10 +165,10 @@ jobs:
           -C ${{ matrix.config.build_type }}
 
       - name: Upload lib test result artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: gtest-results
+          name: gtest-results-${{ matrix.config.os }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}
           path: ./build/**/gtest-report-${{ matrix.config.os }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}.xml
           retention-days: 1
 
@@ -185,8 +185,9 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: gtest-results
+          pattern: gtest-results-*
           path: ./artifacts/gtest-results_downloaded
+          merge-multiple: true
 
       - name: Display structure of downloaded files
         run: ls
