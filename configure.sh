@@ -123,7 +123,7 @@ if [ "$use_conan" = true ]; then
   conan install . -of="$cmake_build_folder/conan" --profile:host=default --profile:build=default --build=missing -g CMakeDeps
   # append the necessary cmake configuration to the cmake call
   cmake_extra_args="${cmake_extra_args[*]} \
-  -DCMAKE_TOOLCHAIN_FILE=$cmake_build_folder/conan/conan_toolchain.cmake \
+  -DCMAKE_TOOLCHAIN_FILE=$toolchain_file \
   -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=conan_provider.cmake \
   -DCMAKE_POLICY_DEFAULT_CMP0091=NEW"
 fi
