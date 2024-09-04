@@ -36,7 +36,7 @@ jobs:
 
   build-test-install:
     needs: matrix-strategy-setup
-    name: ${{ matrix.config.os }}-${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}
+    name: ${{ matrix.config.os }} • ${{ matrix.config.cc }}-${{ matrix.config.compiler_version }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
