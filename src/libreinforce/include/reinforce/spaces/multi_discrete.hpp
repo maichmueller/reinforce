@@ -265,7 +265,7 @@ auto MultiDiscreteSpace< T >::_sample(size_t batch_size, const MaskRange& mask_r
             // be emplaced all at once
             auto index_stride = prepend(
                xt::xstrided_slice_vector{},
-               detail::RangeAdaptor(coordinates.begin(), coordinates.end()),
+               detail::as_range(coordinates.begin(), coordinates.end()),
                xt::all()
             );
             SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));

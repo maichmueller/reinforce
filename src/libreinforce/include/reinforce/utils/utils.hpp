@@ -21,6 +21,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 #include <xtensor/xadapt.hpp>
@@ -244,9 +245,7 @@ constexpr auto static_to = [](const auto& t) { return static_cast< To >(t); };
 template < typename Tuple, std::size_t... Ints >
 constexpr auto tuple_slice(Tuple&& tuple, std::index_sequence< Ints... >)
 {
-   return std::tuple< std::tuple_element_t< Ints, Tuple >... >(
-      std::get< Ints >(std::forward< Tuple >(tuple))...
-   );
+   return std::tuple< std::tuple_element_t< Ints, Tuple >... >(std::get< Ints >(FWD(tuple))...);
 }
 
 template < typename T >
@@ -318,6 +317,17 @@ class SizedRangeAdaptor: public RangeAdaptor< Iterator, Sentinel > {
   private:
    size_t m_size;
 };
+
+template < typename Iterator, typename Sentinel >
+auto as_range(Iterator begin, Sentinel sentinel)
+{
+   return RangeAdaptor(begin, sentinel);
+}
+template < typename Iterator, typename Sentinel >
+auto as_sized_range(Iterator begin, Sentinel sentinel, size_t size)
+{
+   return SizedRangeAdaptor(begin, sentinel, size);
+}
 
 template < typename ReturnArray, typename T, size_t N >
 ReturnArray
