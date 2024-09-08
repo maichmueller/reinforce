@@ -93,6 +93,18 @@ decltype(auto) prepend(Container&& container, T&& elem)
    return FWD(container);
 }
 
+template < typename Container, std::ranges::range Range, typename T >
+Container prepend(Container container, Range&& range, T&& elem)
+{
+   if constexpr(requires(Container cont) { cont.reserve(size_t{}); }
+                and std::ranges::sized_range< detail::raw_t< Range > >) {
+      container.reserve(std::ranges::size(range) + 1);
+   }
+   ranges::insert(container, container.end(), FWD(elem));
+   ranges::insert(container, container.end(), FWD(range));
+   return container;
+}
+
 template < typename Container, typename T >
    requires std::is_const_v< std::remove_reference_t< Container > >
 auto prepend(Container&& container, T&& elem)

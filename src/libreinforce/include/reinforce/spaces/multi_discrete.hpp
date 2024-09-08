@@ -264,7 +264,9 @@ auto MultiDiscreteSpace< T >::_sample(size_t batch_size, const MaskRange& mask_r
             // add all the sampling indices as if samples[:, ...] on a numpy array so that they can
             // be emplaced all at once
             auto index_stride = prepend(
-               xt::xstrided_slice_vector(coordinates.begin(), coordinates.end()), xt::all()
+               xt::xstrided_slice_vector{},
+               detail::RangeAdaptor(coordinates.begin(), coordinates.end()),
+               xt::all()
             );
             SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
             auto&& view = xt::strided_view(samples, index_stride);
@@ -292,22 +294,55 @@ auto MultiDiscreteSpace< T >::_sample(const MaskRange& mask_range) const -> valu
    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
 
    auto mask_iter = std::ranges::begin(mask_range), mask_iter_end = std::ranges::end(mask_range);
-   for(auto&& [i, bounds] : ranges::views::enumerate(ranges::views::zip(m_start, m_end))) {
-      auto&& [start, end] = FWD(bounds);
-      samples.data_element(i) = std::invoke([&] {
-         if(mask_iter != mask_iter_end and mask_iter->has_value()) {
-            return xt::random::choice(
-                      xt::eval(xt::filter(xt::arange(start, end), **mask_iter)), 1, true, rng()
-            )
-               .unchecked(0);
-         } else {
-            return xt::random::randint({1}, start, end, rng()).unchecked(0);
-         }
-      });
+   for(auto&& [sample, start, end] : ranges::views::zip(samples, m_start, m_end)) {
+      if(mask_iter != mask_iter_end and mask_iter->has_value()) {
+         sample = xt::random::choice(
+                     xt::eval(xt::filter(xt::arange(start, end), **mask_iter)), 1, true, rng()
+         )
+                     .unchecked(0);
+      } else {
+         sample = xt::random::randint({1}, start, end, rng()).unchecked(0);
+      }
       std::ranges::advance(mask_iter, 1, mask_iter_end);
    }
    return samples;
 }
+
+/// this method is clearer, but there is a bug in range-v3 that causes undefined behaviour
+/// when using the zip view over xarrays. This bug no longer occurs with std::ranges. But only from
+/// c++26 onwards are all equivalents necessary implemented in the std to do so.
+/// For more information check this godbolt example:
+/// https://godbolt.org/z/Go1n6vjEz
+// template < typename T >
+//    requires multidiscrete_reqs< T >
+// template < typename MaskRange >
+//    requires detail::is_mask_range< MaskRange >
+// auto MultiDiscreteSpace< T >::_sample(const MaskRange& mask_range) const -> value_type
+// {
+//    using namespace ranges;
+//    xarray< T > samples = xt::empty< T >(shape());
+//    SPDLOG_DEBUG(fmt::format("Samples shape: {}", samples.shape()));
+//
+//    for(auto&& [sample, start, end, mask_opt] :
+//        views::zip(samples, m_start, m_end, views::concat(mask_range,
+//        views::repeat(std::nullopt)))))
+//       {
+//          {
+//             sample = std::invoke([&] {
+//                if(mask_opt.has_value()) {
+//                   return xt::random::choice(
+//                             xt::eval(xt::filter(xt::arange(start, end), *mask_opt)), 1, true,
+//                             rng()
+//                   )
+//                      .unchecked(0);
+//                } else {
+//                   return xt::random::randint({1}, start, end, rng()).unchecked(0);
+//                }
+//             });
+//          }
+//       }
+//    return samples;
+// }
 
 }  // namespace force
 
