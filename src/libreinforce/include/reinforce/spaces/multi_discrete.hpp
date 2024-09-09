@@ -263,10 +263,9 @@ auto MultiDiscreteSpace< T >::_sample(size_t batch_size, const MaskRange& mask_r
             // add all entries of the variate's access in the shape
             // add all the sampling indices as if samples[:, ...] on a numpy array so that they can
             // be emplaced all at once
-            auto index_stride = prepend(
-               xt::xstrided_slice_vector{},
-               detail::as_range(coordinates.begin(), coordinates.end()),
-               xt::all()
+            auto index_stride = append(
+               xt::xstrided_slice_vector{xt::all()},
+               detail::as_range(coordinates.begin(), coordinates.end())
             );
             SPDLOG_DEBUG(fmt::format("Strides: {}", index_stride));
             auto&& view = xt::strided_view(samples, index_stride);
