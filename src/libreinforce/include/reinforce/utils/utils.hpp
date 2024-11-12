@@ -360,12 +360,6 @@ struct overload: Ts... {
 template < typename... Ts >
 overload(Ts...) -> overload< Ts... >;
 
-constexpr auto identity_pr = [](auto&& obj) -> decltype(auto) {
-   return std::forward< decltype(obj) >(obj);
-};
-
-constexpr auto identity = [](auto&& obj) { return obj; };
-
 inline void hash_combine([[maybe_unused]] std::size_t& /*seed*/) {}
 
 template < typename T, typename... Rest >
@@ -375,6 +369,18 @@ inline void hash_combine(std::size_t& seed, const T& v, Rest... rest)
    seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
    hash_combine(seed, rest...);
 }
+
+struct hash_combiner {
+   hash_combiner() = default;
+   explicit hash_combiner(size_t seed_) : seed(seed_) {}
+
+   size_t seed = 0;
+   size_t operator()(auto&&... args) const noexcept
+   {
+      hash_combine(seed, FWD(args)...);
+      return seed;
+   }
+};
 
 // taken from the proposal
 // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p0870r4.html
@@ -398,17 +404,14 @@ decltype(auto) deref(T&& t)
 }
 
 template < typename T >
-   requires std::is_pointer_v< raw_t< T > >
-            or is_specialization_v< raw_t< T >, std::reference_wrapper >
-            or is_specialization_v< raw_t< T >, std::optional >
-            or is_specialization_v< raw_t< T >, std::shared_ptr >
-            or is_specialization_v< raw_t< T >, std::unique_ptr >
-            or std::input_or_output_iterator< raw_t< T > >
+concept dereferencable = requires(T t) { *t; };
+
+template<typename T>
+   requires(is_specialization_v<raw_t<T>, std::reference_wrapper>  //
+            or dereferencable<raw_t<T>>)
 decltype(auto) deref(T&& t)
 {
-   if constexpr(std::is_pointer_v< raw_t< T > >  //
-                or std::input_or_output_iterator< raw_t< T > >
-                or is_specialization_v< raw_t< T >, std::optional >) {
+   if constexpr(dereferencable< raw_t< T > >) {
       return *FWD(t);
    } else {
       return deref(FWD(t).get());
@@ -417,6 +420,8 @@ decltype(auto) deref(T&& t)
 
 template < typename T >
 using dereffed_t = decltype(deref(std::declval< T >()));
+
+AS_PRFCT_STRUCT(dereffer, deref);
 
 template < typename T >
 using raw_dereffed_t = raw_t< decltype(deref(std::declval< T >())) >;

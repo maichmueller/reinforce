@@ -26,6 +26,26 @@
       [&](auto&&... args) -> decltype(auto) { return func(FWD(args)...); }
 #endif  // AS_PRFCT_CPTR_LAMBDA
 
+#ifndef AS_STRUCT
+   #define AS_STRUCT(name, func)                        \
+      struct name {                                     \
+         auto operator()(auto&&... args) const noexcept \
+         {                                              \
+            return func(FWD(args)...);                  \
+         }                                              \
+      }
+#endif  // AS_STRUCT
+
+#ifndef AS_PRFCT_STRUCT
+   #define AS_PRFCT_STRUCT(name, func)                            \
+      struct name {                                               \
+         decltype(auto) operator()(auto&&... args) const noexcept \
+         {                                                        \
+            return func(FWD(args)...);                            \
+         }                                                        \
+      }
+#endif  // AS_STRUCT
+
 #ifndef FORCE_DEBUG_ASSERT
    #ifndef NDEBUG
       #define FORCE_DEBUG_ASSERT(expression)                                             \
